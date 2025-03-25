@@ -1,0 +1,49 @@
+{
+  "site_name": "會員購物網",
+  "base_url": "https://member-shop.com",
+  "encoding": "utf-8",
+  "description": "需登入的爬蟲模板範例",
+  "version": "1.0.0",
+  "login": {
+    "url": "/login",
+    "form": {
+      "username": {
+        "selector": "#username",
+        "value": "{{USERNAME}}"
+      },
+      "password": {
+        "selector": "#password",
+        "value": "{{PASSWORD}}"
+      },
+      "submit": {
+        "selector": "#login-btn",
+        "action": "click"
+      }
+    },
+    "success_check": {
+      "selector": ".user-profile",
+      "condition": "exists"
+    }
+  },
+  "list_page": {
+    "url": "/member/orders",
+    "container": "#order-history",
+    "items": {
+      "selector": ".order-item",
+      "fields": {
+        "order_id": {
+          "selector": ".order-id",
+          "extract": "text"
+        },
+        "date": {
+          "selector": ".order-date",
+          "extract": "text"
+        },
+        "status": {
+          "selector": ".order-status",
+          "extract": "text"
+        }
+      }
+    }
+  }
+}
