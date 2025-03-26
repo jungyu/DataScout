@@ -2,22 +2,20 @@
 # -*- coding: utf-8 -*-
 
 import os
-import json
 import time
 import random
 import logging
-import platform
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Union
 
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 from ..core.webdriver_manager import WebDriverManager
 from ..utils.logger import setup_logger
-from ..utils.error_handler import retry_on_exception, handle_exception
+from .browser_fingerprint import BrowserFingerprintModifier
+from .human_behavior import HumanBehaviorSimulator
+from .detection_handler import DetectionHandler
+from .honeypot_detector import HoneypotDetector
+from .stealth_script_loader import StealthScriptLoader
 
 
 class AntiDetectionManager:
@@ -66,32 +64,17 @@ class AntiDetectionManager:
         self.max_retries = self.config.get("max_retries", 3)
         
         # 載入隱身腳本
-        self.stealth_scripts = {}
-        self._load_stealth_scripts()
+        self.stealth_script_loader = StealthScriptLoader(log_level)
+        
+        # 初始化各個模組
+        self.fingerprint_modifier = BrowserFingerprintModifier(self.logger)
+        self.behavior_simulator = HumanBehaviorSimulator(self.delays, self.logger)
+        self.detection_handler = DetectionHandler(
+            self, self.config, self.logger, self.max_retries
+        )
+        self.honeypot_detector = HoneypotDetector(self.logger)
         
         self.logger.info("反爬蟲管理器初始化完成")
-    
-    def _load_stealth_scripts(self):
-        """載入隱身腳本"""
-        script_dir = os.path.join(os.path.dirname(__file__), "stealth_scripts")
-        
-        if not os.path.exists(script_dir):
-            self.logger.warning(f"隱身腳本目錄不存在: {script_dir}")
-            return
-        
-        for script_file in os.listdir(script_dir):
-            if script_file.endswith(".js"):
-                script_path = os.path.join(script_dir, script_file)
-                script_name = script_file.replace(".js", "")
-                
-                try:
-                    with open(script_path, "r", encoding="utf-8") as f:
-                        script_content = f.read()
-                    
-                    self.stealth_scripts[script_name] = script_content
-                    self.logger.debug(f"已載入隱身腳本: {script_name}")
-                except Exception as e:
-                    self.logger.error(f"載入隱身腳本 {script_name} 失敗: {str(e)}")
     
     def create_webdriver(self, headless: bool = True) -> webdriver.Remote:
         """
@@ -150,16 +133,7 @@ class AntiDetectionManager:
     
     def _apply_stealth_scripts(self, driver: webdriver.Remote):
         """應用隱身腳本"""
-        if not self.stealth_scripts:
-            self.logger.warning("沒有可用的隱身腳本")
-            return
-        
-        for script_name, script_content in self.stealth_scripts.items():
-            try:
-                driver.execute_script(script_content)
-                self.logger.debug(f"已應用隱身腳本: {script_name}")
-            except Exception as e:
-                self.logger.error(f"應用隱身腳本 {script_name} 失敗: {str(e)}")
+        self.stealth_script_loader.apply_scripts(driver)
     
     def _get_next_proxy(self) -> Union[str, Dict, None]:
         """獲取下一個代理"""
@@ -192,97 +166,6 @@ class AntiDetectionManager:
         delay = random.uniform(min_delay, max_delay)
         time.sleep(delay)
     
-    def simulate_human_typing(self, element, text: str, focus_first: bool = True):
-        """
-        模擬人類輸入文字
-        
-        Args:
-            element: 要輸入的元素
-            text: 要輸入的文字
-            focus_first: 是否先聚焦元素
-        """
-        try:
-            if focus_first:
-                element.click()
-            
-            # 清除現有內容
-            element.clear()
-            
-            typing_speed = self.delays.get("typing_speed", {"min": 0.05, "max": 0.2})
-            min_speed = typing_speed.get("min", 0.05)
-            max_speed = typing_speed.get("max", 0.2)
-            
-            # 逐字輸入
-            for char in text:
-                element.send_keys(char)
-                delay = random.uniform(min_speed, max_speed)
-                time.sleep(delay)
-            
-            # 輸入完成後的延遲
-            self.random_delay("before_click")
-        
-        except Exception as e:
-            self.logger.error(f"模擬人類輸入失敗: {str(e)}")
-    
-    def simulate_human_scroll(self, driver: webdriver.Remote, scroll_amount: int = None, direction: str = "down"):
-        """
-        模擬人類滾動頁面
-        
-        Args:
-            driver: WebDriver實例
-            scroll_amount: 滾動量，為None時隨機滾動
-            direction: 滾動方向，可選值：up, down
-        """
-        try:
-            # 如果未指定滾動量，生成隨機值
-            if scroll_amount is None:
-                scroll_amount = random.randint(100, 800)
-            
-            # 根據方向調整滾動量
-            if direction.lower() == "up":
-                scroll_amount = -scroll_amount
-            
-            # 使用JavaScript滾動
-            script = f"window.scrollBy(0, {scroll_amount});"
-            driver.execute_script(script)
-            
-            # 滾動後的延遲
-            self.random_delay("between_actions")
-        
-        except Exception as e:
-            self.logger.error(f"模擬人類滾動失敗: {str(e)}")
-    
-    def simulate_human_mouse_movement(self, driver: webdriver.Remote, target_element=None):
-        """
-        模擬人類鼠標移動
-        
-        Args:
-            driver: WebDriver實例
-            target_element: 目標元素，為None時隨機移動
-        """
-        try:
-            # 導入ActionChains
-            from selenium.webdriver import ActionChains
-            
-            actions = ActionChains(driver)
-            
-            if target_element:
-                # 移動到目標元素
-                actions.move_to_element(target_element)
-            else:
-                # 隨機移動
-                x = random.randint(100, 700)
-                y = random.randint(100, 500)
-                actions.move_by_offset(x, y)
-            
-            actions.perform()
-            
-            # 移動後的延遲
-            self.random_delay("between_actions")
-        
-        except Exception as e:
-            self.logger.error(f"模擬人類鼠標移動失敗: {str(e)}")
-    
     def detected_anti_crawling(self, driver: webdriver.Remote) -> bool:
         """
         檢測是否被反爬機制識別
@@ -293,80 +176,7 @@ class AntiDetectionManager:
         Returns:
             是否被識別
         """
-        # 檢測點一：檢查頁面是否包含常見的反爬文本
-        anti_crawl_texts = [
-            "驗證碼", "captcha", "禁止訪問", "access denied",
-            "異常訪問", "unusual traffic", "人機驗證", "robot",
-            "拒絕訪問", "請求頻率過高", "請稍後再試", "temporarily blocked",
-            "安全檢查", "security check", "滑動驗證", "點擊驗證"
-        ]
-        
-        try:
-            page_source = driver.page_source.lower()
-            
-            for text in anti_crawl_texts:
-                if text.lower() in page_source:
-                    self.logger.warning(f"檢測到反爬機制: 頁面包含 '{text}'")
-                    return True
-            
-            # 檢測點二：檢查是否有驗證碼元素
-            captcha_selectors = [
-                "//iframe[contains(@src, 'captcha')]",
-                "//iframe[contains(@src, 'recaptcha')]",
-                "//div[contains(@class, 'captcha')]",
-                "//div[contains(@class, 'recaptcha')]",
-                "//div[contains(@id, 'captcha')]",
-                "//div[contains(@id, 'recaptcha')]",
-                "//img[contains(@src, 'captcha')]",
-                "//input[contains(@placeholder, 'captcha')]",
-                "//input[contains(@id, 'captcha')]",
-                "//div[contains(@class, 'slider')]//div[contains(@class, 'handle')]"
-            ]
-            
-            for selector in captcha_selectors:
-                elements = driver.find_elements(By.XPATH, selector)
-                if elements:
-                    self.logger.warning(f"檢測到反爬機制: 存在驗證碼元素 '{selector}'")
-                    return True
-            
-            # 檢測點三：檢查頁面標題或URL是否包含錯誤提示
-            error_indicators = [
-                "error", "denied", "blocked", "unauthorized",
-                "forbidden", "429", "too many requests", "retry"
-            ]
-            
-            page_title = driver.title.lower()
-            current_url = driver.current_url.lower()
-            
-            for indicator in error_indicators:
-                if indicator in page_title or indicator in current_url:
-                    self.logger.warning(f"檢測到反爬機制: 頁面標題或URL包含 '{indicator}'")
-                    return True
-            
-            # 檢測點四：使用JavaScript檢測是否存在WebDriver
-            webdriver_detection_script = """
-            return (navigator.webdriver !== undefined && navigator.webdriver === true) ||
-                   (window.callPhantom !== undefined) ||
-                   (window._phantom !== undefined) ||
-                   (window.__nightmare !== undefined) ||
-                   (window.Buffer !== undefined);
-            """
-            
-            try:
-                is_detected = driver.execute_script(webdriver_detection_script)
-                if is_detected:
-                    self.logger.warning("檢測到反爬機制: JavaScript檢測到WebDriver特徵")
-                    return True
-            except Exception as js_error:
-                self.logger.debug(f"執行JavaScript檢測失敗: {str(js_error)}")
-            
-            # 未檢測到反爬機制
-            return False
-        
-        except Exception as e:
-            self.logger.error(f"檢測反爬機制失敗: {str(e)}")
-            # 為了安全起見，假設可能被檢測到
-            return True
+        return self.detection_handler.detect(driver)
     
     def handle_detection(self, driver: webdriver.Remote) -> bool:
         """
@@ -378,84 +188,61 @@ class AntiDetectionManager:
         Returns:
             是否成功處理
         """
-        # 增加檢測計數
-        self.detection_count += 1
+        return self.detection_handler.handle(driver)
+    
+    def enable_stealth_mode(self, driver: webdriver.Remote):
+        """
+        啟用隱身模式，綜合應用多種反檢測技術
         
-        # 檢查是否超過最大重試次數
-        if self.detection_count > self.max_retries:
-            self.logger.error(f"已達到最大重試次數 {self.max_retries}，放棄處理")
-            return False
+        Args:
+            driver: WebDriver實例
+        """
+        # 應用隱身腳本
+        self._apply_stealth_scripts(driver)
         
-        self.logger.info(f"嘗試處理反爬機制檢測，第 {self.detection_count}/{self.max_retries} 次")
+        # 修改瀏覽器指紋
+        self.fingerprint_modifier.modify_browser_fingerprint(driver)
         
-        # 策略一：更換代理
-        if self.config.get("change_proxy_on_detection", True) and self.proxies:
-            try:
-                proxy = self._get_next_proxy()
-                if proxy:
-                    self.logger.info(f"更換代理: {proxy}")
-                    # 由於WebDriver不支持運行時更換代理，需要重新創建
-                    return False  # 返回False以觸發上層重新創建WebDriver
-            except Exception as e:
-                self.logger.error(f"更換代理失敗: {str(e)}")
-        
-        # 策略二：更換用戶代理
-        if self.config.get("change_user_agent_on_detection", True) and self.user_agents:
-            try:
-                user_agent = self._get_random_user_agent()
-                if user_agent:
-                    self.logger.info(f"更換用戶代理: {user_agent}")
-                    self.webdriver_manager.change_user_agent(user_agent)
-            except Exception as e:
-                self.logger.error(f"更換用戶代理失敗: {str(e)}")
-        
-        # 策略三：清除Cookie
-        if self.config.get("clear_cookies_on_detection", True):
-            try:
-                self.logger.info("清除Cookie")
-                driver.delete_all_cookies()
-            except Exception as e:
-                self.logger.error(f"清除Cookie失敗: {str(e)}")
-        
-        # 策略四：重新應用隱身腳本
+        # 添加額外的隱身措施
         try:
-            self.logger.info("重新應用隱身腳本")
-            self._apply_stealth_scripts(driver)
-        except Exception as e:
-            self.logger.error(f"重新應用隱身腳本失敗: {str(e)}")
-        
-        # 策略五：模擬人類行為
-        try:
-            self.logger.info("模擬人類行為")
-            self.simulate_human_scroll(driver)
-            self.random_delay("between_actions")
-            self.simulate_human_mouse_movement(driver)
-        except Exception as e:
-            self.logger.error(f"模擬人類行為失敗: {str(e)}")
-        
-        # 策略六：等待較長時間
-        cooldown_time = self.config.get("detection_cooldown", 30)
-        self.logger.info(f"等待冷卻時間: {cooldown_time} 秒")
-        time.sleep(cooldown_time)
-        
-        # 刷新頁面
-        try:
-            self.logger.info("刷新頁面")
-            driver.refresh()
+            # 偽造鼠標軌跡
+            self.fingerprint_modifier.fake_mouse_movements(driver)
             
-            # 等待頁面加載
-            self.random_delay("page_load")
-        except Exception as e:
-            self.logger.error(f"刷新頁面失敗: {str(e)}")
+            # 偽造鍵盤事件
+            self.fingerprint_modifier.fake_keyboard_events(driver)
+            
+            # 修改WebRTC行為
+            self.fingerprint_modifier.modify_webrtc_behavior(driver)
+            
+            self.logger.info("成功啟用隱身模式")
         
-        # 再次檢測是否被識別
-        if not self.detected_anti_crawling(driver):
-            self.logger.info("成功處理反爬機制")
-            self.detection_count = 0  # 重置計數器
-            return True
-        else:
-            self.logger.warning("處理反爬機制失敗，仍被識別")
-            return False
+        except Exception as e:
+            self.logger.error(f"啟用隱身模式失敗: {str(e)}")
+    
+    def detect_honeypots(self, driver: webdriver.Remote) -> bool:
+        """
+        檢測頁面中的蜜罐和陷阱
+        
+        Args:
+            driver: WebDriver實例
+            
+        Returns:
+            是否檢測到蜜罐
+        """
+        return self.honeypot_detector.detect(driver)
+
+
+class BrowserFingerprintModifier:
+    """處理瀏覽器指紋修改"""
+    
+    def __init__(self, logger=None):
+        """
+        初始化瀏覽器指紋修改器
+        
+        Args:
+            logger: 日誌記錄器
+        """
+        self.logger = logger or logging.getLogger(__name__)
     
     def modify_browser_fingerprint(self, driver: webdriver.Remote):
         """
@@ -557,37 +344,13 @@ class AntiDetectionManager:
         except Exception as e:
             self.logger.error(f"修改瀏覽器指紋特徵失敗: {str(e)}")
     
-    def enable_stealth_mode(self, driver: webdriver.Remote):
+    def fake_mouse_movements(self, driver: webdriver.Remote):
         """
-        啟用隱身模式，綜合應用多種反檢測技術
+        生成假的鼠標移動軌跡
         
         Args:
             driver: WebDriver實例
         """
-        # 應用隱身腳本
-        self._apply_stealth_scripts(driver)
-        
-        # 修改瀏覽器指紋
-        self.modify_browser_fingerprint(driver)
-        
-        # 添加額外的隱身措施
-        try:
-            # 偽造鼠標軌跡
-            self._fake_mouse_movements(driver)
-            
-            # 偽造鍵盤事件
-            self._fake_keyboard_events(driver)
-            
-            # 修改WebRTC行為
-            self._modify_webrtc_behavior(driver)
-            
-            self.logger.info("成功啟用隱身模式")
-        
-        except Exception as e:
-            self.logger.error(f"啟用隱身模式失敗: {str(e)}")
-    
-    def _fake_mouse_movements(self, driver: webdriver.Remote):
-        """生成假的鼠標移動軌跡"""
         script = """
         // 創建模擬鼠標軌跡
         const events = [];
@@ -617,8 +380,13 @@ class AntiDetectionManager:
         """
         driver.execute_script(script)
     
-    def _fake_keyboard_events(self, driver: webdriver.Remote):
-        """生成假的鍵盤事件"""
+    def fake_keyboard_events(self, driver: webdriver.Remote):
+        """
+        生成假的鍵盤事件
+        
+        Args:
+            driver: WebDriver實例
+        """
         script = """
         // 創建模擬鍵盤事件
         const keyEvents = [];
@@ -644,8 +412,13 @@ class AntiDetectionManager:
         """
         driver.execute_script(script)
     
-    def _modify_webrtc_behavior(self, driver: webdriver.Remote):
-        """修改WebRTC行為，防止IP洩露"""
+    def modify_webrtc_behavior(self, driver: webdriver.Remote):
+        """
+        修改WebRTC行為，防止IP洩露
+        
+        Args:
+            driver: WebDriver實例
+        """
         script = """
         // 修改WebRTC行為
         if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
@@ -669,96 +442,3 @@ class AntiDetectionManager:
         }
         """
         driver.execute_script(script)
-    
-    def detect_honeypots(self, driver: webdriver.Remote) -> bool:
-        """
-        檢測頁面中的蜜罐和陷阱
-        
-        Args:
-            driver: WebDriver實例
-            
-        Returns:
-            是否檢測到蜜罐
-        """
-        try:
-            # 檢測隱藏元素陷阱
-            honeypot_script = """
-            // 檢測隱藏元素陷阱
-            const honeypots = [];
-            
-            // 查找隱藏元素
-            const elements = document.querySelectorAll('*');
-            for (const element of elements) {
-                const style = window.getComputedStyle(element);
-                
-                // 檢查是否為隱藏元素但可點擊
-                if ((style.display === 'none' || style.visibility === 'hidden' || 
-                     style.opacity === '0' || 
-                     (element.getBoundingClientRect().width === 0 && element.getBoundingClientRect().height === 0)) &&
-                    (element.tagName === 'A' || element.tagName === 'BUTTON' || 
-                     element.onclick || element.getAttribute('role') === 'button')) {
-                    honeypots.push({
-                        tag: element.tagName,
-                        id: element.id,
-                        class: element.className,
-                        type: 'hidden_clickable'
-                    });
-                }
-                
-                // 檢查不可見但可填寫的輸入框
-                if ((style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') &&
-                    (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA')) {
-                    honeypots.push({
-                        tag: element.tagName,
-                        id: element.id,
-                        class: element.className,
-                        type: 'hidden_input'
-                    });
-                }
-            }
-            
-            return honeypots;
-            """
-            
-            honeypots = driver.execute_script(honeypot_script)
-            
-            if honeypots:
-                self.logger.warning(f"檢測到 {len(honeypots)} 個蜜罐元素")
-                for honeypot in honeypots[:5]:  # 僅顯示前5個
-                    self.logger.debug(f"蜜罐元素: {honeypot}")
-                return True
-            
-            # 檢測行為監控腳本
-            monitoring_script = """
-            // 檢測行為監控腳本
-            const monitoringScripts = [];
-            
-            // 檢查是否有監聽全局鼠標和鍵盤事件
-            if (window.__originalAddEventListener) {
-                monitoringScripts.push({ type: 'event_listener_override', detail: 'addEventListener has been overridden' });
-            }
-            
-            // 檢查是否有常見的反爬工具
-            for (const key of Object.keys(window)) {
-                if (key.includes('captcha') || key.includes('monitor') || key.includes('track') || 
-                    key.includes('detect') || key.includes('spider') || key.includes('bot')) {
-                    monitoringScripts.push({ type: 'suspicious_global', name: key });
-                }
-            }
-            
-            return monitoringScripts;
-            """
-            
-            monitoring_results = driver.execute_script(monitoring_script)
-            
-            if monitoring_results:
-                self.logger.warning(f"檢測到 {len(monitoring_results)} 個監控腳本")
-                for script in monitoring_results[:5]:  # 僅顯示前5個
-                    self.logger.debug(f"監控腳本: {script}")
-                return True
-            
-            return False
-        
-        except Exception as e:
-            self.logger.error(f"檢測蜜罐失敗: {str(e)}")
-            return False

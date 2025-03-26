@@ -5,7 +5,7 @@ import os
 import time
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
 from selenium import webdriver
 
@@ -17,14 +17,16 @@ class BaseCaptchaSolver(ABC):
     驗證碼解決器基類，定義了所有驗證碼解決器的共同介面
     """
     
-    def __init__(self, config: Dict = None, log_level: int = logging.INFO):
+    def __init__(self, driver=None, config: Dict = None, log_level: int = logging.INFO):
         """
         初始化驗證碼解決器
         
         Args:
+            driver: WebDriver實例
             config: 配置字典
             log_level: 日誌級別
         """
+        self.driver = driver
         self.logger = setup_logger(f"{__name__}.{self.__class__.__name__}", log_level)
         self.config = config or {}
         
@@ -44,6 +46,10 @@ class BaseCaptchaSolver(ABC):
         # 樣本目錄
         self.sample_dir = self.config.get("sample_dir", os.path.join("captchas", self._get_captcha_type()))
         
+        # 統計資料
+        self.success_count = 0
+        self.failure_count = 0
+        
         # 初始化解決器特定的設置
         self._init_solver()
     
@@ -52,6 +58,10 @@ class BaseCaptchaSolver(ABC):
         初始化解決器特定的設置，
         子類可以覆蓋此方法以進行自定義初始化
         """
+        pass
+    
+    def setup(self):
+        """設置解決器，可由子類覆寫"""
         pass
     
     @abstractmethod
@@ -65,7 +75,17 @@ class BaseCaptchaSolver(ABC):
         pass
     
     @abstractmethod
-    def solve(self, driver: webdriver.Remote) -> bool:
+    def detect(self) -> bool:
+        """
+        檢測頁面上是否存在此類型的驗證碼
+        
+        Returns:
+            bool: 是否檢測到驗證碼
+        """
+        pass
+    
+    @abstractmethod
+    def solve(self, driver: webdriver.Remote = None) -> bool:
         """
         解決驗證碼
         
@@ -75,7 +95,25 @@ class BaseCaptchaSolver(ABC):
         Returns:
             是否成功解決
         """
+        driver = driver or self.driver
         pass
+    
+    def report_result(self, success: bool):
+        """
+        報告驗證碼解決結果，用於統計和學習
+        
+        Args:
+            success: 是否成功解決
+        """
+        if success:
+            self.success_count += 1
+        else:
+            self.failure_count += 1
+        
+        self.logger.info(
+            f"驗證碼解決結果: {success}, 成功率: "
+            f"{self.success_count/(self.success_count+self.failure_count):.2%}"
+        )
     
     def _save_sample(self, driver: webdriver.Remote, sample_data: Dict = None) -> str:
         """
@@ -419,3 +457,41 @@ class BaseCaptchaSolver(ABC):
         except Exception as e:
             self.logger.error(f"解碼預測結果失敗: {str(e)}")
             return ""
+    
+    def save_sample(self, data: Any, success: bool = False):
+        """
+        保存驗證碼樣本以供將來分析或訓練
+        
+        Args:
+            data: 驗證碼數據（通常是圖像）
+            success: 樣本是否為成功解決的樣本
+        """
+        if not self.config.get('save_samples', False):
+            return
+            
+        import os
+        import time
+        
+        # 決定保存路徑
+        base_dir = self.config.get('sample_dir', '../captchas')
+        solver_type = self.__class__.__name__.lower().replace('solver', '')
+        status = 'success' if success else 'failed'
+        
+        # 創建目錄
+        save_dir = os.path.join(base_dir, solver_type, status)
+        os.makedirs(save_dir, exist_ok=True)
+        
+        # 保存樣本
+        filename = f"{int(time.time())}_{hash(str(data))}.png"
+        file_path = os.path.join(save_dir, filename)
+        
+        try:
+            if hasattr(data, 'save'):  # PIL Image
+                data.save(file_path)
+            elif isinstance(data, bytes):  # Bytes data
+                with open(file_path, 'wb') as f:
+                    f.write(data)
+            else:
+                self.logger.warning(f"無法保存未知格式的驗證碼樣本: {type(data)}")
+        except Exception as e:
+            self.logger.error(f"保存驗證碼樣本失敗: {str(e)}")

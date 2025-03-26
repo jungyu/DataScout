@@ -1,1 +1,16 @@
-{}
+{
+  "article": {
+    "title": "標題",
+    "author": "作者",
+    "publication_date": "發布日期",
+    "content": "內容",
+    "url": "連結"
+  },
+  "product": {
+    "name": "產品名稱",
+    "price": "價格",
+    "description": "描述",
+    "stock": "庫存",
+    "category": "分類"
+  }
+}

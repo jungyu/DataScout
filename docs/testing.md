@@ -345,5 +345,3 @@ python debug_crawler.py --template templates/your_template.json --highlight-elem
   }
 }
 ```
-
-通過這種方式，您可以跟踪模板的變更歷史，並在需要時回滾到先前的版本。

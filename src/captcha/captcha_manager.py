@@ -1,4 +1,321 @@
-# 如果是Base64圖片
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import os
+import time
+import logging
+import base64
+import json
+import random
+from typing import Dict, List, Optional, Any, Union, Tuple, Type
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+
+from ..utils.logger import setup_logger
+from ..utils.error_handler import retry_on_exception, handle_exception
+from .solvers.base_solver import BaseCaptchaSolver
+from .third_party.service_client import ThirdPartyServiceClient
+
+
+class CaptchaManager:
+    """
+    驗證碼管理器，用於檢測和解決各種類型的驗證碼挑戰。
+    支持文本驗證碼、滑塊驗證碼、點擊驗證碼和ReCAPTCHA等。
+    """
+    
+    def __init__(self, config: Dict = None, log_level: int = logging.INFO):
+        """
+        初始化驗證碼管理器
+        
+        Args:
+            config: 配置字典
+            log_level: 日誌級別
+        """
+        self.logger = setup_logger(__name__, log_level)
+        self.logger.info("初始化驗證碼管理器")
+        
+        self.config = config or {}
+        
+        # 驗證碼樣本存儲路徑
+        self.sample_dir = self.config.get("sample_dir", "captchas")
+        os.makedirs(self.sample_dir, exist_ok=True)
+        
+        # 是否保存驗證碼樣本
+        self.save_samples = self.config.get("save_samples", True)
+        
+        # 驗證碼解決器
+        self.solvers = {}
+        self._load_solvers()
+        
+        # 驗證碼檢測器
+        self.captcha_detectors = [
+            self._detect_text_captcha,
+            self._detect_slider_captcha,
+            self._detect_click_captcha,
+            self._detect_recaptcha
+        ]
+        
+        # 等待超時
+        self.timeout = self.config.get("timeout", 30)
+        
+        # 重試設置
+        self.max_retries = self.config.get("max_retries", 3)
+        self.retry_delay = self.config.get("retry_delay", 2)
+        
+        # 第三方服務客戶端
+        service_config = self.config.get("third_party_services", [])
+        self.service_client = ThirdPartyServiceClient(service_config, self.config.get("api_key"), self.logger) if service_config else None
+        
+        self.logger.info("驗證碼管理器初始化完成")
+    
+    def _load_solvers(self):
+        """載入驗證碼解決器"""
+        # 動態載入解決器
+        solver_types = {
+            "text": self._load_solver_class(".solvers.text_solver", "TextCaptchaSolver"),
+            "slider": self._load_solver_class(".solvers.slider_solver", "SliderCaptchaSolver"),
+            "click": self._load_solver_class(".solvers.click_solver", "ClickCaptchaSolver"),
+            "recaptcha": self._load_solver_class(".solvers.recaptcha_solver", "ReCaptchaSolver")
+        }
+        
+        # 初始化解決器
+        for solver_type, solver_class in solver_types.items():
+            if solver_class:
+                solver_config = self.config.get(f"{solver_type}_solver_config", {})
+                self.solvers[solver_type] = solver_class(solver_config)
+                self.logger.info(f"已載入 {solver_type} 驗證碼解決器")
+    
+    def _load_solver_class(self, module_path: str, class_name: str) -> Optional[Type[BaseCaptchaSolver]]:
+        """
+        動態載入驗證碼解決器類
+        
+        Args:
+            module_path: 模塊路徑
+            class_name: 類名
+            
+        Returns:
+            解決器類或None
+        """
+        try:
+            import importlib
+            
+            # 完整的模塊路徑
+            full_module_path = f"{__package__}{module_path}"
+            
+            # 導入模塊
+            module = importlib.import_module(full_module_path)
+            
+            # 獲取類
+            solver_class = getattr(module, class_name)
+            
+            return solver_class
+        
+        except (ImportError, AttributeError) as e:
+            self.logger.warning(f"載入驗證碼解決器類 {class_name} 失敗: {str(e)}")
+            return None
+        except Exception as e:
+            self.logger.error(f"載入驗證碼解決器類時發生錯誤: {str(e)}")
+            return None
+    
+    def detect_captcha(self, driver: webdriver.Remote) -> Tuple[bool, str]:
+        """
+        檢測頁面中是否存在驗證碼
+        
+        Args:
+            driver: WebDriver實例
+            
+        Returns:
+            是否存在驗證碼和驗證碼類型
+        """
+        for detector in self.captcha_detectors:
+            try:
+                detected, captcha_type = detector(driver)
+                if detected:
+                    self.logger.info(f"檢測到 {captcha_type} 驗證碼")
+                    return True, captcha_type
+            except Exception as e:
+                self.logger.error(f"執行驗證碼檢測器失敗: {str(e)}")
+        
+        return False, ""
+    
+    def _detect_text_captcha(self, driver: webdriver.Remote) -> Tuple[bool, str]:
+        """檢測文本驗證碼"""
+        # 常見的文本驗證碼選擇器
+        text_captcha_selectors = [
+            "//img[contains(@src, 'captcha')]",
+            "//img[contains(@src, 'verify')]",
+            "//img[contains(@src, 'vcode')]",
+            "//img[contains(@id, 'captcha')]",
+            "//img[contains(@class, 'captcha')]",
+            "//input[contains(@placeholder, '驗證碼')]",
+            "//input[contains(@placeholder, 'captcha')]",
+            "//div[contains(text(), '驗證碼')]/following::img",
+            "//label[contains(text(), '驗證碼')]/following::img"
+        ]
+        
+        for selector in text_captcha_selectors:
+            elements = driver.find_elements(By.XPATH, selector)
+            if elements:
+                return True, "text"
+        
+        return False, ""
+    
+    def _detect_slider_captcha(self, driver: webdriver.Remote) -> Tuple[bool, str]:
+        """檢測滑塊驗證碼"""
+        # 常見的滑塊驗證碼選擇器
+        slider_captcha_selectors = [
+            "//div[contains(@class, 'slider')]",
+            "//div[contains(@class, 'sliderContainer')]",
+            "//div[contains(@class, 'verify-slider')]",
+            "//div[contains(@class, 'sliderMask')]",
+            "//div[contains(@class, 'sliderIcon')]",
+            "//div[contains(@id, 'slider')]",
+            "//div[@class='gt_slider_knob']",
+            "//div[@class='gt_slider_knob gt_show']"
+        ]
+        
+        for selector in slider_captcha_selectors:
+            elements = driver.find_elements(By.XPATH, selector)
+            if elements:
+                return True, "slider"
+        
+        return False, ""
+    
+    def _detect_click_captcha(self, driver: webdriver.Remote) -> Tuple[bool, str]:
+        """檢測點擊驗證碼"""
+        # 常見的點擊驗證碼選擇器
+        click_captcha_selectors = [
+            "//div[contains(@class, 'imgCaptcha')]",
+            "//div[contains(@class, 'click-captcha')]",
+            "//div[contains(@class, 'point-captcha')]",
+            "//div[contains(text(), '點擊圖片中的')]",
+            "//div[contains(text(), '請按順序點擊')]",
+            "//div[contains(text(), '請點擊下圖中')]",
+            "//div[contains(text(), 'Click on the')]"
+        ]
+        
+        for selector in click_captcha_selectors:
+            elements = driver.find_elements(By.XPATH, selector)
+            if elements:
+                return True, "click"
+        
+        return False, ""
+    
+    def _detect_recaptcha(self, driver: webdriver.Remote) -> Tuple[bool, str]:
+        """檢測Google ReCAPTCHA"""
+        # ReCAPTCHA選擇器
+        recaptcha_selectors = [
+            "//iframe[contains(@src, 'recaptcha')]",
+            "//div[@class='g-recaptcha']",
+            "//div[contains(@class, 'recaptcha')]",
+            "//iframe[@title='reCAPTCHA']"
+        ]
+        
+        for selector in recaptcha_selectors:
+            elements = driver.find_elements(By.XPATH, selector)
+            if elements:
+                return True, "recaptcha"
+        
+        return False, ""
+    
+    @retry_on_exception(retries=3, delay=1)
+    def solve_captcha(self, driver: webdriver.Remote) -> bool:
+        """
+        解決驗證碼
+        
+        Args:
+            driver: WebDriver實例
+            
+        Returns:
+            是否成功解決
+        """
+        # 檢測驗證碼類型
+        detected, captcha_type = self.detect_captcha(driver)
+        
+        if not detected:
+            self.logger.info("未檢測到驗證碼")
+            return True
+        
+        self.logger.info(f"嘗試解決 {captcha_type} 驗證碼")
+        
+        # 保存驗證碼樣本（如果需要）
+        if self.save_samples:
+            self._save_captcha_sample(driver, captcha_type)
+        
+        # 獲取對應的解決器
+        solver = self.solvers.get(captcha_type)
+        
+        if not solver:
+            self.logger.warning(f"未找到 {captcha_type} 驗證碼解決器")
+            # 回退到手動處理
+            return self._handle_manual_captcha(driver, captcha_type)
+        
+        # 設置解決器的WebDriver
+        if not hasattr(solver, 'driver') or solver.driver is None:
+            solver.driver = driver
+        
+        # 使用解決器解決驗證碼
+        try:
+            result = solver.solve(driver)
+            
+            if result:
+                self.logger.info(f"成功解決 {captcha_type} 驗證碼")
+            else:
+                self.logger.warning(f"解決 {captcha_type} 驗證碼失敗")
+                # 如果失敗且解決器支持第三方服務，則直接使用第三方服務
+                if self.service_client and hasattr(solver, 'use_external_service') and solver.use_external_service:
+                    captcha_data = self._get_captcha_data(driver, captcha_type)
+                    if captcha_data:
+                        return self.service_client.solve_captcha(captcha_type, captcha_data, driver)
+            
+            return result
+        
+        except Exception as e:
+            self.logger.error(f"解決 {captcha_type} 驗證碼時發生錯誤: {str(e)}")
+            # 嘗試使用第三方服務
+            if self.service_client:
+                captcha_data = self._get_captcha_data(driver, captcha_type)
+                if captcha_data:
+                    return self.service_client.solve_captcha(captcha_type, captcha_data, driver)
+            return False
+    
+    def _handle_manual_captcha(self, driver: webdriver.Remote, captcha_type: str) -> bool:
+        """處理沒有專門解決器的驗證碼（手動或基本方法）"""
+        if captcha_type == "text":
+            return self.handle_simple_text_captcha(driver)
+        elif captcha_type == "slider":
+            return self.handle_simple_slider_captcha(driver)
+        else:
+            self.logger.warning(f"無法處理 {captcha_type} 驗證碼")
+            return False
+    
+    def _get_captcha_data(self, driver: webdriver.Remote, captcha_type: str) -> Dict:
+        """
+        獲取驗證碼數據
+        
+        Args:
+            driver: WebDriver實例
+            captcha_type: 驗證碼類型
+            
+        Returns:
+            驗證碼數據
+        """
+        try:
+            if captcha_type == "text":
+                # 查找驗證碼圖片
+                img_elements = driver.find_elements(By.XPATH, "//img[contains(@src, 'captcha')]")
+                if not img_elements:
+                    return {}
+                
+                img_element = img_elements[0]
+                img_url = img_element.get_attribute("src")
+                
+                # 如果是Base64圖片
                 if img_url.startswith('data:image'):
                     base64_data = img_url.split(',')[1]
                     return {'image_base64': base64_data}
@@ -54,9 +371,10 @@
                 }
             
             return {}
-        
+            
         except Exception as e:
-            self.logger.error(f"保存驗證碼樣本失敗: {str(e)}")
+            self.logger.error(f"獲取驗證碼數據失敗: {str(e)}")
+            return {}
     
     def handle_simple_text_captcha(self, driver: webdriver.Remote) -> bool:
         """
@@ -245,183 +563,6 @@
         # 這需要使用機器學習庫，如TensorFlow或PyTorch
         
         self.logger.info("訓練模型功能尚未實現，請使用外部工具訓練模型")
-
-            self.logger.error(f"獲取驗證碼數據失敗: {str(e)}")
-            return {}
-    
-    def _solve_with_2captcha(self, api_url: str, api_key: str, captcha_type: str, captcha_data: Dict, driver: webdriver.Remote) -> bool:
-        """
-        使用2Captcha服務解決驗證碼
-        
-        Args:
-            api_url: API URL
-            api_key: API密鑰
-            captcha_type: 驗證碼類型
-            captcha_data: 驗證碼數據
-            driver: WebDriver實例
-            
-        Returns:
-            是否成功解決
-        """
-        try:
-            import requests
-            
-            if captcha_type == "text":
-                # 提交圖片驗證碼
-                if 'image_base64' in captcha_data:
-                    params = {
-                        'key': api_key,
-                        'method': 'base64',
-                        'body': captcha_data['image_base64'],
-                        'json': 1
-                    }
-                elif 'image_url' in captcha_data:
-                    params = {
-                        'key': api_key,
-                        'method': 'userrecaptcha',
-                        'googlekey': captcha_data['site_key'],
-                        'pageurl': captcha_data['page_url'],
-                        'json': 1
-                    }
-                else:
-                    return False
-                
-                # 提交請求
-                response = requests.post(f"{api_url}/in.php", params=params)
-                response_data = response.json()
-                
-                if response_data['status'] != 1:
-                    self.logger.error(f"2Captcha提交失敗: {response_data['request']}")
-                    return False
-                
-                # 獲取請求ID
-                request_id = response_data['request']
-                
-                # 等待結果
-                for _ in range(30):  # 最多等待30次，每次5秒
-                    time.sleep(5)
-                    
-                    # 查詢結果
-                    result_params = {
-                        'key': api_key,
-                        'action': 'get',
-                        'id': request_id,
-                        'json': 1
-                    }
-                    
-                    result_response = requests.get(f"{api_url}/res.php", params=result_params)
-                    result_data = result_response.json()
-                    
-                    if result_data['status'] == 1:
-                        # 獲取驗證碼答案
-                        captcha_text = result_data['request']
-                        
-                        # 填入驗證碼
-                        input_elements = driver.find_elements(By.XPATH, "//input[contains(@placeholder, '驗證碼')]")
-                        if input_elements:
-                            input_elements[0].clear()
-                            input_elements[0].send_keys(captcha_text)
-                            
-                            # 提交表單
-                            submit_buttons = driver.find_elements(By.XPATH, "//button[contains(@type, 'submit')]")
-                            if submit_buttons:
-                                submit_buttons[0].click()
-                                time.sleep(2)
-                                return True
-                    
-                    elif result_data['request'] != 'CAPCHA_NOT_READY':
-                        self.logger.error(f"2Captcha解決失敗: {result_data['request']}")
-                        return False
-            
-            elif captcha_type == "recaptcha":
-                if 'site_key' not in captcha_data or 'page_url' not in captcha_data:
-                    return False
-                
-                # 提交ReCAPTCHA
-                params = {
-                    'key': api_key,
-                    'method': 'userrecaptcha',
-                    'googlekey': captcha_data['site_key'],
-                    'pageurl': captcha_data['page_url'],
-                    'json': 1
-                }
-                
-                # 提交請求
-                response = requests.post(f"{api_url}/in.php", params=params)
-                response_data = response.json()
-                
-                if response_data['status'] != 1:
-                    self.logger.error(f"2Captcha提交ReCAPTCHA失敗: {response_data['request']}")
-                    return False
-                
-                # 獲取請求ID
-                request_id = response_data['request']
-                
-                # 等待結果
-                for _ in range(30):  # 最多等待30次，每次5秒
-                    time.sleep(5)
-                    
-                    # 查詢結果
-                    result_params = {
-                        'key': api_key,
-                        'action': 'get',
-                        'id': request_id,
-                        'json': 1
-                    }
-                    
-                    result_response = requests.get(f"{api_url}/res.php", params=result_params)
-                    result_data = result_response.json()
-                    
-                    if result_data['status'] == 1:
-                        # 獲取g-recaptcha-response
-                        g_recaptcha_response = result_data['request']
-                        
-                        # 使用JavaScript設置g-recaptcha-response
-                        script = f"""
-                        document.getElementById('g-recaptcha-response').innerHTML = '{g_recaptcha_response}';
-                        captchaCallback('{g_recaptcha_response}');
-                        """
-                        
-                        driver.execute_script(script)
-                        time.sleep(2)
-                        return True
-                    
-                    elif result_data['request'] != 'CAPCHA_NOT_READY':
-                        self.logger.error(f"2Captcha解決ReCAPTCHA失敗: {result_data['request']}")
-                        return False
-            
-            return False
-        
-        except Exception as e:
-            self.logger.error(f"使用2Captcha服務時發生錯誤: {str(e)}")
-            return False
-    
-    def _solve_with_anticaptcha(self, api_url: str, api_key: str, captcha_type: str, captcha_data: Dict, driver: webdriver.Remote) -> bool:
-        """
-        使用Anti-Captcha服務解決驗證碼
-        
-        Args:
-            api_url: API URL
-            api_key: API密鑰
-            captcha_type: 驗證碼類型
-            captcha_data: 驗證碼數據
-            driver: WebDriver實例
-            
-        Returns:
-            是否成功解決
-        """
-        try:
-            import requests
-            
-            # Anti-Captcha API實現
-            # 注意：此處僅為示例，實際使用時需要按照Anti-Captcha的API文檔實現
-            
-            self.logger.warning("Anti-Captcha服務支持尚未完全實現")
-            return False
-        
-        except Exception as e:
-            self.logger.error(f"使用Anti-Captcha服務時發生錯誤: {str(e)}")
-            return False
     
     def _save_captcha_sample(self, driver: webdriver.Remote, captcha_type: str):
         """
@@ -543,395 +684,5 @@
                 
                 self.logger.debug(f"已保存ReCAPTCHA樣本: {sample_file}.json, {sample_file}.png")
         
-        except Exception as e:#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-import os
-import time
-import logging
-import base64
-import json
-import random
-from typing import Dict, List, Optional, Any, Union, Tuple, Type
-
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
-
-from ..utils.logger import setup_logger
-from ..utils.error_handler import retry_on_exception, handle_exception
-from .solvers.base_solver import BaseCaptchaSolver
-
-
-class CaptchaManager:
-    """
-    驗證碼管理器，用於檢測和解決各種類型的驗證碼挑戰。
-    支持文本驗證碼、滑塊驗證碼、點擊驗證碼和ReCAPTCHA等。
-    """
-    
-    def __init__(self, config: Dict = None, log_level: int = logging.INFO):
-        """
-        初始化驗證碼管理器
-        
-        Args:
-            config: 配置字典
-            log_level: 日誌級別
-        """
-        self.logger = setup_logger(__name__, log_level)
-        self.logger.info("初始化驗證碼管理器")
-        
-        self.config = config or {}
-        
-        # 驗證碼樣本存儲路徑
-        self.sample_dir = self.config.get("sample_dir", "captchas")
-        os.makedirs(self.sample_dir, exist_ok=True)
-        
-        # 是否保存驗證碼樣本
-        self.save_samples = self.config.get("save_samples", True)
-        
-        # 驗證碼解決器
-        self.solvers = {}
-        self._load_solvers()
-        
-        # 驗證碼檢測器
-        self.captcha_detectors = [
-            self._detect_text_captcha,
-            self._detect_slider_captcha,
-            self._detect_click_captcha,
-            self._detect_recaptcha
-        ]
-        
-        # 等待超時
-        self.timeout = self.config.get("timeout", 30)
-        
-        # 重試設置
-        self.max_retries = self.config.get("max_retries", 3)
-        self.retry_delay = self.config.get("retry_delay", 2)
-        
-        # 第三方服務
-        self.api_key = self.config.get("api_key", None)
-        self.third_party_services = self.config.get("third_party_services", [])
-        
-        self.logger.info("驗證碼管理器初始化完成")
-    
-    def _load_solvers(self):
-        """載入驗證碼解決器"""
-        # 動態載入解決器
-        solver_types = {
-            "text": self._load_solver_class(".solvers.text_solver", "TextCaptchaSolver"),
-            "slider": self._load_solver_class(".solvers.slider_solver", "SliderCaptchaSolver"),
-            "click": self._load_solver_class(".solvers.click_solver", "ClickCaptchaSolver"),
-            "recaptcha": self._load_solver_class(".solvers.recaptcha_solver", "ReCaptchaSolver")
-        }
-        
-        # 初始化解決器
-        for solver_type, solver_class in solver_types.items():
-            if solver_class:
-                solver_config = self.config.get(f"{solver_type}_solver_config", {})
-                self.solvers[solver_type] = solver_class(solver_config)
-                self.logger.info(f"已載入 {solver_type} 驗證碼解決器")
-    
-    def _load_solver_class(self, module_path: str, class_name: str) -> Optional[Type[BaseCaptchaSolver]]:
-        """
-        動態載入驗證碼解決器類
-        
-        Args:
-            module_path: 模塊路徑
-            class_name: 類名
-            
-        Returns:
-            解決器類或None
-        """
-        try:
-            import importlib
-            
-            # 完整的模塊路徑
-            full_module_path = f"{__package__}{module_path}"
-            
-            # 導入模塊
-            module = importlib.import_module(full_module_path)
-            
-            # 獲取類
-            solver_class = getattr(module, class_name)
-            
-            return solver_class
-        
-        except (ImportError, AttributeError) as e:
-            self.logger.warning(f"載入驗證碼解決器類 {class_name} 失敗: {str(e)}")
-            return None
         except Exception as e:
-            self.logger.error(f"載入驗證碼解決器類時發生錯誤: {str(e)}")
-            return None
-    
-    def detect_captcha(self, driver: webdriver.Remote) -> Tuple[bool, str]:
-        """
-        檢測頁面中是否存在驗證碼
-        
-        Args:
-            driver: WebDriver實例
-            
-        Returns:
-            是否存在驗證碼和驗證碼類型
-        """
-        for detector in self.captcha_detectors:
-            try:
-                detected, captcha_type = detector(driver)
-                if detected:
-                    self.logger.info(f"檢測到 {captcha_type} 驗證碼")
-                    return True, captcha_type
-            except Exception as e:
-                self.logger.error(f"執行驗證碼檢測器失敗: {str(e)}")
-        
-        return False, ""
-    
-    def _detect_text_captcha(self, driver: webdriver.Remote) -> Tuple[bool, str]:
-        """檢測文本驗證碼"""
-        # 常見的文本驗證碼選擇器
-        text_captcha_selectors = [
-            "//img[contains(@src, 'captcha')]",
-            "//img[contains(@src, 'verify')]",
-            "//img[contains(@src, 'vcode')]",
-            "//img[contains(@id, 'captcha')]",
-            "//img[contains(@class, 'captcha')]",
-            "//input[contains(@placeholder, '驗證碼')]",
-            "//input[contains(@placeholder, 'captcha')]",
-            "//div[contains(text(), '驗證碼')]/following::img",
-            "//label[contains(text(), '驗證碼')]/following::img"
-        ]
-        
-        for selector in text_captcha_selectors:
-            elements = driver.find_elements(By.XPATH, selector)
-            if elements:
-                return True, "text"
-        
-        return False, ""
-    
-    def _detect_slider_captcha(self, driver: webdriver.Remote) -> Tuple[bool, str]:
-        """檢測滑塊驗證碼"""
-        # 常見的滑塊驗證碼選擇器
-        slider_captcha_selectors = [
-            "//div[contains(@class, 'slider')]",
-            "//div[contains(@class, 'sliderContainer')]",
-            "//div[contains(@class, 'verify-slider')]",
-            "//div[contains(@class, 'sliderMask')]",
-            "//div[contains(@class, 'sliderIcon')]",
-            "//div[contains(@id, 'slider')]",
-            "//div[@class='gt_slider_knob']",
-            "//div[@class='gt_slider_knob gt_show']"
-        ]
-        
-        for selector in slider_captcha_selectors:
-            elements = driver.find_elements(By.XPATH, selector)
-            if elements:
-                return True, "slider"
-        
-        return False, ""
-    
-    def _detect_click_captcha(self, driver: webdriver.Remote) -> Tuple[bool, str]:
-        """檢測點擊驗證碼"""
-        # 常見的點擊驗證碼選擇器
-        click_captcha_selectors = [
-            "//div[contains(@class, 'imgCaptcha')]",
-            "//div[contains(@class, 'click-captcha')]",
-            "//div[contains(@class, 'point-captcha')]",
-            "//div[contains(text(), '點擊圖片中的')]",
-            "//div[contains(text(), '請按順序點擊')]",
-            "//div[contains(text(), '請點擊下圖中')]",
-            "//div[contains(text(), 'Click on the')]"
-        ]
-        
-        for selector in click_captcha_selectors:
-            elements = driver.find_elements(By.XPATH, selector)
-            if elements:
-                return True, "click"
-        
-        return False, ""
-    
-    def _detect_recaptcha(self, driver: webdriver.Remote) -> Tuple[bool, str]:
-        """檢測Google ReCAPTCHA"""
-        # ReCAPTCHA選擇器
-        recaptcha_selectors = [
-            "//iframe[contains(@src, 'recaptcha')]",
-            "//div[@class='g-recaptcha']",
-            "//div[contains(@class, 'recaptcha')]",
-            "//iframe[@title='reCAPTCHA']"
-        ]
-        
-        for selector in recaptcha_selectors:
-            elements = driver.find_elements(By.XPATH, selector)
-            if elements:
-                return True, "recaptcha"
-        
-        return False, ""
-    
-    @retry_on_exception(retries=3, delay=1)
-    def solve_captcha(self, driver: webdriver.Remote) -> bool:
-        """
-        解決驗證碼
-        
-        Args:
-            driver: WebDriver實例
-            
-        Returns:
-            是否成功解決
-        """
-        # 檢測驗證碼類型
-        detected, captcha_type = self.detect_captcha(driver)
-        
-        if not detected:
-            self.logger.info("未檢測到驗證碼")
-            return True
-        
-        self.logger.info(f"嘗試解決 {captcha_type} 驗證碼")
-        
-        # 獲取對應的解決器
-        solver = self.solvers.get(captcha_type)
-        
-        if not solver:
-            self.logger.warning(f"未找到 {captcha_type} 驗證碼解決器")
-            # 嘗試使用第三方服務
-            return self._solve_with_third_party(driver, captcha_type)
-        
-        # 保存驗證碼樣本（如果需要）
-        if self.save_samples:
-            self._save_captcha_sample(driver, captcha_type)
-        
-        # 使用解決器解決驗證碼
-        try:
-            result = solver.solve(driver)
-            
-            if result:
-                self.logger.info(f"成功解決 {captcha_type} 驗證碼")
-            else:
-                self.logger.warning(f"解決 {captcha_type} 驗證碼失敗")
-            
-            return result
-        
-        except Exception as e:
-            self.logger.error(f"解決 {captcha_type} 驗證碼時發生錯誤: {str(e)}")
-            # 嘗試使用第三方服務
-            return self._solve_with_third_party(driver, captcha_type)
-    
-    def _solve_with_third_party(self, driver: webdriver.Remote, captcha_type: str) -> bool:
-        """
-        使用第三方服務解決驗證碼
-        
-        Args:
-            driver: WebDriver實例
-            captcha_type: 驗證碼類型
-            
-        Returns:
-            是否成功解決
-        """
-        if not self.third_party_services:
-            self.logger.warning("沒有配置第三方服務")
-            return False
-        
-        for service in self.third_party_services:
-            service_type = service.get("type")
-            service_api = service.get("api")
-            service_key = service.get("key") or self.api_key
-            
-            if not all([service_type, service_api, service_key]):
-                self.logger.warning(f"第三方服務配置不完整: {service}")
-                continue
-            
-            # 檢查服務是否支持此類型的驗證碼
-            if captcha_type not in service.get("supported_types", []):
-                self.logger.debug(f"服務 {service_type} 不支持 {captcha_type} 驗證碼")
-                continue
-            
-            self.logger.info(f"嘗試使用第三方服務 {service_type} 解決 {captcha_type} 驗證碼")
-            
-            try:
-                # 獲取驗證碼圖片或相關信息
-                captcha_data = self._get_captcha_data(driver, captcha_type)
-                
-                if not captcha_data:
-                    self.logger.warning("獲取驗證碼數據失敗")
-                    continue
-                
-                # 調用第三方服務API
-                if service_type == "2captcha":
-                    result = self._solve_with_2captcha(service_api, service_key, captcha_type, captcha_data, driver)
-                elif service_type == "anti-captcha":
-                    result = self._solve_with_anticaptcha(service_api, service_key, captcha_type, captcha_data, driver)
-                else:
-                    self.logger.warning(f"不支持的第三方服務類型: {service_type}")
-                    continue
-                
-                if result:
-                    self.logger.info(f"使用 {service_type} 成功解決驗證碼")
-                    return True
-                else:
-                    self.logger.warning(f"使用 {service_type} 解決驗證碼失敗")
-            
-            except Exception as e:
-                self.logger.error(f"使用第三方服務 {service_type} 時發生錯誤: {str(e)}")
-        
-        return False
-    
-    def _get_captcha_data(self, driver: webdriver.Remote, captcha_type: str) -> Dict:
-        """
-        獲取驗證碼數據
-        
-        Args:
-            driver: WebDriver實例
-            captcha_type: 驗證碼類型
-            
-        Returns:
-            驗證碼數據
-        """
-        try:
-            if captcha_type == "text":
-                # 查找驗證碼圖片
-                img_elements = driver.find_elements(By.XPATH, "//img[contains(@src, 'captcha')]")
-                if not img_elements:
-                    return {}
-                
-                img_element = img_elements[0]
-                img_url = img_element.get_attribute("src")
-                
-                # 如果是Base64圖片
-                if img_url.#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-import os
-import time
-import logging
-import base64
-import json
-import random
-from typing import Dict, List, Optional, Any, Union, Tuple, Type
-
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
-
-from ..utils.logger import setup_logger
-from ..utils.error_handler import retry_on_exception, handle_exception
-from .solvers.base_solver import BaseCaptchaSolver
-
-
-class CaptchaManager:
-    """
-    驗證碼管理器，用於檢測和解決各種類型的驗證碼挑戰。
-    支持文本驗證碼、滑塊驗證碼、點擊驗證碼和ReCAPTCHA等。
-    """
-    
-    def __init__(self, config: Dict = None, log_level: int = logging.INFO):
-        """
-        初始化驗證碼管理器
-        
-        Args:
-            config: 配置字典
-            log_level: 日誌級別
-        """
-        self.logger = setup_logger(__name__, log_level)
-        self.logger.info("初始化驗證碼管
+            self.logger.error(f"保存驗證碼樣本失敗: {str(e)}")
