@@ -163,5 +163,20 @@ crawler-selenium/
   - URL 生成和解析
   - 參數處理
   - 相對路徑轉絕對路徑
+```
+# 排除實際配置檔案，但保留範例檔案
+/config/*.json
+!/config/_*.json
+
+# 憑證和敏感資訊
+/config/credentials.json
+/certs/
+/keys/
+
+# 資料和日誌
+/data/
+/logs/
+/captchas/
+```
 
 

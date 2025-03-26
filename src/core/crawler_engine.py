@@ -361,13 +361,18 @@ class CrawlerEngine:
             result["items_count"] = len(data)
             result["data"] = data
             
+            # 保存數據到持久化管理器
+            if data and config.get("save_data", True):
+                self.data_manager.save_data(task_id, data)
+                
             self.logger.info(f"任務 {task_id} 完成，爬取了 {len(data)} 個項目")
         
         except Exception as e:
             result["success"] = False
             result["error"] = str(e)
             
-            self.logger.error(f"任務 {task_id} 失敗: {str(e)}")
+            # 提供完整的異常堆疊信息以便調試
+            self.logger.error(f"任務 {task_id} 失敗: {str(e)}", exc_info=True)
         
         finally:
             # 標記完成時間

@@ -5,6 +5,7 @@
 ## 目錄
 - [系統架構](#系統架構)
 - [環境配置](#環境配置)
+- [配置設定](#配置設定)
 - [爬蟲 JSON 範本](#爬蟲-json-範本)
 - [執行爬蟲任務](#執行爬蟲任務)
 - [管理爬蟲任務](#管理爬蟲任務)
@@ -97,6 +98,26 @@ pip install -r requirements.txt
 ├── states/           # 爬蟲狀態文件
 └── cookies/          # Cookie 文件
 ```
+
+## 配置設定
+
+本專案使用 JSON 格式的配置檔案來管理各種設定。在 `/config` 目錄下，您可以找到以下範例配置檔案：
+
+- `_config.json` - 主配置範例
+- `_anti_detection_config.json` - 反檢測配置範例
+- `_captcha_config.json` - 驗證碼處理配置範例
+- `_credentials.json` - 憑證範例
+- `_persistence_config.json` - 資料持久化配置範例
+- `_field_mappings.json` - 欄位映射配置範例
+
+### 首次設定
+
+1. 複製每個範例配置檔案，移除檔名開頭的底線字符：
+   ```bash
+   cd config
+   for file in _*.json; do
+     cp "$file" "${file#_}"
+   done
 
 ## 爬蟲 JSON 範本
 

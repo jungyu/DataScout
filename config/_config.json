@@ -1,0 +1,49 @@
+{
+    "project": {
+        "name": "crawler-selenium",
+        "version": "1.0.0",
+        "description": "通用網站爬蟲系統"
+    },
+    "environment": {
+        "timezone": "Asia/Taipei",
+        "encoding": "utf-8",
+        "debug": false
+    },
+    "modules": {
+        "anti_detection": {
+            "enabled": true,
+            "config_file": "anti_detection_config.json"
+        },
+        "captcha": {
+            "enabled": true,
+            "config_file": "captcha_config.json"
+        },
+        "persistence": {
+            "enabled": true,
+            "config_file": "persistence_config.json"
+        }
+    },
+    "crawler": {
+        "max_concurrent_tasks": 3,
+        "retry_times": 3,
+        "retry_delay": 5,
+        "template_dir": "../templates",
+        "default_timeout": 30
+    },
+    "logging": {
+        "level": "INFO",
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        "file": "../logs/crawler.log",
+        "max_size": 10485760,
+        "backup_count": 5
+    },
+    "monitoring": {
+        "enabled": true,
+        "check_interval": 300,
+        "metrics": ["speed", "success_rate", "error_rate"],
+        "alert_threshold": {
+            "error_rate": 0.3,
+            "response_time": 5000
+        }
+    }
+}

@@ -29,7 +29,7 @@ class CrawlExecutor:
             if not self.crawler._init_webdriver():
                 return all_data
                 
-            while page <= max_pages and len(all_data) < max_items:
+            while (max_pages is None or page <= max_pages) and (max_items is None or len(all_data) < max_items):
                 data = self.data_extractor.extract_page(page)
                 all_data.extend(data)
                 
@@ -37,6 +37,7 @@ class CrawlExecutor:
                     break
                     
                 page += 1
+                self.logger.info(f"已爬取第 {page-1} 頁，目前資料量: {len(all_data)}")
                 
         finally:
             self.crawler._close_webdriver()
