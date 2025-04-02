@@ -1,0 +1,462 @@
+{
+    "site_name": "政府電子採購網-決標查詢",
+    "base_url": "https://web.pcc.gov.tw/prkms/tender/common/agent/indexTenderAgent",
+    "search_url": "https://web.pcc.gov.tw/prkms/tender/common/agent/readTenderAgent",
+    "encoding": "utf-8",
+    "description": "政府電子採購網決標查詢爬蟲程式",
+    "version": "1.0.0",
+    "request": {
+      "method": "GET",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+      }
+    },
+    "delays": {
+      "page_load": 3,
+      "between_pages": 2,
+      "between_items": 1,
+      "scroll": 1,
+      "finish": 3
+    },
+    "search_parameters": {
+      "tender_name": {
+        "default": "防火牆",
+        "selector": "//input[@id='tenderName']",
+        "type": "input",
+        "description": "標案名稱"
+      },
+      "award_announce_start_date": {
+        "default": "114/01/01",
+        "selector": "//div[@id='awardAnnounceStartDateArea']//input[@class='form-date'][not(@style='display:none')]",
+        "type": "input",
+        "description": "決標公告開始日期",
+        "date_format": "yyy/MM/dd"
+      },
+      "award_announce_end_date": {
+        "default": "",
+        "selector": "//div[@id='awardAnnounceEndDateArea']//input[@class='form-date'][not(@style='display:none')]",
+        "type": "input",
+        "description": "決標公告結束日期",
+        "date_format": "yyy/MM/dd",
+        "use_current_date": true
+      },
+      "procurement_category": {
+        "default": "勞務類",
+        "selector": "//input[@id='RadProctrgCate3']",
+        "type": "radio",
+        "options": [
+          {"value": "工程類", "selector": "//input[@id='RadProctrgCate1']"},
+          {"value": "財物類", "selector": "//input[@id='RadProctrgCate2']"},
+          {"value": "勞務類", "selector": "//input[@id='RadProctrgCate3']"},
+          {"value": "不限", "selector": "//input[@id='RadProctrgCate4']"}
+        ],
+        "description": "採購性質"
+      },
+      "tender_status": {
+        "default": "決標公告",
+        "container_selector": "//select[@id='declarationSelectTenderStatus']",
+        "type": "select",
+        "options": [
+          {"value": "決標公告", "option_value": "TENDER_STATUS_1"},
+          {"value": "無法決標", "option_value": "TENDER_STATUS_2"},
+          {"value": "撤銷公告", "option_value": "TENDER_STATUS_3"}
+        ],
+        "description": "標案狀態"
+      },
+      "tender_way": {
+        "default": "各式招標公告",
+        "container_selector": "//select[@id='declarationSelectTenderWay']",
+        "type": "select",
+        "options": [
+          {"value": "各式招標公告", "option_value": "TENDER_WAY_ALL_DECLARATION"},
+          {"value": "公開招標", "option_value": "TENDER_WAY_1"},
+          {"value": "公開取得電子報價單", "option_value": "TENDER_WAY_12"},
+          {"value": "限制性招標(未經公開評選或公開徵求)", "option_value": "TENDER_WAY_6"}
+        ],
+        "description": "招標方式"
+      },
+      "search_button": {
+        "selector": "//div[contains(@class,'bt_cen2')]/a[contains(text(),'查詢')]",
+        "type": "button",
+        "description": "查詢按鈕",
+        "wait_after_click": 5
+      }
+    },
+    "list_page": {
+      "container_xpath": "//table[@class='tb_01'][@id='atm']",
+      "item_xpath": "//tr[contains(@class,'tb_b')]",
+      "total_count_xpath": "//span[@id='pagebanner']/span[@class='red']/text()",
+      "fields": {
+        "item_number": {
+          "xpath": "./td[1]/text()",
+          "type": "text",
+          "description": "項次"
+        },
+        "organization_name": {
+          "xpath": "./td[2]/text()",
+          "type": "text",
+          "description": "機關名稱"
+        },
+        "tender_case_no": {
+          "xpath": "./td[3]/text()[1]",
+          "type": "text",
+          "description": "標案案號"
+        },
+        "tender_name": {
+          "xpath": "./td[3]//a/text()",
+          "type": "text",
+          "description": "標案名稱"
+        },
+        "tender_way": {
+          "xpath": "./td[4]/text()",
+          "type": "text",
+          "description": "招標方式"
+        },
+        "procurement_category": {
+          "xpath": "./td[5]/text()",
+          "type": "text",
+          "description": "標的分類"
+        },
+        "announcement_date": {
+          "xpath": "./td[6]/text()",
+          "type": "text",
+          "description": "公告日期"
+        },
+        "award_amount": {
+          "xpath": "./td[7]//span/text()",
+          "type": "text",
+          "description": "決標金額"
+        },
+        "award_announcement": {
+          "xpath": "./td[8]//a/text()",
+          "type": "text",
+          "description": "決標公告編號"
+        },
+        "detail_pk": {
+          "xpath": "./td[3]//a/@href",
+          "type": "attribute",
+          "regex": "pk=([A-Za-z0-9=]+)",
+          "description": "詳情連結參數"
+        }
+      }
+    },
+    "detail_page": {
+      "url_pattern": "https://web.pcc.gov.tw/tps/atm/AtmAwardWithoutSso/QueryAtmAwardDetail?pkAtmMain={pk}",
+      "container_xpath": "//div[@id='printRange']",
+      "expand_sections": [
+        {
+          "name": "tender_history",
+          "button_selector": "//div[@id='tender']",
+          "target_selector": "//tr[@id='rowTpamHistory']",
+          "wait_time": 1,
+          "description": "展開招標公告作業歷程"
+        },
+        {
+          "name": "award_history",
+          "button_selector": "//div[@id='award']",
+          "target_selector": "//tr[@id='rowAtmHistory']",
+          "wait_time": 1,
+          "description": "展開決標公告作業歷程"
+        },
+        {
+          "name": "non_award_history",
+          "button_selector": "//div[@id='nonAward']",
+          "target_selector": "//tr[@id='rowAtmNonHistory']",
+          "wait_time": 1,
+          "description": "展開無法決標公告作業歷程"
+        }
+      ],
+      "fields": {
+        "organization_id": {
+          "xpath": "//td[contains(text(), '機關代碼')]/following-sibling::td[1]//text()[normalize-space()]",
+          "type": "text",
+          "description": "機關代碼"
+        },
+        "organization_name": {
+          "xpath": "//td[contains(text(), '機關名稱')]/following-sibling::td[1]//text()[normalize-space()]",
+          "type": "text",
+          "description": "機關名稱"
+        },
+        "organization_unit": {
+          "xpath": "//td[contains(text(), '單位名稱')]/following-sibling::td[1]//text()[normalize-space()]",
+          "type": "text",
+          "description": "單位名稱"
+        },
+        "organization_address": {
+          "xpath": "//td[contains(text(), '機關地址')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "description": "機關地址"
+        },
+        "contact_person": {
+          "xpath": "//td[contains(text(), '聯絡人')]/following-sibling::td[1]//span[@id='contactPerson']/text()",
+          "type": "text",
+          "description": "聯絡人"
+        },
+        "contact_phone": {
+          "xpath": "//td[contains(text(), '聯絡電話')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "description": "聯絡電話"
+        },
+        "tender_case_id": {
+          "xpath": "//td[contains(text(), '標案案號')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "description": "標案案號"
+        },
+        "tender_method": {
+          "xpath": "//td[contains(text(), '招標方式')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "description": "招標方式"
+        },
+        "award_method": {
+          "xpath": "//td[contains(text(), '決標方式')]/following-sibling::td[1]//div[@id='spnLaw2211OriAwardWay']/text()",
+          "type": "text",
+          "description": "決標方式"
+        },
+        "tender_case_name": {
+          "xpath": "//td[contains(text(), '標案名稱')]/following-sibling::td[1]//div[@class='tbc1L']/span/text()",
+          "type": "text",
+          "description": "標案名稱"
+        },
+        "is_multiple_award": {
+          "xpath": "//td[contains(text(), '是否複數決標')]/following-sibling::td[1]//div[@class='tbc1L']/text()[1]",
+          "type": "text",
+          "description": "是否複數決標"
+        },
+        "subject_category": {
+          "xpath": "//td[contains(text(), '標的分類')]/following-sibling::td[1]//div[@class='tbc1L']/text()[normalize-space()]",
+          "type": "text",
+          "description": "標的分類"
+        },
+        "is_joint_procurement": {
+          "xpath": "//td[contains(text(), '是否共同投標')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "description": "是否共同投標"
+        },
+        "budget_amount": {
+          "xpath": "//td[contains(text(), '預算金額')]/following-sibling::td[1]//div[@class='tbc1L']/text()[2]",
+          "type": "text",
+          "description": "預算金額"
+        },
+        "performance_location": {
+          "xpath": "//td[contains(text(), '履約地點')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "description": "履約地點"
+        },
+        "bidder_count": {
+          "xpath": "//td[contains(text(), '投標廠商家數')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "description": "投標廠商家數"
+        },
+        "winning_vendors": {
+          "xpath": "//td[contains(text(), '　廠商名稱')]/following-sibling::td[1]//div[@class='tbc1L']/span/text()",
+          "type": "text",
+          "multiple": true,
+          "description": "得標廠商名稱"
+        },
+        "winning_vendor_ids": {
+          "xpath": "//td[contains(text(), '　廠商代碼')]/following-sibling::td[1]//div[@class='tbc1L']/text()[normalize-space()]",
+          "type": "text",
+          "multiple": true,
+          "description": "得標廠商統一編號"
+        },
+        "is_winning": {
+          "xpath": "//td[contains(text(), '　是否得標')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "multiple": true,
+          "description": "是否得標"
+        },
+        "award_amounts": {
+          "xpath": "//td[contains(text(), '　決標金額')]/following-sibling::td[1]//div[@class='tbc1L']/text()[2]",
+          "type": "text",
+          "multiple": true,
+          "description": "決標金額"
+        },
+        "vendor_country": {
+          "xpath": "//td[contains(text(), '　得標廠商國別')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "multiple": true,
+          "description": "得標廠商國別"
+        },
+        "is_sme": {
+          "xpath": "//td[contains(text(), '　是否為中小企業')]/following-sibling::td[1]//div[@class='tbc1L']/text()[normalize-space()]",
+          "type": "text",
+          "multiple": true,
+          "description": "是否為中小企業"
+        },
+        "execution_period": {
+          "xpath": "//td[contains(text(), '　履約起迄日期')]/following-sibling::td[1]//div[@class='tbc1L']/text()[normalize-space()]",
+          "type": "text",
+          "multiple": true,
+          "description": "履約起迄日期"
+        },
+        "awarded_items": {
+          "xpath": "//td[contains(text(), '　品項名稱')]/following-sibling::td[1]//div[@class='tbc1L']/span/text()",
+          "type": "text",
+          "multiple": true,
+          "description": "決標品項名稱"
+        },
+        "award_sequence": {
+          "xpath": "//td[contains(text(), '決標公告序號')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "description": "決標公告序號"
+        },
+        "award_date": {
+          "xpath": "//td[contains(text(), '決標日期')]/following-sibling::td[1]//div[@class='tbc1L']/text()[normalize-space()]",
+          "type": "text",
+          "description": "決標日期"
+        },
+        "award_announcement_date": {
+          "xpath": "//td[contains(text(), '決標公告日期')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "description": "決標公告日期"
+        },
+        "contract_number": {
+          "xpath": "//td[contains(text(), '契約編號')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "description": "契約編號"
+        },
+        "is_published_in_bulletin": {
+          "xpath": "//td[contains(text(), '是否刊登公報')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "description": "是否刊登公報"
+        },
+        "base_price": {
+          "xpath": "//td[contains(text(), '底價金額')]/following-sibling::td[1]//div[@class='tbc1L']/text()[2]",
+          "type": "text",
+          "description": "底價金額"
+        },
+        "total_award_amount": {
+          "xpath": "//td[contains(text(), '總決標金額')]/following-sibling::td[1]//div[@class='tbc1L']/text()[2]",
+          "type": "text",
+          "description": "總決標金額"
+        },
+        "has_price_adjustment": {
+          "xpath": "//td[contains(text(), '契約是否訂有依物價指數調整價金規定')]/following-sibling::td[1]//div[@id='isCommodityPriceRule']/text()",
+          "type": "text",
+          "description": "契約是否訂有依物價指數調整價金規定"
+        },
+        "executing_agency": {
+          "xpath": "//td[contains(text(), '履約執行機關')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "description": "履約執行機關"
+        },
+        "additional_notes": {
+          "xpath": "//td[contains(text(), '附加說明')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+          "type": "text",
+          "description": "附加說明"
+        },
+        "announcement_date": {
+          "xpath": "//div[@id='awardNoticeDateDiv']//p/text()",
+          "type": "text",
+          "regex": "公告日:\\s*(.+)$",
+          "description": "公告日期"
+        },
+        "tender_history": {
+          "xpath": "//tr[@id='rowTpamHistory']//tr",
+          "type": "elements",
+          "multiple": true,
+          "fields": {
+            "history_type": {
+              "xpath": "./td[2]/text()",
+              "type": "text",
+              "description": "招標公告類型"
+            },
+            "history_seq": {
+              "xpath": "./td[3]/text()",
+              "type": "text",
+              "description": "公告傳輸次數"
+            },
+            "history_date": {
+              "xpath": "./td[5]/text()",
+              "type": "text",
+              "description": "公告日期"
+            },
+            "history_pk": {
+              "xpath": "./td[6]//a/@onclick",
+              "type": "attribute",
+              "regex": "'([^']+)'\\)",
+              "description": "公告參數"
+            }
+          },
+          "description": "招標公告作業歷程"
+        },
+        "award_history": {
+          "xpath": "//tr[@id='rowAtmHistory']//tr",
+          "type": "elements",
+          "multiple": true,
+          "fields": {
+            "history_type": {
+              "xpath": "./td[2]/text()",
+              "type": "text",
+              "description": "決標公告類型"
+            },
+            "history_seq": {
+              "xpath": "./td[3]/text()",
+              "type": "text",
+              "description": "公告傳輸次數"
+            },
+            "history_date": {
+              "xpath": "./td[5]/text()",
+              "type": "text",
+              "description": "公告日期"
+            },
+            "history_pk": {
+              "xpath": "./td[6]//a/@onclick",
+              "type": "attribute",
+              "regex": "'([^']+)'\\)",
+              "description": "公告參數"
+            }
+          },
+          "description": "決標公告作業歷程"
+        }
+      }
+    },
+    "pagination": {
+      "items_per_page": 10,
+      "total_count_xpath": "//span[@id='pagebanner']/span[@class='red']/text()",
+      "next_button_xpath": "//span[@id='pagelinks']/a[1]",
+      "has_next_page_check": "boolean(//span[@id='pagelinks']/a[1])",
+      "url_pattern": "{base_url}/prkms/tender/common/bulletion/readBulletion?sortCol=AWARD_NOTICE_DATE&d-3611040-p={page_number}&pageSize=10&tenderStatusType=%E6%B1%BA%E6%A8%99&querySentence={tender_name}&timeRange=113",
+      "max_pages": 5
+    },
+    "advanced_settings": {
+      "save_error_page": true,
+      "error_page_dir": "../debug",
+      "max_results_per_page": 50,
+      "text_cleaning": {
+        "remove_extra_whitespace": true,
+        "trim_strings": true
+      },
+      "url_format": {
+        "pattern": "{search_url}?pageSize=50&firstSearch=false&isBinding=N&isLogIn=N&tenderName={tender_name}&tenderStatus={tender_status}&tenderWay={tender_way}&awardAnnounceStartDate={award_announce_start_date}&awardAnnounceEndDate={award_announce_end_date}&radProctrgCate={procurement_category}&tenderRange=TENDER_RANGE_ALL",
+        "encode_parameters": true,
+        "parameter_mapping": {
+          "tender_name": "tenderName",
+          "tender_status": "tenderStatus",
+          "tender_way": "tenderWay",
+          "award_announce_start_date": "awardAnnounceStartDate",
+          "award_announce_end_date": "awardAnnounceEndDate",
+          "procurement_category": "radProctrgCate"
+        },
+        "value_mapping": {
+          "procurement_category": {
+            "勞務類": "RAD_PROCTRG_CATE_3",
+            "財物類": "RAD_PROCTRG_CATE_2",
+            "工程類": "RAD_PROCTRG_CATE_1",
+            "不限": ""
+          },
+          "tender_status": {
+            "決標公告": "TENDER_STATUS_1",
+            "無法決標": "TENDER_STATUS_2",
+            "撤銷公告": "TENDER_STATUS_3"
+          },
+          "tender_way": {
+            "各式招標公告": "TENDER_WAY_ALL_DECLARATION",
+            "公開招標": "TENDER_WAY_1",
+            "公開取得電子報價單": "TENDER_WAY_12",
+            "限制性招標(未經公開評選或公開徵求)": "TENDER_WAY_6"
+          }
+        }
+      }
+    }
+  }
