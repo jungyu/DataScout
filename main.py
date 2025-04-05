@@ -14,7 +14,7 @@ import logging
 
 # 核心模組
 from src.core.crawler_engine import CrawlerEngine
-from src.core.template_crawler import TemplateCrawler
+from src.core._template_crawler import TemplateCrawler
 from src.utils.logger import LoggerManager
 from src.utils.config_loader import ConfigLoader
 from src.captcha.captcha_manager import CaptchaManager

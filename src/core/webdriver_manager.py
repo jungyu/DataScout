@@ -1,12 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+WebDriverManager 模組
+實作瀏覽器實例管理和設定
+"""
+
 import os
 import json
+import time
 import random
 import logging
-import platform
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Tuple
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options as ChromeOptions
@@ -15,40 +20,37 @@ from selenium.webdriver.edge.options import Options as EdgeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
 from selenium.webdriver.edge.service import Service as EdgeService
-from selenium.common.exceptions import WebDriverException
-
-from ..utils.logger import setup_logger
-from ..utils.error_handler import retry_on_exception, handle_exception
-
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import WebDriverException, TimeoutException
+from selenium.webdriver.common.by import By
 
 class WebDriverManager:
     """
-    WebDriver管理器，負責創建、配置和管理WebDriver實例。
-    支持Chrome、Firefox和Edge瀏覽器，並提供多種配置選項，包括用戶代理、代理伺服器、禁用特徵等。
+    WebDriver管理器，負責創建、配置和管理WebDriver實例
     """
     
-    def __init__(self, config: Dict = None, log_level: int = logging.INFO):
+    def __init__(self, config: Dict[str, Any], logger=None):
         """
         初始化WebDriver管理器
         
         Args:
             config: WebDriver配置
-            log_level: 日誌級別
+            logger: 日誌記錄器，如果為None則創建新的
         """
-        self.logger = setup_logger(__name__, log_level)
-        self.logger.info("初始化WebDriver管理器")
-        
-        self.config = config or {}
+        self.logger = logger or logging.getLogger(__name__)
+        self.config = config
         self.driver = None
         
-        # 默認配置
+        # 瀏覽器設定
         self.browser_type = self.config.get("browser_type", "chrome")
         self.user_agent = self.config.get("user_agent", None)
         self.proxy = self.config.get("proxy", None)
         self.headless = self.config.get("headless", False)
-        self.disable_images = self.config.get("disable_images", True)
+        self.disable_images = self.config.get("disable_images", False)
         self.disable_javascript = self.config.get("disable_javascript", False)
         self.disable_cookies = self.config.get("disable_cookies", False)
+        self.window_size = self.config.get("window_size", {"width": 1920, "height": 1080})
         self.user_data_dir = self.config.get("user_data_dir", None)
         self.extensions = self.config.get("extensions", [])
         self.arguments = self.config.get("arguments", [])
@@ -56,15 +58,12 @@ class WebDriverManager:
         self.driver_path = self.config.get("driver_path", None)
         self.binary_path = self.config.get("binary_path", None)
         
+        # 防檢測設定
+        self.enable_stealth = self.config.get("enable_stealth", True)
+        self.randomize_user_agent = self.config.get("randomize_user_agent", False)
+        
         # 用戶代理列表
         self.user_agents = self.config.get("user_agents", self._get_default_user_agents())
-        
-        # 代理列表
-        self.proxies = self.config.get("proxies", [])
-        
-        # 隨機化設置
-        self.randomize_user_agent = self.config.get("randomize_user_agent", True)
-        self.randomize_proxy = self.config.get("randomize_proxy", False)
     
     def _get_default_user_agents(self) -> List[str]:
         """獲取默認的用戶代理列表"""
@@ -87,12 +86,6 @@ class WebDriverManager:
             return random.choice(self.user_agents)
         return None
     
-    def _get_random_proxy(self) -> Dict:
-        """獲取隨機代理"""
-        if self.proxies:
-            return random.choice(self.proxies)
-        return None
-    
     def _configure_chrome_options(self) -> ChromeOptions:
         """配置Chrome選項"""
         options = ChromeOptions()
@@ -105,26 +98,15 @@ class WebDriverManager:
             options.add_argument(f"--user-agent={user_agent}")
         
         # 設置代理
-        proxy = self.proxy
-        if self.randomize_proxy:
-            proxy = self._get_random_proxy()
-        if proxy:
-            if isinstance(proxy, str):
-                options.add_argument(f"--proxy-server={proxy}")
-            elif isinstance(proxy, dict):
-                proxy_type = proxy.get("type", "http")
-                proxy_host = proxy.get("host", "")
-                proxy_port = proxy.get("port", "")
-                proxy_auth = proxy.get("auth", None)
-                
+        if self.proxy:
+            if isinstance(self.proxy, str):
+                options.add_argument(f"--proxy-server={self.proxy}")
+            elif isinstance(self.proxy, dict):
+                proxy_type = self.proxy.get("type", "http")
+                proxy_host = self.proxy.get("host", "")
+                proxy_port = self.proxy.get("port", "")
                 proxy_url = f"{proxy_type}://{proxy_host}:{proxy_port}"
                 options.add_argument(f"--proxy-server={proxy_url}")
-                
-                if proxy_auth:
-                    options.add_extension(self._create_proxy_auth_extension(
-                        proxy_auth.get("username", ""),
-                        proxy_auth.get("password", "")
-                    ))
         
         # 設置無頭模式
         if self.headless:
@@ -145,6 +127,11 @@ class WebDriverManager:
         if self.disable_cookies:
             options.add_argument("--disable-cookies")
         
+        # 設置窗口大小
+        width = self.window_size.get("width", 1920)
+        height = self.window_size.get("height", 1080)
+        options.add_argument(f"--window-size={width},{height}")
+        
         # 設置用戶數據目錄
         if self.user_data_dir:
             options.add_argument(f"--user-data-dir={self.user_data_dir}")
@@ -161,9 +148,10 @@ class WebDriverManager:
         for key, value in self.experimental_options.items():
             options.add_experimental_option(key, value)
         
-        # 添加防止WebDriver檢測的選項
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option("useAutomationExtension", False)
+        # 防檢測設定
+        if self.enable_stealth:
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            options.add_experimental_option("useAutomationExtension", False)
         
         return options
     
@@ -179,12 +167,9 @@ class WebDriverManager:
             options.set_preference("general.useragent.override", user_agent)
         
         # 設置代理
-        proxy = self.proxy
-        if self.randomize_proxy:
-            proxy = self._get_random_proxy()
-        if proxy:
-            if isinstance(proxy, str):
-                proxy_parts = proxy.split(":")
+        if self.proxy:
+            if isinstance(self.proxy, str):
+                proxy_parts = self.proxy.split(":")
                 if len(proxy_parts) >= 2:
                     host = proxy_parts[0]
                     port = int(proxy_parts[1])
@@ -193,10 +178,10 @@ class WebDriverManager:
                     options.set_preference("network.proxy.http_port", port)
                     options.set_preference("network.proxy.ssl", host)
                     options.set_preference("network.proxy.ssl_port", port)
-            elif isinstance(proxy, dict):
-                proxy_type = proxy.get("type", "http")
-                proxy_host = proxy.get("host", "")
-                proxy_port = proxy.get("port", 0)
+            elif isinstance(self.proxy, dict):
+                proxy_type = self.proxy.get("type", "http")
+                proxy_host = self.proxy.get("host", "")
+                proxy_port = self.proxy.get("port", 0)
                 
                 options.set_preference("network.proxy.type", 1)
                 if proxy_type == "http":
@@ -225,6 +210,13 @@ class WebDriverManager:
         if self.disable_cookies:
             options.set_preference("network.cookie.cookieBehavior", 2)
         
+        # 設置窗口大小
+        if self.window_size:
+            width = self.window_size.get("width", 1920)
+            height = self.window_size.get("height", 1080)
+            options.add_argument(f"--width={width}")
+            options.add_argument(f"--height={height}")
+        
         # 設置二進制路徑
         if self.binary_path:
             options.binary_location = self.binary_path
@@ -233,9 +225,10 @@ class WebDriverManager:
         for arg in self.arguments:
             options.add_argument(arg)
         
-        # 防止WebDriver指紋識別
-        options.set_preference("dom.webdriver.enabled", False)
-        options.set_preference("useAutomationExtension", False)
+        # 防檢測設定
+        if self.enable_stealth:
+            options.set_preference("dom.webdriver.enabled", False)
+            options.set_preference("useAutomationExtension", False)
         
         return options
     
@@ -251,17 +244,13 @@ class WebDriverManager:
             options.add_argument(f"--user-agent={user_agent}")
         
         # 設置代理
-        proxy = self.proxy
-        if self.randomize_proxy:
-            proxy = self._get_random_proxy()
-        if proxy:
-            if isinstance(proxy, str):
-                options.add_argument(f"--proxy-server={proxy}")
-            elif isinstance(proxy, dict):
-                proxy_type = proxy.get("type", "http")
-                proxy_host = proxy.get("host", "")
-                proxy_port = proxy.get("port", "")
-                
+        if self.proxy:
+            if isinstance(self.proxy, str):
+                options.add_argument(f"--proxy-server={self.proxy}")
+            elif isinstance(self.proxy, dict):
+                proxy_type = self.proxy.get("type", "http")
+                proxy_host = self.proxy.get("host", "")
+                proxy_port = self.proxy.get("port", "")
                 proxy_url = f"{proxy_type}://{proxy_host}:{proxy_port}"
                 options.add_argument(f"--proxy-server={proxy_url}")
         
@@ -272,6 +261,11 @@ class WebDriverManager:
         # 禁用圖片
         if self.disable_images:
             options.add_argument("--blink-settings=imagesEnabled=false")
+        
+        # 設置窗口大小
+        width = self.window_size.get("width", 1920)
+        height = self.window_size.get("height", 1080)
+        options.add_argument(f"--window-size={width},{height}")
         
         # 設置用戶數據目錄
         if self.user_data_dir:
@@ -285,79 +279,13 @@ class WebDriverManager:
         for key, value in self.experimental_options.items():
             options.add_experimental_option(key, value)
         
-        # 添加防止WebDriver檢測的選項
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option("useAutomationExtension", False)
+        # 防檢測設定
+        if self.enable_stealth:
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            options.add_experimental_option("useAutomationExtension", False)
         
         return options
     
-    def _create_proxy_auth_extension(self, username: str, password: str, path: str = None) -> str:
-        """創建代理認證擴展"""
-        manifest_json = """
-        {
-            "version": "1.0.0",
-            "manifest_version": 2,
-            "name": "Chrome Proxy",
-            "permissions": [
-                "proxy",
-                "tabs",
-                "unlimitedStorage",
-                "storage",
-                "webRequest",
-                "webRequestBlocking"
-            ],
-            "background": {
-                "scripts": ["background.js"]
-            },
-            "minimum_chrome_version":"22.0.0"
-        }
-        """
-        
-        background_js = """
-        var config = {
-                mode: "fixed_servers",
-                rules: {
-                singleProxy: {
-                    scheme: "http",
-                    host: "%s",
-                    port: parseInt(%s)
-                },
-                bypassList: ["localhost"]
-                }
-            };
-
-        chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
-
-        function callbackFn(details) {
-            return {
-                authCredentials: {
-                    username: "%s",
-                    password: "%s"
-                }
-            };
-        }
-
-        chrome.webRequest.onAuthRequired.addListener(
-                    callbackFn,
-                    {urls: ["<all_urls>"]},
-                    ['blocking']
-        );
-        """ % (self.proxy_host, self.proxy_port, username, password)
-        
-        if not path:
-            path = os.path.join(os.getcwd(), "proxy_auth_extension")
-        
-        os.makedirs(path, exist_ok=True)
-        
-        with open(os.path.join(path, "manifest.json"), "w") as f:
-            f.write(manifest_json)
-        
-        with open(os.path.join(path, "background.js"), "w") as f:
-            f.write(background_js)
-        
-        return path
-    
-    @retry_on_exception(retries=3, delay=2)
     def create_driver(self) -> Union[webdriver.Chrome, webdriver.Firefox, webdriver.Edge]:
         """創建並配置WebDriver實例"""
         try:
@@ -392,22 +320,29 @@ class WebDriverManager:
             
             # 設置窗口大小
             if not self.headless:
-                self.driver.maximize_window()
-            else:
-                self.driver.set_window_size(1920, 1080)
+                if self.config.get("maximize_window", True):
+                    self.driver.maximize_window()
+                else:
+                    width = self.window_size.get("width", 1920)
+                    height = self.window_size.get("height", 1080)
+                    self.driver.set_window_size(width, height)
             
-            # 設置頁面加載超時
-            self.driver.set_page_load_timeout(self.config.get("page_load_timeout", 30))
+            # 設置超時
+            page_load_timeout = self.config.get("page_load_timeout", 30)
+            script_timeout = self.config.get("script_timeout", 30)
+            implicit_wait = self.config.get("implicit_wait", 10)
             
-            # 設置腳本超時
-            self.driver.set_script_timeout(self.config.get("script_timeout", 30))
+            self.driver.set_page_load_timeout(page_load_timeout)
+            self.driver.set_script_timeout(script_timeout)
+            self.driver.implicitly_wait(implicit_wait)
             
             # 執行隱藏 WebDriver 的 JavaScript
-            self._hide_webdriver()
+            if self.enable_stealth:
+                self._apply_stealth_techniques()
             
             self.logger.info(f"{self.browser_type} WebDriver 創建成功")
             return self.driver
-        
+            
         except Exception as e:
             self.logger.error(f"創建 {self.browser_type} WebDriver 失敗: {str(e)}")
             if self.driver:
@@ -415,47 +350,60 @@ class WebDriverManager:
                 self.driver = None
             raise
     
-    def _hide_webdriver(self):
-        """執行隱藏 WebDriver 的 JavaScript"""
+    def _apply_stealth_techniques(self):
+        """應用隱身技術，防止瀏覽器自動化檢測"""
         if not self.driver:
             return
         
         try:
             # 通用的 WebDriver 隱藏腳本
-            script = """
+            stealth_script = """
             // 覆蓋 WebDriver 屬性
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => false,
             });
             
-            // 移除 'cdc_' 屬性
-            for (const key of Object.keys(navigator)) {
-                if (key.includes('cdc_')) {
-                    delete navigator[key];
+            // 移除 Automation 標記
+            const originalHasAttribute = Element.prototype.hasAttribute;
+            Element.prototype.hasAttribute = function(name) {
+                if (name === 'webdriver') {
+                    return false;
                 }
-            }
+                return originalHasAttribute.apply(this, arguments);
+            };
             
-            // 修改 User-Agent
-            if (navigator.userAgent.includes('HeadlessChrome')) {
-                Object.defineProperty(navigator, 'userAgent', {
-                    get: () => navigator.userAgent.replace('HeadlessChrome', 'Chrome'),
-                });
-            }
-            
-            // 模擬 Chrome 的插件
+            // 添加 Chrome 特有對象
             if (!window.chrome) {
                 window.chrome = {};
             }
+            
+            // 添加 Plugins API
             if (!window.chrome.runtime) {
                 window.chrome.runtime = {};
+                window.chrome.runtime.sendMessage = function() {};
+            }
+            
+            // 模擬Chrome插件
+            if (!window.chrome.webstore) {
+                window.chrome.webstore = {};
+            }
+            
+            // 覆蓋 permissions API
+            if (navigator.permissions) {
+                const originalQuery = navigator.permissions.query;
+                navigator.permissions.query = function(parameters) {
+                    if (parameters.name === 'notifications') {
+                        return Promise.resolve({state: Notification.permission, onchange: null});
+                    }
+                    return originalQuery.apply(navigator.permissions, arguments);
+                };
             }
             """
             
-            self.driver.execute_script(script)
-            self.logger.debug("WebDriver 隱藏腳本執行成功")
-        
+            self.driver.execute_script(stealth_script)
+            self.logger.debug("已應用防檢測腳本")
         except Exception as e:
-            self.logger.warning(f"執行 WebDriver 隱藏腳本失敗: {str(e)}")
+            self.logger.warning(f"應用防檢測腳本失敗: {str(e)}")
     
     def close_driver(self):
         """安全關閉 WebDriver"""
@@ -467,153 +415,363 @@ class WebDriverManager:
             except Exception as e:
                 self.logger.error(f"關閉 WebDriver 失敗: {str(e)}")
     
-    def refresh_page(self):
-        """刷新當前頁面"""
-        if self.driver:
-            try:
-                self.logger.info("刷新頁面")
-                self.driver.refresh()
-                return True
-            except Exception as e:
-                self.logger.error(f"刷新頁面失敗: {str(e)}")
-                return False
-        return False
-    
-    def delete_all_cookies(self):
-        """刪除所有Cookie"""
-        if self.driver:
-            try:
-                self.logger.info("刪除所有Cookie")
-                self.driver.delete_all_cookies()
-                return True
-            except Exception as e:
-                self.logger.error(f"刪除所有Cookie失敗: {str(e)}")
-                return False
-        return False
-    
-    def save_cookies(self, cookie_path: str):
-        """保存Cookie到文件"""
+    def save_cookies(self, filepath: str = None):
+        """保存 cookies 到文件"""
         if not self.driver:
-            self.logger.warning("WebDriver未初始化，無法保存Cookie")
+            self.logger.warning("WebDriver未初始化，無法保存cookies")
             return False
         
         try:
-            self.logger.info(f"保存Cookie到: {cookie_path}")
-            cookies = self.driver.get_cookies()
+            if not filepath:
+                # 設置默認路徑
+                cookies_dir = self.config.get("cookies_dir", "cookies")
+                os.makedirs(cookies_dir, exist_ok=True)
+                filepath = os.path.join(cookies_dir, f"{self.browser_type}_cookies.json")
             
             # 確保目錄存在
-            os.makedirs(os.path.dirname(cookie_path), exist_ok=True)
+            os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
             
-            with open(cookie_path, 'w', encoding='utf-8') as f:
-                json.dump(cookies, f)
+            cookies = self.driver.get_cookies()
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(cookies, f, indent=2)
             
-            self.logger.info(f"成功保存 {len(cookies)} 個Cookie")
+            self.logger.info(f"已保存 {len(cookies)} 個cookies到 {filepath}")
             return True
         except Exception as e:
-            self.logger.error(f"保存Cookie失敗: {str(e)}")
+            self.logger.error(f"保存cookies失敗: {str(e)}")
             return False
     
-    def load_cookies(self, cookie_path: str):
-        """從文件加載Cookie"""
+    def load_cookies(self, filepath: str = None):
+        """從文件加載 cookies"""
         if not self.driver:
-            self.logger.warning("WebDriver未初始化，無法加載Cookie")
+            self.logger.warning("WebDriver未初始化，無法加載cookies")
             return False
         
         try:
-            self.logger.info(f"從 {cookie_path} 加載Cookie")
+            if not filepath:
+                # 設置默認路徑
+                cookies_dir = self.config.get("cookies_dir", "cookies")
+                filepath = os.path.join(cookies_dir, f"{self.browser_type}_cookies.json")
             
-            if not os.path.exists(cookie_path):
-                self.logger.warning(f"Cookie文件不存在: {cookie_path}")
+            if not os.path.exists(filepath):
+                self.logger.warning(f"Cookies文件不存在: {filepath}")
                 return False
             
-            with open(cookie_path, 'r', encoding='utf-8') as f:
+            with open(filepath, 'r', encoding='utf-8') as f:
                 cookies = json.load(f)
             
-            # 先刪除所有現有Cookie
+            # 加載前先清除現有cookies
             self.driver.delete_all_cookies()
             
-            # 添加讀取的Cookie
             for cookie in cookies:
-                # Selenium有時對Domain和Secure有特殊要求
-                if 'expiry' in cookie:
-                    cookie['expiry'] = int(cookie['expiry'])
-                
-                # 某些Cookie可能有額外的不允許的屬性
-                for key in list(cookie.keys()):
-                    if key not in ['name', 'value', 'domain', 'path', 'expiry', 'secure', 'httpOnly']:
-                        del cookie[key]
-                
                 try:
+                    # 修正 expiry 類型
+                    if 'expiry' in cookie:
+                        cookie['expiry'] = int(cookie['expiry'])
+                    
+                    # 移除非標準屬性
+                    for key in list(cookie.keys()):
+                        if key not in ['name', 'value', 'domain', 'path', 'expiry', 'secure', 'httpOnly']:
+                            del cookie[key]
+                    
+                    # 添加cookie
                     self.driver.add_cookie(cookie)
                 except Exception as e:
-                    self.logger.warning(f"添加Cookie失敗: {str(e)}，跳過該Cookie")
+                    self.logger.warning(f"添加cookie {cookie.get('name')} 失敗: {str(e)}")
             
-            self.logger.info(f"成功加載 {len(cookies)} 個Cookie")
+            self.logger.info(f"已加載 {len(cookies)} 個cookies")
             return True
         except Exception as e:
-            self.logger.error(f"加載Cookie失敗: {str(e)}")
+            self.logger.error(f"加載cookies失敗: {str(e)}")
             return False
     
-    def change_user_agent(self, user_agent: str = None):
-        """更改用戶代理"""
+    def wait_for_element(self, by: By, value: str, timeout: int = 10) -> Optional[Any]:
+        """
+        等待元素出現
+        
+        Args:
+            by: 定位方式，如 By.XPATH, By.ID 等
+            value: 定位值
+            timeout: 超時時間（秒）
+            
+        Returns:
+            元素物件，如果超時則返回None
+        """
         if not self.driver:
-            self.logger.warning("WebDriver未初始化，無法更改用戶代理")
-            return False
+            self.logger.warning("WebDriver未初始化，無法等待元素")
+            return None
         
         try:
-            if user_agent is None and self.randomize_user_agent:
-                user_agent = self._get_random_user_agent()
-            
-            if not user_agent:
-                self.logger.warning("未提供用戶代理且沒有可用的隨機用戶代理")
-                return False
-            
-            self.logger.info(f"更改用戶代理為: {user_agent}")
-            
-            # 使用JavaScript更改用戶代理
-            script = f"""
-            Object.defineProperty(navigator, 'userAgent', {{
-                get: function() {{ return '{user_agent}'; }}
-            }});
-            """
-            
-            self.driver.execute_script(script)
-            return True
+            wait = WebDriverWait(self.driver, timeout)
+            element = wait.until(EC.presence_of_element_located((by, value)))
+            return element
+        except TimeoutException:
+            self.logger.warning(f"等待元素超時: {by}={value}")
+            return None
         except Exception as e:
-            self.logger.error(f"更改用戶代理失敗: {str(e)}")
-            return False
+            self.logger.error(f"等待元素出錯: {str(e)}")
+            return None
     
-    def change_proxy(self, proxy: Union[str, Dict] = None):
-        """更改代理設置"""
-        self.logger.warning("更改代理需要重新創建WebDriver，不支持運行時更改")
+    def wait_for_clickable(self, by: By, value: str, timeout: int = 10) -> Optional[Any]:
+        """
+        等待元素可點擊
+        
+        Args:
+            by: 定位方式，如 By.XPATH, By.ID 等
+            value: 定位值
+            timeout: 超時時間（秒）
+            
+        Returns:
+            元素物件，如果超時則返回None
+        """
+        if not self.driver:
+            self.logger.warning("WebDriver未初始化，無法等待元素")
+            return None
+        
+        try:
+            wait = WebDriverWait(self.driver, timeout)
+            element = wait.until(EC.element_to_be_clickable((by, value)))
+            return element
+        except TimeoutException:
+            self.logger.warning(f"等待元素可點擊超時: {by}={value}")
+            return None
+        except Exception as e:
+            self.logger.error(f"等待元素可點擊出錯: {str(e)}")
+            return None
+    
+    def safe_click(self, element, retries: int = 3) -> bool:
+        """
+        安全點擊元素，嘗試多種點擊方式
+        
+        Args:
+            element: 要點擊的元素
+            retries: 重試次數
+            
+        Returns:
+            是否點擊成功
+        """
+        if not self.driver:
+            self.logger.warning("WebDriver未初始化，無法點擊元素")
+            return False
+        
+        for i in range(retries):
+            try:
+                # 嘗試直接點擊
+                element.click()
+                return True
+            except Exception as e:
+                self.logger.warning(f"直接點擊失敗 (嘗試 {i+1}/{retries}): {str(e)}")
+                
+                try:
+                    # 嘗試滾動到元素
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+                    time.sleep(0.5)
+                    
+                    # 使用 JavaScript 點擊
+                    self.driver.execute_script("arguments[0].click();", element)
+                    return True
+                except Exception as js_e:
+                    self.logger.warning(f"JavaScript點擊失敗 (嘗試 {i+1}/{retries}): {str(js_e)}")
+                    
+                    if i == retries - 1:
+                        self.logger.error("所有點擊嘗試均失敗")
+                        return False
+                    
+                    # 短暫延遲後重試
+                    time.sleep(1)
+        
         return False
     
-    def execute_stealth_js(self, script_path: str = None):
-        """執行隱身JavaScript腳本"""
+    def random_delay(self, min_seconds: float = 1.0, max_seconds: float = 3.0) -> None:
+        """
+        隨機延遲一段時間
+        
+        Args:
+            min_seconds: 最小延遲時間（秒）
+            max_seconds: 最大延遲時間（秒）
+        """
+        delay = random.uniform(min_seconds, max_seconds)
+        time.sleep(delay)
+    
+    def scroll_page(self, direction: str = "down", amount: int = 500):
+        """
+        滾動頁面
+        
+        Args:
+            direction: 滾動方向，可選值: "up", "down", "top", "bottom"
+            amount: 滾動距離 (僅對於 up/down 有效)
+        """
         if not self.driver:
-            self.logger.warning("WebDriver未初始化，無法執行隱身腳本")
+            self.logger.warning("WebDriver未初始化，無法滾動頁面")
+            return
+        
+        try:
+            if direction == "down":
+                self.driver.execute_script(f"window.scrollBy(0, {amount});")
+            elif direction == "up":
+                self.driver.execute_script(f"window.scrollBy(0, -{amount});")
+            elif direction == "top":
+                self.driver.execute_script("window.scrollTo(0, 0);")
+            elif direction == "bottom":
+                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        except Exception as e:
+            self.logger.error(f"滾動頁面失敗: {str(e)}")
+    
+    def take_screenshot(self, filepath: str = None) -> Optional[str]:
+        """
+        截取螢幕截圖
+        
+        Args:
+            filepath: 檔案路徑，如果為None則使用時間戳自動生成
+            
+        Returns:
+            保存的檔案路徑，如果失敗則返回None
+        """
+        if not self.driver:
+            self.logger.warning("WebDriver未初始化，無法截圖")
+            return None
+        
+        try:
+            if not filepath:
+                screenshot_dir = self.config.get("screenshot_dir", "screenshots")
+                os.makedirs(screenshot_dir, exist_ok=True)
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                filepath = os.path.join(screenshot_dir, f"{timestamp}.png")
+            
+            # 確保目錄存在
+            os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
+            
+            self.driver.save_screenshot(filepath)
+            self.logger.info(f"截圖已保存: {filepath}")
+            return filepath
+        except Exception as e:
+            self.logger.error(f"截圖失敗: {str(e)}")
+            return None
+    
+    def navigate_to(self, url: str, timeout: int = 30) -> bool:
+        """
+        導航到指定 URL
+        
+        Args:
+            url: 目標 URL
+            timeout: 頁面加載超時時間（秒）
+            
+        Returns:
+            是否成功導航
+        """
+        if not self.driver:
+            self.logger.warning("WebDriver未初始化，無法導航")
             return False
         
         try:
-            # 默認腳本
-            if script_path is None:
-                script_path = os.path.join(
-                    os.path.dirname(os.path.dirname(__file__)),
-                    "anti_detection", "stealth_scripts", "browser_fp.js"
-                )
-            
-            if not os.path.exists(script_path):
-                self.logger.warning(f"隱身腳本不存在: {script_path}")
-                return False
-            
-            self.logger.info(f"執行隱身腳本: {script_path}")
-            
-            with open(script_path, 'r', encoding='utf-8') as f:
-                script = f.read()
-            
-            self.driver.execute_script(script)
-            self.logger.info("隱身腳本執行成功")
+            self.logger.info(f"導航到: {url}")
+            self.driver.set_page_load_timeout(timeout)
+            self.driver.get(url)
+            return True
+        except TimeoutException:
+            self.logger.error(f"頁面加載超時: {url}")
+            return False
+        except Exception as e:
+            self.logger.error(f"導航失敗: {str(e)}")
+            return False
+    
+    def refresh_page(self) -> bool:
+        """
+        刷新當前頁面
+        
+        Returns:
+            是否成功刷新
+        """
+        if not self.driver:
+            self.logger.warning("WebDriver未初始化，無法刷新頁面")
+            return False
+        
+        try:
+            self.logger.info("刷新頁面")
+            self.driver.refresh()
             return True
         except Exception as e:
-            self.logger.error(f"執行隱身腳本失敗: {str(e)}")
+            self.logger.error(f"刷新頁面失敗: {str(e)}")
+            return False
+    
+    def get_page_source(self) -> Optional[str]:
+        """
+        獲取頁面源碼
+        
+        Returns:
+            頁面源碼，如果失敗則返回None
+        """
+        if not self.driver:
+            self.logger.warning("WebDriver未初始化，無法獲取頁面源碼")
+            return None
+        
+        try:
+            return self.driver.page_source
+        except Exception as e:
+            self.logger.error(f"獲取頁面源碼失敗: {str(e)}")
+            return None
+    
+    def execute_script(self, script: str, *args) -> Any:
+        """
+        執行JavaScript腳本
+        
+        Args:
+            script: JavaScript腳本
+            *args: 腳本參數
+            
+        Returns:
+            腳本執行結果
+        """
+        if not self.driver:
+            self.logger.warning("WebDriver未初始化，無法執行腳本")
+            return None
+        
+        try:
+            return self.driver.execute_script(script, *args)
+        except Exception as e:
+            self.logger.error(f"執行腳本失敗: {str(e)}")
+            return None
+    
+    def detect_captcha(self, selectors: List[str] = None) -> bool:
+        """
+        檢測頁面上是否有驗證碼
+        
+        Args:
+            selectors: 驗證碼元素的選擇器列表
+            
+        Returns:
+            是否檢測到驗證碼
+        """
+        if not self.driver:
+            return False
+        
+        if not selectors:
+            # 默認驗證碼選擇器
+            selectors = [
+                "//iframe[contains(@src, 'recaptcha')]",
+                "//div[contains(@class, 'g-recaptcha')]",
+                "//div[contains(@class, 'captcha')]",
+                "//img[contains(@src, 'captcha')]",
+                "//input[contains(@id, 'captcha')]"
+            ]
+        
+        try:
+            for selector in selectors:
+                elements = self.driver.find_elements(By.XPATH, selector)
+                if elements and elements[0].is_displayed():
+                    self.logger.info(f"檢測到驗證碼: {selector}")
+                    return True
+            
+            # 檢查頁面文本
+            page_text = self.driver.find_element(By.TAG_NAME, "body").text.lower()
+            captcha_texts = ["captcha", "驗證碼", "安全驗證", "人機驗證", "機器人驗證"]
+            
+            for text in captcha_texts:
+                if text in page_text:
+                    self.logger.info(f"檢測到驗證碼文本: {text}")
+                    return True
+            
+            return False
+        except Exception as e:
+            self.logger.error(f"檢測驗證碼出錯: {str(e)}")
             return False

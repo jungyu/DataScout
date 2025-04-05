@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Union
 
 from selenium import webdriver
 
-from ..core.webdriver_manager import WebDriverManager
+from ..core._webdriver_manager import WebDriverManager
 from ..utils.logger import setup_logger
 from .browser_fingerprint import BrowserFingerprintModifier
 from .human_behavior import HumanBehaviorSimulator

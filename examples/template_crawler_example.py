@@ -12,7 +12,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.core.template_crawler import TemplateCrawler
+from src.core._template_crawler import TemplateCrawler
 from src.utils.logger import LoggerManager
 import logging
 

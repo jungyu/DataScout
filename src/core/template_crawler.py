@@ -1,591 +1,1205 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import json
+"""
+TemplateCrawler 模組
+實作基於模板的爬蟲核心邏輯
+"""
+
 import os
 import time
-import random
 import logging
-from typing import Dict, List, Optional, Any, Union
-from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
+import random
+import json
+from typing import Dict, List, Any, Optional, Union
 
-from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
-    NoSuchElementException, 
     TimeoutException, 
-    WebDriverException, 
-    StaleElementReferenceException,
-    ElementClickInterceptedException
+    NoSuchElementException, 
+    StaleElementReferenceException
 )
 
-from ..utils.config_loader import ConfigLoader
-from ..utils.logger import setup_logger
-from ..utils.error_handler import retry_on_exception, handle_exception
-from ..anti_detection.anti_detection_manager import AntiDetectionManager
-from ..captcha.captcha_manager import CaptchaManager
-from ..state.crawler_state_manager import CrawlerStateManager
-from ..persistence.data_persistence_manager import DataPersistenceManager
-from ..extractors.detail_page_extractor import DetailPageExtractor
+from .config_loader import ConfigLoader
+from .webdriver_manager import WebDriverManager
+
 
 class TemplateCrawler:
     """模板化爬蟲的核心類"""
     
-    def __init__(self, template_file: str, config_file: str = "config/config.json", 
-                 state_file: Optional[str] = None, log_level: int = logging.INFO):
+    def __init__(
+        self, 
+        template_file: str, 
+        config_file: Optional[str] = None,
+        logger=None
+    ):
         """
         初始化模板爬蟲
-        
+
         Args:
             template_file: 模板文件路徑
-            state_file: 狀態文件路徑，用於斷點續爬
-            log_level: 日誌級別
+            config_file: 配置文件路徑，如果不提供則使用默認配置
+            logger: 日誌記錄器，如果為None則創建新的
         """
-        self.logger = setup_logger(__name__, log_level)
-        self.logger.info(f"初始化模板爬蟲，模板: {template_file}, 配置: {config_file}")
+        self.logger = logger or logging.getLogger(__name__)
+        self.template_file = template_file
+        self.config_file = config_file
         
         # 載入模板和配置
-        self.template = self._load_json(template_file)
-        self.config = ConfigLoader.load_config(config_file)
+        self.config_loader = ConfigLoader(self.logger)
+        self.template = self._load_template()
+        self.config = self._load_config()
         
-        # 初始化模塊
-        self.anti_detection = AntiDetectionManager(self.config.get("anti_detection_config", {}))
-        self.captcha_manager = CaptchaManager(self.config.get("captcha_config", {}))
+        # 初始化WebDriver管理器
+        webdriver_config = self.config.get("webdriver_config", {})
+        self.webdriver_manager = WebDriverManager(webdriver_config, self.logger)
         
-        # 初始化狀態管理和數據持久化
-        state_config = self.config.get("state_config", {})
-        persistence_config = self.config.get("persistence_config", {})
-        
-        state_id = state_file or f"{os.path.basename(template_file).replace('.json', '')}_state"
-        self.state_manager = CrawlerStateManager(state_id, state_config)
-        self.data_manager = DataPersistenceManager(persistence_config)
-        
-        # WebDriver相關
+        # 爬蟲狀態
         self.driver = None
+        self.current_page = 1
+        self.items_collected = 0
+        self.running = False
+        self.stop_requested = False
+        
+        # 解析模板設定
+        self.site_name = self.template.get("site_name", "")
         self.base_url = self.template.get("base_url", "")
         self.encoding = self.template.get("encoding", "utf-8")
+        self.description = self.template.get("description", "")
+        self.version = self.template.get("version", "1.0.0")
         
-        # 爬取設置
-        self.delays = self.template.get("delays", {
-            "page_load": {"min": 2, "max": 5},
-            "between_pages": {"min": 3, "max": 7},
-            "between_items": {"min": 1, "max": 3}
-        })
+        # 延遲設定
+        self.delays = self._parse_delays()
         
-        self.request_params = self._prepare_request_params()
-        self.logger.info("模板爬蟲初始化完成")
-        self.crawler_executor = CrawlExecutor(self)
+        # 高級設定
+        self.advanced_settings = self.template.get("advanced_settings", {})
+        
+        self.logger.info(f"初始化模板爬蟲: {self.site_name}, 版本: {self.version}")
     
-    def _load_json(self, file_path: str) -> Dict:
-        """加載JSON文件"""
+    def _load_template(self) -> Dict[str, Any]:
+        """載入爬蟲模板文件"""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+            return self.config_loader.load_template(self.template_file)
         except Exception as e:
-            self.logger.error(f"加載JSON文件 {file_path} 失敗: {str(e)}")
-            raise
+            self.logger.error(f"載入模板文件失敗: {str(e)}")
+            return {}
     
-    def _prepare_request_params(self) -> Dict:
-        """準備請求參數"""
-        params = {}
+    def _load_config(self) -> Dict[str, Any]:
+        """載入配置文件"""
+        try:
+            # 如果提供了配置文件路徑
+            if self.config_file and os.path.exists(self.config_file):
+                return self.config_loader.load_config(self.config_file)
+            
+            # 否則使用默認配置
+            default_config = {
+                "webdriver_config": {
+                    "browser_type": "chrome",
+                    "headless": False,
+                    "disable_images": True,
+                    "enable_stealth": True
+                },
+                "output_config": {
+                    "output_dir": "output",
+                    "output_format": "json"
+                },
+                "request_config": {
+                    "retries": 3,
+                    "timeout": 30
+                }
+            }
+            
+            self.logger.info("使用默認配置")
+            return default_config
+        except Exception as e:
+            self.logger.error(f"載入配置文件失敗: {str(e)}")
+            return {}
+    
+    def _parse_delays(self) -> Dict[str, Dict[str, float]]:
+        """解析延遲設定，確保數值有效"""
+        delays = self.template.get("delays", {})
+        processed_delays = {}
         
-        # 獲取請求配置
-        request_config = self.template.get("request", {})
-        request_params = request_config.get("params", {})
-        
-        # 添加固定參數
-        params.update(request_params.get("fixed", {}))
-        
-        # 添加變量參數，使用默認值
-        for param_name, param_config in request_params.get("variable", {}).items():
-            default_value = param_config.get("default", "")
-            # 如果配置中有覆蓋，則使用配置中的值
-            if param_name in self.config.get("query_params", {}):
-                params[param_name] = self.config["query_params"][param_name]
+        # 解析每個延遲類型
+        for delay_type, delay_value in delays.items():
+            if isinstance(delay_value, (int, float)):
+                # 如果是數字，則使用固定延遲
+                processed_delays[delay_type] = {
+                    "min": float(delay_value),
+                    "max": float(delay_value)
+                }
+            elif isinstance(delay_value, dict):
+                # 如果是字典，則提取min和max值
+                min_val = float(delay_value.get("min", 0))
+                max_val = float(delay_value.get("max", min_val * 2))
+                
+                # 確保min不大於max
+                if min_val > max_val:
+                    min_val, max_val = max_val, min_val
+                
+                processed_delays[delay_type] = {
+                    "min": min_val,
+                    "max": max_val
+                }
             else:
-                params[param_name] = default_value
+                # 使用默認值
+                processed_delays[delay_type] = {
+                    "min": 1.0,
+                    "max": 3.0
+                }
         
-        return params
+        # 確保主要延遲類型存在
+        required_delays = ["page_load", "between_pages", "between_items"]
+        for delay_type in required_delays:
+            if delay_type not in processed_delays:
+                processed_delays[delay_type] = {
+                    "min": 1.0,
+                    "max": 3.0
+                }
+        
+        return processed_delays
     
-    def _build_url(self, page: int = 1) -> str:
-        """構建請求URL，包含分頁參數"""
-        url = self.base_url
+    def _random_delay(self, delay_type: str = "page_load") -> None:
+        """
+        根據配置的延遲範圍，生成隨機延遲時間並等待
         
-        # 獲取分頁參數配置
-        pagination_config = self.template.get("request", {}).get("params", {}).get("pagination", {})
-        page_param = pagination_config.get("page_param", "page")
-        base_index = pagination_config.get("base_index", 0)
-        
-        # 構建參數
-        params = self.request_params.copy()
-        params[page_param] = base_index + page - 1  # 轉換為基於base_index的頁碼
-        
-        # 構建URL查詢字符串
-        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
-        if query_string:
-            url = f"{url}?{query_string}"
-        
-        return url
-    
-    def _init_webdriver(self):
-        """初始化WebDriver，應用反爬蟲設置"""
-        try:
-            self.logger.info("初始化WebDriver")
-            
-            # 由AntiDetectionManager創建並配置WebDriver
-            self.driver = self.anti_detection.create_webdriver(
-                headless=self.config.get("headless", True)
-            )
-            
-            # 設置隱式等待時間
-            self.driver.implicitly_wait(self.config.get("implicit_wait", 10))
-            
-            self.logger.info("WebDriver初始化成功")
-            return True
-        except Exception as e:
-            self.logger.error(f"初始化WebDriver失敗: {str(e)}")
-            return False
-    
-    def _close_webdriver(self):
-        """安全關閉WebDriver"""
-        if self.driver:
-            try:
-                self.logger.info("關閉WebDriver")
-                self.driver.quit()
-            except Exception as e:
-                self.logger.error(f"關閉WebDriver失敗: {str(e)}")
-            finally:
-                self.driver = None
-    
-    def _random_delay(self, delay_type: str = "page_load"):
-        """根據配置的延遲範圍，生成隨機延遲時間並等待"""
-        delay_config = self.delays.get(delay_type, {"min": 1, "max": 3})
-        min_delay = delay_config.get("min", 1)
-        max_delay = delay_config.get("max", 3)
+        Args:
+            delay_type: 延遲類型，如 "page_load", "between_pages", "between_items"
+        """
+        delay_config = self.delays.get(delay_type, {"min": 1.0, "max": 3.0})
+        min_delay = delay_config.get("min", 1.0)
+        max_delay = delay_config.get("max", 3.0)
         
         delay = random.uniform(min_delay, max_delay)
         self.logger.debug(f"隨機延遲 {delay_type}: {delay:.2f} 秒")
         time.sleep(delay)
     
-    @retry_on_exception(retries=3, delay=2)
-    def _navigate_to_url(self, url: str) -> bool:
-        """導航到指定URL，包含重試邏輯"""
+    def _build_url(self, page: int = 1) -> str:
+        """
+        構建爬取URL
+        
+        Args:
+            page: 頁碼
+            
+        Returns:
+            完整的URL
+        """
+        # 檢查是否有分頁配置
+        pagination = self.template.get("pagination", {})
+        url_pattern = pagination.get("url_pattern", "")
+        
+        if url_pattern:
+            # 使用格式化字符串替換URL模式中的變量
+            try:
+                # 準備URL參數
+                url_params = {
+                    "base_url": self.base_url,
+                    "page": page,
+                    "page_number": page
+                }
+                
+                # 從search_parameters獲取更多參數
+                search_params = self.template.get("search_parameters", {})
+                for param_name, param_config in search_params.items():
+                    url_params[param_name] = param_config.get("default", "")
+                
+                # 使用高級URL格式設定
+                url_format = self.advanced_settings.get("url_format", {})
+                
+                # 檢查是否需要值映射
+                value_mapping = url_format.get("value_mapping", {})
+                parameter_mapping = url_format.get("parameter_mapping", {})
+                
+                # 應用值映射
+                for param_name, mapping in value_mapping.items():
+                    if param_name in url_params:
+                        original_value = url_params[param_name]
+                        mapped_value = mapping.get(original_value, original_value)
+                        url_params[param_name] = mapped_value
+                
+                # 應用參數映射
+                for old_param, new_param in parameter_mapping.items():
+                    if old_param in url_params:
+                        url_params[new_param] = url_params[old_param]
+                
+                # 檢查是否需要編碼參數
+                if url_format.get("encode_parameters", False):
+                    import urllib.parse
+                    for param_name in list(url_params.keys()):
+                        if isinstance(url_params[param_name], str):
+                            url_params[param_name] = urllib.parse.quote(url_params[param_name])
+                
+                # 格式化URL
+                return url_pattern.format(**url_params)
+            except KeyError as e:
+                self.logger.error(f"URL格式化失敗，缺少參數: {str(e)}")
+                return self.base_url
+            except Exception as e:
+                self.logger.error(f"構建URL失敗: {str(e)}")
+                return self.base_url
+        else:
+            # 沒有URL模式，則使用基礎URL加上簡單的頁碼參數
+            if "?" in self.base_url:
+                return f"{self.base_url}&page={page}"
+            else:
+                return f"{self.base_url}?page={page}"
+    
+    def start(self, max_pages: Optional[int] = None, max_items: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        開始爬蟲流程
+        
+        Args:
+            max_pages: 最大爬取頁數，如果為None則使用模板中的設定
+            max_items: 最大爬取項目數，如果為None則不限制
+            
+        Returns:
+            爬取的資料列表
+        """
+        self.logger.info(f"開始爬取 {self.site_name}")
+        
+        # 初始化狀態
+        self.running = True
+        self.stop_requested = False
+        self.current_page = 1
+        self.items_collected = 0
+        
+        # 設置最大頁數
+        if max_pages is None:
+            pagination = self.template.get("pagination", {})
+            max_pages = pagination.get("max_pages", 1)
+        
+        # 設置最大項目數
+        if max_items is None:
+            max_items = self.advanced_settings.get("max_results", 1000)
+        
+        # 初始化WebDriver
         try:
-            self.logger.info(f"導航到URL: {url}")
+            self.driver = self.webdriver_manager.create_driver()
+        except Exception as e:
+            self.logger.error(f"初始化WebDriver失敗: {str(e)}")
+            self.running = False
+            return []
+        
+        all_data = []
+        
+        try:
+            # 爬取頁面
+            while (self.current_page <= max_pages and 
+                   self.items_collected < max_items and 
+                   not self.stop_requested):
+                
+                # 爬取當前頁面
+                page_data = self._crawl_page(self.current_page)
+                
+                if not page_data:
+                    self.logger.warning(f"頁面 {self.current_page} 未獲取到資料，結束爬取")
+                    break
+                
+                # 添加資料
+                all_data.extend(page_data)
+                self.items_collected += len(page_data)
+                
+                self.logger.info(f"已爬取 {self.current_page} 頁，共 {self.items_collected} 項")
+                
+                # 檢查是否有下一頁
+                if not self._has_next_page():
+                    self.logger.info("沒有下一頁，結束爬取")
+                    break
+                
+                # 轉到下一頁
+                self.current_page += 1
+                
+                # 頁面間延遲
+                self._random_delay("between_pages")
+            
+            return all_data
+            
+        except KeyboardInterrupt:
+            self.logger.info("收到中斷信號，停止爬取")
+            return all_data
+        except Exception as e:
+            self.logger.error(f"爬取過程中發生錯誤: {str(e)}")
+            import traceback
+            self.logger.debug(traceback.format_exc())
+            return all_data
+        finally:
+            self.stop()
+    
+    def stop(self) -> None:
+        """停止爬蟲，釋放資源"""
+        self.logger.info("停止爬蟲")
+        self.stop_requested = True
+        self.running = False
+        
+        # 關閉WebDriver
+        if self.driver:
+            self.webdriver_manager.close_driver()
+            self.driver = None
+    
+    def _crawl_page(self, page: int) -> List[Dict[str, Any]]:
+        """
+        爬取單頁資料
+        
+        Args:
+            page: 頁碼
+            
+        Returns:
+            頁面資料列表
+        """
+        # 構建URL
+        url = self._build_url(page)
+        self.logger.info(f"爬取頁面 {page}: {url}")
+        
+        # 導航到頁面
+        if not self._navigate_to_page(url):
+            self.logger.error(f"導航到頁面 {page} 失敗")
+            return []
+        
+        # 處理搜尋參數（如果有）
+        if page == 1 and self.template.get("search_parameters"):
+            self._handle_search_parameters()
+        
+        # 提取列表項目
+        list_items = self._extract_list_items()
+        self.logger.info(f"從頁面 {page} 中提取了 {len(list_items)} 個項目")
+        
+        # 收集詳情頁數據
+        detailed_items = []
+        
+        for idx, item in enumerate(list_items):
+            # 檢查是否已達到最大項目數或停止請求
+            if self.stop_requested:
+                break
+                
+            self.logger.debug(f"處理項目 {idx+1}/{len(list_items)}")
+            
+            # 檢查是否有詳情頁
+            detail_link = item.get("detail_link")
+            if detail_link and self.template.get("detail_page"):
+                # 提取詳情頁數據
+                detail_data = self._extract_detail_page(detail_link)
+                
+                # 合併列表和詳情頁數據
+                combined_item = self._combine_data(item, detail_data)
+                detailed_items.append(combined_item)
+            else:
+                # 沒有詳情頁，僅使用列表數據
+                detailed_items.append(item)
+            
+            # 項目間延遲
+            if idx < len(list_items) - 1:
+                self._random_delay("between_items")
+        
+        return detailed_items
+    
+    def _navigate_to_page(self, url: str) -> bool:
+        """
+        導航到指定頁面
+        
+        Args:
+            url: 頁面URL
+            
+        Returns:
+            是否成功導航
+        """
+        if not self.driver:
+            self.logger.error("WebDriver未初始化")
+            return False
+        
+        try:
+            # 導航到頁面
+            self.logger.info(f"導航到: {url}")
             self.driver.get(url)
+            
+            # 等待頁面加載
             self._random_delay("page_load")
             
-            # 檢查是否需要處理驗證碼
-            if self.captcha_manager.detect_captcha(self.driver):
-                self.logger.info("檢測到驗證碼，嘗試解決")
-                result = self.captcha_manager.solve_captcha(self.driver)
-                if not result:
-                    self.logger.warning("無法解決驗證碼")
-                    return False
+            # 檢查頁面是否加載成功
+            if "捕獲到異常" in self.driver.title or "Error" in self.driver.title:
+                self.logger.warning(f"頁面加載異常: {self.driver.title}")
+                return False
             
-            # 檢查是否被反爬機制檢測
-            if self.anti_detection.detected_anti_crawling(self.driver):
-                self.logger.warning("檢測到反爬機制，嘗試處理")
-                result = self.anti_detection.handle_detection(self.driver)
-                if not result:
-                    self.logger.warning("無法繞過反爬機制")
-                    return False
+            # 檢查反爬機制
+            if self._handle_anti_crawling():
+                # 如果檢測到反爬機制，重新加載頁面
+                return self._navigate_to_page(url)
             
             return True
-        except WebDriverException as e:
-            self.logger.error(f"導航到URL失敗: {str(e)}")
-            raise
-    
-    def _extract_data_from_element(self, element, field_config: Dict) -> Any:
-        """從元素中提取數據"""
-        extraction_type = field_config.get("type", "text")
-        
-        try:
-            if extraction_type == "text":
-                return element.text.strip()
-            elif extraction_type == "attribute":
-                attribute_name = field_config.get("attribute_name", "href")
-                return element.get_attribute(attribute_name)
-            elif extraction_type == "html":
-                return element.get_attribute("innerHTML")
-            else:
-                self.logger.warning(f"未知的提取類型: {extraction_type}")
-                return None
         except Exception as e:
-            self.logger.error(f"提取數據失敗: {str(e)}")
-            return None
+            self.logger.error(f"頁面導航失敗: {str(e)}")
+            # 保存錯誤截圖和頁面源碼，便於調試
+            self._save_debug_info()
+            return False
     
-    def _extract_list_item_data(self, item_element) -> Dict:
-        """從列表項元素中提取數據"""
-        item_data = {}
-        list_page_config = self.template.get("list_page", {})
-        fields_config = list_page_config.get("fields", {})
+    def _handle_anti_crawling(self) -> bool:
+        """
+        處理反爬機制，如驗證碼、登入等
         
-        for field_name, field_config in fields_config.items():
-            try:
-                xpath = field_config.get("xpath", "")
-                if xpath:
-                    field_element = item_element.find_element(By.XPATH, xpath)
-                    item_data[field_name] = self._extract_data_from_element(field_element, field_config)
-            except NoSuchElementException:
-                self.logger.warning(f"未找到字段元素: {field_name}, xpath: {xpath}")
-                item_data[field_name] = None
-            except Exception as e:
-                self.logger.error(f"提取字段 {field_name} 失敗: {str(e)}")
-                item_data[field_name] = None
+        Returns:
+            是否處理了反爬機制
+        """
+        # 檢查驗證碼
+        if self._detect_captcha():
+            self.logger.warning("檢測到驗證碼")
+            # 儲存截圖供後續人工處理
+            self.webdriver_manager.take_screenshot("captcha.png")
+            return True
         
-        return item_data
+        # 其他反爬策略處理
+        return False
     
-    def _extract_list_items(self) -> List[Dict]:
-        """提取當前頁面的列表項數據"""
-        list_items = []
-        list_page_config = self.template.get("list_page", {})
+    def _detect_captcha(self) -> bool:
+        """
+        檢測頁面是否有驗證碼
+        
+        Returns:
+            是否檢測到驗證碼
+        """
+        if not self.driver:
+            return False
+        
+        # 從模板中獲取驗證碼檢測設定
+        advanced_settings = self.template.get("advanced_settings", {})
+        detect_captcha = advanced_settings.get("detect_captcha", False)
+        
+        if not detect_captcha:
+            return False
+        
+        captcha_detection_xpath = advanced_settings.get("captcha_detection_xpath", "")
+        if not captcha_detection_xpath:
+            return False
         
         try:
-            # 等待容器元素加載
-            container_xpath = list_page_config.get("container_xpath", "//body")
-            WebDriverWait(self.driver, 20).until(
-                EC.presence_of_element_located((By.XPATH, container_xpath))
-            )
+            captcha_elements = self.driver.find_elements(By.XPATH, captcha_detection_xpath)
+            return len(captcha_elements) > 0
+        except Exception as e:
+            self.logger.error(f"檢測驗證碼出錯: {str(e)}")
+            return False
+    
+    def _handle_search_parameters(self) -> None:
+        """
+        處理搜尋參數，如填寫表單、選擇選項等
+        """
+        if not self.driver:
+            return
+        
+        search_params = self.template.get("search_parameters", {})
+        if not search_params:
+            return
+        
+        self.logger.info("處理搜尋參數")
+        
+        # 處理各種類型的搜尋參數
+        for param_name, param_config in search_params.items():
+            # 跳過按鈕類型，會最後處理
+            if param_config.get("type") == "button":
+                continue
+                
+            try:
+                param_type = param_config.get("type", "")
+                selector = param_config.get("selector", "")
+                default_value = param_config.get("default", "")
+                
+                self.logger.debug(f"處理參數: {param_name}, 類型: {param_type}, 值: {default_value}")
+                
+                if not selector or not param_type:
+                    continue
+                
+                # 等待元素可用
+                element = self.webdriver_manager.wait_for_element(By.XPATH, selector)
+                if not element:
+                    self.logger.warning(f"未找到元素: {selector}")
+                    continue
+                
+                # 根據不同類型處理參數
+                if param_type == "input":
+                    # 清空輸入框
+                    element.clear()
+                    # 輸入值
+                    element.send_keys(default_value)
+                    
+                elif param_type == "select":
+                    # 處理下拉選單
+                    from selenium.webdriver.support.ui import Select
+                    select = Select(element)
+                    
+                    # 獲取選項值
+                    option_value = None
+                    options = param_config.get("options", [])
+                    
+                    for option in options:
+                        if option.get("value") == default_value:
+                            option_value = option.get("option_value")
+                            break
+                    
+                    if option_value:
+                        select.select_by_value(option_value)
+                    else:
+                        select.select_by_visible_text(default_value)
+                    
+                elif param_type == "radio":
+                    # 處理單選按鈕
+                    options = param_config.get("options", [])
+                    option_selector = None
+                    
+                    for option in options:
+                        if option.get("value") == default_value:
+                            option_selector = option.get("selector")
+                            break
+                    
+                    if option_selector:
+                        option_element = self.webdriver_manager.wait_for_element(By.XPATH, option_selector)
+                        if option_element:
+                            self.webdriver_manager.safe_click(option_element)
+                    
+                elif param_type == "checkbox":
+                    # 處理複選框
+                    current_state = element.is_selected()
+                    should_be_checked = default_value in [True, "true", "True", "checked", "selected", "on", "1"]
+                    
+                    if current_state != should_be_checked:
+                        self.webdriver_manager.safe_click(element)
+                
+                # 短暫延遲
+                time.sleep(0.5)
+                
+            except Exception as e:
+                self.logger.error(f"處理參數 {param_name} 時出錯: {str(e)}")
+        
+        # 處理搜尋按鈕
+        self._click_search_button()
+    
+    def _click_search_button(self) -> bool:
+        """
+        點擊搜尋按鈕
+        
+        Returns:
+            是否成功點擊
+        """
+        if not self.driver:
+            return False
+        
+        search_params = self.template.get("search_parameters", {})
+        for param_name, param_config in search_params.items():
+            if param_config.get("type") == "button":
+                selector = param_config.get("selector", "")
+                description = param_config.get("description", "按鈕")
+                
+                self.logger.info(f"點擊{description}")
+                
+                try:
+                    button = self.webdriver_manager.wait_for_clickable(By.XPATH, selector)
+                    if button:
+                        # 點擊按鈕
+                        if self.webdriver_manager.safe_click(button):
+                            # 等待按鈕點擊後的延遲
+                            wait_time = param_config.get("wait_after_click", 3)
+                            time.sleep(wait_time)
+                            return True
+                except Exception as e:
+                    self.logger.error(f"點擊{description}失敗: {str(e)}")
+        
+        return False
+    
+    def _extract_list_items(self) -> List[Dict[str, Any]]:
+        """
+        提取列表項數據
+        
+        Returns:
+            列表項數據列表
+        """
+        if not self.driver:
+            return []
+        
+        list_page_config = self.template.get("list_page", {})
+        if not list_page_config:
+            return []
+        
+        # 獲取列表容器和項目選擇器
+        container_xpath = list_page_config.get("container_xpath", "//body")
+        item_xpath = list_page_config.get("item_xpath", "")
+        
+        if not item_xpath:
+            self.logger.error("未指定列表項選擇器")
+            return []
+        
+        try:
+            # 等待容器加載
+            container = self.webdriver_manager.wait_for_element(By.XPATH, container_xpath)
+            if not container:
+                self.logger.error(f"未找到列表容器: {container_xpath}")
+                return []
             
-            # 找到容器元素
-            container = self.driver.find_element(By.XPATH, container_xpath)
-            
-            # 找到所有列表項
-            item_xpath = list_page_config.get("item_xpath", ".//*")
+            # 查找所有列表項
             items = container.find_elements(By.XPATH, item_xpath)
-            
             self.logger.info(f"找到 {len(items)} 個列表項")
             
             # 提取每個列表項的數據
-            for item in items:
-                self._random_delay("between_items")
-                item_data = self._extract_list_item_data(item)
-                if item_data:
-                    list_items.append(item_data)
+            result = []
+            fields_config = list_page_config.get("fields", {})
             
-            return list_items
-        except TimeoutException:
-            self.logger.error(f"等待列表容器超時: {container_xpath}")
-            return []
+            for item in items:
+                item_data = self._extract_item_fields(item, fields_config)
+                if item_data:  # 只添加非空數據
+                    result.append(item_data)
+            
+            return result
+        
         except Exception as e:
             self.logger.error(f"提取列表項失敗: {str(e)}")
             return []
     
-    def _has_next_page(self) -> bool:
-        """檢查是否有下一頁"""
-        pagination_config = self.template.get("pagination", {})
+    def _extract_item_fields(self, item_element, fields_config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        提取單個列表項的字段數據
         
-        try:
-            # 使用XPath檢查下一頁按鈕是否存在
-            has_next_xpath = pagination_config.get("has_next_page_check", "")
-            if has_next_xpath:
-                elements = self.driver.find_elements(By.XPATH, has_next_xpath)
-                return len(elements) > 0
+        Args:
+            item_element: 列表項元素
+            fields_config: 字段配置
             
-            return False
-        except Exception as e:
-            self.logger.error(f"檢查下一頁失敗: {str(e)}")
-            return False
-    
-    @retry_on_exception(retries=3, delay=2)
-    def _go_to_next_page(self) -> bool:
-        """點擊下一頁按鈕"""
-        pagination_config = self.template.get("pagination", {})
+        Returns:
+            字段數據字典
+        """
+        item_data = {}
         
-        try:
-            # 找到下一頁按鈕並點擊
-            next_button_xpath = pagination_config.get("next_button_xpath", "")
-            if next_button_xpath:
-                next_button = WebDriverWait(self.driver, 10).until(
-                    EC.element_to_be_clickable((By.XPATH, next_button_xpath))
-                )
+        for field_name, field_config in fields_config.items():
+            try:
+                # 獲取字段配置
+                xpath = field_config.get("xpath", "")
+                field_type = field_config.get("type", "text")
                 
-                # 使用JavaScript點擊，避免元素不可見或被覆蓋
-                self.driver.execute_script("arguments[0].click();", next_button)
+                if not xpath:
+                    continue
                 
-                # 等待頁面加載
-                self._random_delay("between_pages")
-                return True
+                # 查找字段元素
+                field_elements = item_element.find_elements(By.XPATH, xpath)
+                
+                # 如果未找到，嘗試使用備用XPath
+                if not field_elements and "fallback_xpath" in field_config:
+                    fallback_xpath = field_config.get("fallback_xpath", "")
+                    field_elements = item_element.find_elements(By.XPATH, fallback_xpath)
+                
+                if not field_elements:
+                    self.logger.debug(f"未找到字段 {field_name}")
+                    item_data[field_name] = ""
+                    continue
+                
+                # 根據字段類型提取數據
+                if field_type == "text":
+                    # 文本類型
+                    text = field_elements[0].text.strip()
+                    
+                    # 應用最大長度限制
+                    max_length = field_config.get("max_length")
+                    if max_length and len(text) > max_length:
+                        text = text[:max_length] + "..."
+                    
+                    item_data[field_name] = text
+                
+                elif field_type == "attribute":
+                    # 屬性類型
+                    attribute_name = field_config.get("attribute", "href")
+                    attribute_value = field_elements[0].get_attribute(attribute_name)
+                    
+                    # 應用正則表達式提取
+                    regex_pattern = field_config.get("regex")
+                    if regex_pattern and attribute_value:
+                        import re
+                        match = re.search(regex_pattern, attribute_value)
+                        if match:
+                            attribute_value = match.group(1)
+                    
+                    item_data[field_name] = attribute_value
+                
+                elif field_type == "html":
+                    # HTML類型
+                    html_content = field_elements[0].get_attribute("outerHTML")
+                    item_data[field_name] = html_content
+                
+                elif field_type == "compound":
+                    # 複合類型，子字段
+                    compound_fields = field_config.get("fields", {})
+                    is_multiple = field_config.get("multiple", False)
+                    
+                    if is_multiple:
+                        # 多個複合項
+                        compound_items = []
+                        for element in field_elements:
+                            compound_item = self._extract_compound_fields(element, compound_fields)
+                            compound_items.append(compound_item)
+                        item_data[field_name] = compound_items
+                    else:
+                        # 單個複合項
+                        compound_item = self._extract_compound_fields(field_elements[0], compound_fields)
+                        item_data[field_name] = compound_item
             
-            return False
-        except TimeoutException:
-            self.logger.error(f"等待下一頁按鈕超時")
-            return False
-        except NoSuchElementException as e:
-            self.logger.error(f"找不到下一頁按鈕: {str(e)}")
-            return False
-        except Exception as e:
-            self.logger.error(f"點擊下一頁按鈕失敗: {str(e)}")
-            raise
+            except Exception as e:
+                self.logger.warning(f"提取字段 {field_name} 失敗: {str(e)}")
+                item_data[field_name] = ""
+        
+        return item_data
     
-    @retry_on_exception(retries=3, delay=5)
-    def _extract_detail_data(self, detail_url: str) -> Dict:
-        """提取詳情頁數據"""
-        detail_data = {}
+    def _extract_compound_fields(self, element, fields_config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        提取複合字段數據
+        
+        Args:
+            element: 元素
+            fields_config: 字段配置
+            
+        Returns:
+            複合字段數據字典
+        """
+        compound_data = {}
+        
+        for field_name, field_config in fields_config.items():
+            try:
+                # 獲取字段配置
+                xpath = field_config.get("xpath", "")
+                field_type = field_config.get("type", "text")
+                
+                if not xpath:
+                    continue
+                
+                # 查找字段元素
+                field_elements = element.find_elements(By.XPATH, xpath)
+                
+                if not field_elements:
+                    compound_data[field_name] = ""
+                    continue
+                
+                # 根據字段類型提取數據
+                if field_type == "text":
+                    compound_data[field_name] = field_elements[0].text.strip()
+                elif field_type == "attribute":
+                    attribute_name = field_config.get("attribute", "href")
+                    compound_data[field_name] = field_elements[0].get_attribute(attribute_name)
+                elif field_type == "html":
+                    compound_data[field_name] = field_elements[0].get_attribute("outerHTML")
+            
+            except Exception as e:
+                self.logger.warning(f"提取複合字段 {field_name} 失敗: {str(e)}")
+                compound_data[field_name] = ""
+        
+        return compound_data
+    
+    def _extract_detail_page(self, detail_link: str) -> Dict[str, Any]:
+        """
+        提取詳情頁數據
+        
+        Args:
+            detail_link: 詳情頁鏈接
+            
+        Returns:
+            詳情頁數據字典
+        """
+        if not self.driver:
+            return {}
+        
         detail_page_config = self.template.get("detail_page", {})
+        if not detail_page_config:
+            return {}
+        
+        # 構建詳情頁URL
+        detail_url = self._build_detail_url(detail_link)
+        self.logger.info(f"提取詳情頁: {detail_url}")
         
         try:
             # 導航到詳情頁
-            if not self._navigate_to_url(detail_url):
-                return detail_data
+            self.driver.get(detail_url)
+            self._random_delay("page_load")
             
-            # 等待容器元素加載
+            # 展開頁面中可能存在的折疊區塊
+            self._expand_sections()
+            
+            # 提取字段數據
             container_xpath = detail_page_config.get("container_xpath", "//body")
-            WebDriverWait(self.driver, 20).until(
-                EC.presence_of_element_located((By.XPATH, container_xpath))
-            )
+            container = self.webdriver_manager.wait_for_element(By.XPATH, container_xpath)
             
-            # 提取詳情頁數據
-            tables_xpath = detail_page_config.get("tables_xpath", "//table")
-            tables = self.driver.find_elements(By.XPATH, tables_xpath)
+            if not container:
+                self.logger.error(f"未找到詳情頁容器: {container_xpath}")
+                return {}
             
-            self.logger.info(f"找到 {len(tables)} 個表格")
-            
-            # 提取每個表格的數據
-            for table_index, table in enumerate(tables):
-                try:
-                    # 提取表格標題
-                    table_title_xpath = detail_page_config.get("table_title_xpath", ".//caption")
-                    title_elements = table.find_elements(By.XPATH, table_title_xpath)
-                    table_title = title_elements[0].text.strip() if title_elements else f"table_{table_index}"
-                    
-                    # 提取表格行
-                    rows = table.find_elements(By.XPATH, ".//tr")
-                    table_data = {}
-                    
-                    for row in rows:
-                        try:
-                            # 提取行標題和值
-                            cols = row.find_elements(By.XPATH, ".//th | .//td")
-                            if len(cols) >= 2:
-                                key = cols[0].text.strip()
-                                value = cols[1].text.strip()
-                                if key:
-                                    table_data[key] = value
-                        except Exception as e:
-                            self.logger.warning(f"提取表格行失敗: {str(e)}")
-                    
-                    detail_data[table_title] = table_data
-                except Exception as e:
-                    self.logger.warning(f"提取表格 {table_index} 失敗: {str(e)}")
-            
-            # 提取特定字段
+            # 提取字段
             fields_config = detail_page_config.get("fields", {})
+            detail_data = {}
+            
             for field_name, field_config in fields_config.items():
                 try:
+                    # 獲取字段配置
                     xpath = field_config.get("xpath", "")
-                    if xpath:
-                        elements = self.driver.find_elements(By.XPATH, xpath)
-                        if elements:
-                            detail_data[field_name] = self._extract_data_from_element(elements[0], field_config)
-                except Exception as e:
-                    self.logger.warning(f"提取字段 {field_name} 失敗: {str(e)}")
-            
-            return detail_data
-        except Exception as e:
-            self.logger.error(f"提取詳情頁數據失敗: {str(e)}", exc_info=True)
-            self._save_page_for_analysis()
-            return detail_data
-    
-    def _combine_data(self, list_item: Dict, detail_data: Dict) -> Dict:
-        """合併列表項數據和詳情頁數據"""
-        combined_data = {
-            "list_data": list_item,
-            "detail_data": detail_data,
-            "metadata": {
-                "crawler_name": os.path.basename(self.template.get("site_name", "unknown")),
-                "crawl_time": int(time.time()),
-                "success": bool(detail_data)
-            }
-        }
-        return combined_data
-    
-    def crawl(self, max_pages: int = None, max_items: int = None) -> List[Dict]:
-        """執行爬蟲"""
-        return self.crawler_executor.execute('normal', 
-                                          max_pages=max_pages, 
-                                          max_items=max_items)
-    
-    def resume_crawl(self, max_pages: int = None, max_items: int = None) -> List[Dict]:
-        """從中斷處恢復爬取"""
-        return self.crawler_executor.execute('resume',
-                                          max_pages=max_pages,
-                                          max_items=max_items)
-    
-    def _crawl_from_page(self, start_page: int, max_pages: int, max_items: int) -> List[Dict]:
-        """從指定頁面開始爬取"""
-        # 與crawl方法類似，但從指定頁面開始
-        all_data = []
-        page = start_page
-        
-        try:
-            # 初始化WebDriver
-            if not self._init_webdriver():
-                self.logger.error("WebDriver初始化失敗，爬蟲中止")
-                return all_data
-            
-            # 開始爬取
-            self.logger.info(f"從第 {page} 頁開始爬取，最大頁數: {max_pages}, 最大項數: {max_items}")
-            
-            while page <= max_pages and len(all_data) < max_items:
-                # 與crawl方法中的爬取邏輯相同
-                # ...省略相同代碼...
-                
-                # 構建並導航到URL
-                url = self._build_url(page)
-                if not self._navigate_to_url(url):
-                    self.logger.warning(f"導航到第 {page} 頁失敗，嘗試下一頁")
-                    page += 1
-                    continue
-                
-                # 提取列表項
-                list_items = self._extract_list_items()
-                self.logger.info(f"第 {page} 頁提取了 {len(list_items)} 個列表項")
-                
-                # 提取詳情頁數據
-                for item in list_items:
-                    # 檢查是否達到最大項數
-                    if len(all_data) >= max_items:
-                        self.logger.info(f"達到最大項數 {max_items}，停止爬取")
-                        break
+                    field_type = field_config.get("type", "text")
+                    is_multiple = field_config.get("multiple", False)
                     
-                    # 獲取詳情頁URL
-                    detail_link = item.get("detail_link")
-                    if detail_link:
-                        # 儲存當前狀態
-                        self.state_manager.save_state({
-                            "current_page": page,
-                            "current_item": item,
-                            "items_collected": len(all_data)
-                        })
-                        
-                        # 提取詳情頁數據
-                        detail_data = self._extract_detail_data(detail_link)
-                        
-                        # 合併數據
-                        combined_data = self._combine_data(item, detail_data)
-                        all_data.append(combined_data)
-                        
-                        # 持久化數據
-                        self.data_manager.save_data(combined_data)
-                        
-                        # 隨機延遲
-                        self._random_delay("between_items")
-                
-                # 檢查是否有下一頁
-                if self._has_next_page() and page < max_pages:
-                    self.logger.info(f"導航到第 {page + 1} 頁")
-                    if not self._go_to_next_page():
-                        self.logger.warning("無法導航到下一頁，爬取結束")
-                        break
-                    page += 1
-                else:
-                    self.logger.info("沒有更多頁面，爬取結束")
-                    break
-        
-        except Exception as e:
-            self.logger.error(f"爬蟲執行過程中發生錯誤: {str(e)}")
-            # 保存狀態以便恢復
-            self.state_manager.save_state({
-                "current_page": page,
-                "error": str(e),
-                "items_collected": len(all_data)
-            })
-        
-        finally:
-            # 關閉WebDriver
-            self._close_webdriver()
-        
-        return all_data
-    
-    def _crawl_from_position(self, start_page: int, start_item_index: int, max_pages: int, max_items: int) -> List[Dict]:
-        """從指定位置開始爬取"""
-        all_data = []
-        page = start_page
-        
-        try:
-            if not self._init_webdriver():
-                self.logger.error("WebDriver初始化失敗，爬蟲中止")
-                return all_data
-            
-            # 記錄起始時間
-            start_time = time.time()
-            
-            self.logger.info(f"從第 {page} 頁第 {start_item_index} 項開始爬取，最大頁數: {max_pages}, 最大項數: {max_items}")
-            
-            while page <= max_pages and len(all_data) < max_items:
-                try:
-                    url = self._build_url(page)
-                    if not self._navigate_to_url(url):
-                        self.logger.warning(f"導航到第 {page} 頁失敗，嘗試下一頁")
-                        page += 1
+                    if not xpath:
                         continue
                     
-                    list_items = self._extract_list_items()
-                    self.logger.info(f"第 {page} 頁提取了 {len(list_items)} 個列表項")
+                    # 查找字段元素
+                    field_elements = self.driver.find_elements(By.XPATH, xpath)
                     
-                    for item_index, item in enumerate(list_items):
-                        if page == start_page and item_index < start_item_index:
-                            continue
+                    # 如果未找到，嘗試使用備用XPath
+                    if not field_elements and "fallback_xpath" in field_config:
+                        fallback_xpath = field_config.get("fallback_xpath", "")
+                        field_elements = self.driver.find_elements(By.XPATH, fallback_xpath)
+                    
+                    if not field_elements:
+                        self.logger.debug(f"未找到詳情頁字段 {field_name}")
+                        detail_data[field_name] = "" if not is_multiple else []
+                        continue
+                    
+                    # 根據字段類型和是否多值提取數據
+                    if field_type == "text":
+                        if is_multiple:
+                            # 多值文本
+                            detail_data[field_name] = [e.text.strip() for e in field_elements]
+                        else:
+                            # 單值文本
+                            detail_data[field_name] = field_elements[0].text.strip()
+                    
+                    elif field_type == "attribute":
+                        attribute_name = field_config.get("attribute", "href")
                         
-                        if len(all_data) >= max_items:
-                            self.logger.info(f"達到最大項數 {max_items}，停止爬取")
-                            break
+                        if is_multiple:
+                            # 多值屬性
+                            detail_data[field_name] = [e.get_attribute(attribute_name) for e in field_elements]
+                        else:
+                            # 單值屬性
+                            detail_data[field_name] = field_elements[0].get_attribute(attribute_name)
                         
-                        detail_link = item.get("detail_link")
-                        if detail_link:
-                            self.state_manager.save_state({
-                                "current_page": page,
-                                "current_item_index": item_index,
-                                "items_collected": len(all_data)
-                            })
+                        # 應用正則表達式提取
+                        regex_pattern = field_config.get("regex")
+                        if regex_pattern:
+                            import re
                             
-                            detail_data = self._extract_detail_data(detail_link)
-                            combined_data = self._combine_data(item, detail_data)
-                            all_data.append(combined_data)
-                            self.data_manager.save_data(combined_data)
-                            self._random_delay("between_items")
+                            if is_multiple:
+                                # 處理多值
+                                processed_values = []
+                                for value in detail_data[field_name]:
+                                    if value:
+                                        match = re.search(regex_pattern, value)
+                                        if match:
+                                            processed_values.append(match.group(1))
+                                        else:
+                                            processed_values.append(value)
+                                    else:
+                                        processed_values.append("")
+                                detail_data[field_name] = processed_values
+                            else:
+                                # 處理單值
+                                value = detail_data[field_name]
+                                if value:
+                                    match = re.search(regex_pattern, value)
+                                    if match:
+                                        detail_data[field_name] = match.group(1)
                     
-                    if self._has_next_page() and page < max_pages:
-                        self.logger.info(f"導航到第 {page + 1} 頁")
-                        if not self._go_to_next_page():
-                            self.logger.warning("無法導航到下一頁，爬取結束")
-                            break
-                        page += 1
-                    else:
-                        self.logger.info("沒有更多頁面，爬取結束")
-                        break
+                    elif field_type == "html":
+                        if is_multiple:
+                            # 多值HTML
+                            detail_data[field_name] = [e.get_attribute("outerHTML") for e in field_elements]
+                        else:
+                            # 單值HTML
+                            detail_data[field_name] = field_elements[0].get_attribute("outerHTML")
+                    
+                    elif field_type == "elements" and "fields" in field_config:
+                        # 元素集合，處理嵌套字段
+                        nested_fields = field_config.get("fields", {})
+                        nested_items = []
+                        
+                        for element in field_elements:
+                            nested_item = {}
+                            for nested_field_name, nested_field_config in nested_fields.items():
+                                try:
+                                    nested_xpath = nested_field_config.get("xpath", "")
+                                    nested_type = nested_field_config.get("type", "text")
+                                    
+                                    nested_elements = element.find_elements(By.XPATH, nested_xpath)
+                                    
+                                    if nested_elements:
+                                        if nested_type == "text":
+                                            nested_item[nested_field_name] = nested_elements[0].text.strip()
+                                        elif nested_type == "attribute":
+                                            nested_attr = nested_field_config.get("attribute", "href")
+                                            nested_value = nested_elements[0].get_attribute(nested_attr)
+                                            
+                                            # 應用正則表達式提取
+                                            nested_regex = nested_field_config.get("regex")
+                                            if nested_regex and nested_value:
+                                                import re
+                                                match = re.search(nested_regex, nested_value)
+                                                if match:
+                                                    nested_value = match.group(1)
+                                            
+                                            nested_item[nested_field_name] = nested_value
+                                except Exception as ne:
+                                    self.logger.warning(f"提取嵌套字段 {nested_field_name} 失敗: {str(ne)}")
+                                    nested_item[nested_field_name] = ""
+                            
+                            nested_items.append(nested_item)
+                        
+                        detail_data[field_name] = nested_items
                 
                 except Exception as e:
-                    self.logger.error(f"處理第 {page} 頁時發生錯誤: {str(e)}")
-                    self.state_manager.save_state({
-                        "current_page": page,
-                        "current_item_index": start_item_index,
-                        "error": str(e),
-                        "items_collected": len(all_data)
-                    })
-                    break
+                    self.logger.warning(f"提取詳情頁字段 {field_name} 失敗: {str(e)}")
+                    detail_data[field_name] = "" if not is_multiple else []
+            
+            return detail_data
         
         except Exception as e:
-            self.logger.error(f"恢復爬取過程中發生錯誤: {str(e)}", exc_info=True)
-            self.state_manager.save_state({
-                "current_page": page,
-                "current_item_index": start_item_index,
-                "error": str(e),
-                "error_traceback": str(e.__traceback__),
-                "items_collected": len(all_data),
-                "status": "critical_error_resume"
-            })
-        
+            self.logger.error(f"提取詳情頁 {detail_url} 失敗: {str(e)}")
+            # 保存錯誤截圖和頁面源碼
+            self._save_debug_info()
+            return {}
         finally:
-            self._close_webdriver()
-            
-            if len(all_data) > 0:
-                if len(all_data) >= max_items or not self._has_next_page():
-                    self.state_manager.mark_completed()
-                    self.logger.info("恢復爬取已完成所有項目")
+            # 返回上一頁（可選，取決於需求）
+            # self.driver.back()
+            # self._random_delay("page_load")
+            pass
+    
+    def _build_detail_url(self, detail_link: str) -> str:
+        """
+        構建詳情頁URL
         
-        return all_data
+        Args:
+            detail_link: 詳情頁鏈接或ID
+            
+        Returns:
+            完整的詳情頁URL
+        """
+        detail_page_config = self.template.get("detail_page", {})
+        url_pattern = detail_page_config.get("url_pattern", "")
+        
+        if url_pattern:
+            # 檢查detail_link是否已經是完整URL
+            if detail_link.startswith(("http://", "https://")):
+                return detail_link
+            
+            # 檢查是否需要從detail_link中提取ID
+            pk_param = detail_page_config.get("pk_param", "pk")
+            
+            # 嘗試構建URL
+            try:
+                if "{" + pk_param + "}" in url_pattern:
+                    # 如果URL模式中有pk參數佔位符
+                    return url_pattern.replace("{" + pk_param + "}", detail_link)
+                else:
+                    # 使用格式化
+                    format_params = {pk_param: detail_link, "pk": detail_link, "id": detail_link, "base_url": self.base_url}
+                    return url_pattern.format(**format_params)
+            except Exception as e:
+                self.logger.error(f"構建詳情頁URL失敗: {str(e)}")
+                # 回退到簡單拼接
+                if not detail_link.startswith(("http://", "https://")):
+                    if detail_link.startswith("/"):
+                        return self.base_url + detail_link
+                    else:
+                        return self.base_url + "/" + detail_link
+                else:
+                    return detail_link
+        else:
+            # 沒有URL模式，檢查detail_link是否已經是完整URL
+            if detail_link.startswith(("http://", "https://")):
+                return detail_link
+            else:
+                # 簡單拼接
+                if detail_link.startswith("/"):
+                    return self.base_url + detail_link
+                else:
+                    return self.base_url + "/" + detail_link
+    
+    def _expand_sections(self) -> None:
+        """
+        展開頁面中的折疊區塊
+        """
+        if not self.driver:
+            return
+        
+        detail_page_config = self.template.get("detail_page", {})
+        expand_sections = detail_page_config.get("expand_sections", [])
+        
+        if not expand_sections:
+            return
+        
+        self.logger.info("展開頁面區塊")
+        
+        for section in expand_sections:
+            try:
+                section_name = section.get("name", "")
+                button_selector = section.get("button_selector", "")
+                target_selector = section.get("target_selector", "")
+                wait_time = section.get("wait_time", 1)
+                
+                if not button_selector:
+                    continue
+                
+                self.logger.debug(f"展開區塊: {section_name}")
+                
+                # 點擊展開按鈕
+                button = self.webdriver_manager.wait_for_clickable(By.XPATH, button_selector)
+                if button:
+                    self.webdriver_manager.safe_click(button)
+                    
+                    # 等待區塊展開
+                    time.sleep(wait_time)
+                    
+                    # 驗證是否展開成功
+                    if target_selector:
+                        target = self.webdriver_manager.wait_for_element(By.XPATH, target_selector)
+                        if not target:
+                            self.logger.warning(f"區塊 {section_name} 似乎未成功展開")
+            
+            except Exception as e:
+                self.logger.warning(f"展開區塊 {section.get('name', '')} 出錯: {str(e)}")
+    
+    def _combine_data(self, list_item: Dict[str, Any], detail_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        合併列表項和詳情頁數據
+        
+        Args:
+            list_item: 列表項數據
+            detail_data: 詳情頁數據
+            
+        Returns:
+            合併後的數據
+        """
+        # 根據模板配置決定合併方式
+        merge_strategy = self.advanced_settings.get("data_merge_strategy", "nested")
+        
+        if merge_strategy == "nested":
+            # 嵌套模式，將詳情頁數據作為子對象
+            return {
+                "list_data": list_item,
+                "detail_data": detail_data,
+                "metadata": {
+                    "source": self.site_name,
+                    "timestamp": int(time.time()),
+                    "version": self.version
+                }
+            }
+        elif merge_strategy == "flat":
+            # 平鋪模式，將所有數據放在同一層級，詳情頁數據覆蓋列表項數據
+            result = list_item.copy()
+            result.update(detail_data)
+            result["metadata"] = {
+                "source": self.site_name,
+                "timestamp": int(time.time()),
+                "version": self.version
+            }
+            return result
+        else:
+            # 默認為嵌套模式
+            return {
+                "list_data": list_item,
+                "detail_data": detail_data,
+                "metadata": {
+                    "source": self.site_name,
+                    "timestamp": int(time.time()),
+                    "version": self.version
+                }
+            }
+    
+    def _has_next_page(self) -> bool:
+        """
+        檢查是否有下一頁
+        
+        Returns:
+            是否有下一頁
+        """
+        if not self.driver:
+            return False
+        
+        pagination = self.template.get("pagination", {})
+        has_next_page_check = pagination.get("has_next_page_check", "")
+        
+        if not has_next_page_check:
+            # 無法檢查是否有下一頁，檢查當前頁碼是否小於最大頁數
+            max_pages = pagination.get("max_pages", 1)
+            return self.current_page < max_pages
+        
+        try:
+            # 使用XPath檢查是否有下一頁
+            result = self.driver.execute_script(f"return Boolean(document.evaluate('{has_next_page_check}', document, null, XPathResult.BOOLEAN_TYPE, null).booleanValue);")
+            return bool(result)
+        except Exception as e:
+            self.logger.warning(f"檢查下一頁失敗: {str(e)}")
+            return False
+    
+    def _go_to_next_page(self) -> bool:
+        """
+        跳轉到下一頁
+        
+        Returns:
+            是否成功跳轉
+        """
+        if not self.driver:
+            return False
+        
+        pagination = self.template.get("pagination", {})
+        next_button_xpath = pagination.get("next_button_xpath", "")
+        
+        if not next_button_xpath:
+            # 沒有下一頁按鈕，使用URL模式翻頁
+            url_pattern = pagination.get("url_pattern", "")
+            if url_pattern:
+                next_url = self._build_url(self.current_page + 1)
+                return self._navigate_to_page(next_url)
+            else:
+                return False
+        
+        try:
+            # 找到下一頁按鈕
+            next_button = self.webdriver_manager.wait_for_clickable(By.XPATH, next_button_xpath)
+            if not next_button:
+                self.logger.warning("未找到下一頁按鈕")
+                return False
+            
+            # 點擊下一頁
+            if not self.webdriver_manager.safe_click(next_button):
+                self.logger.warning("點擊下一頁按鈕失敗")
+                return False
+            
+            # 等待頁面加載
+            self._random_delay("page_load")
+            
+            return True
+        except Exception as e:
+            self.logger.error(f"跳轉到下一頁失敗: {str(e)}")
+            return False
+    
+    def _save_debug_info(self) -> None:
+        """
+        保存錯誤信息，包括截圖和頁面源碼，便於調試
+        """
+        if not self.driver:
+            return
+            
+        # 檢查是否需要保存錯誤頁面
+        if not self.advanced_settings.get("save_error_page", False):
+            return
+            
+        try:
+            # 獲取錯誤頁面保存目錄
+            error_dir = self.advanced_settings.get("error_page_dir", "debug")
+            os.makedirs(error_dir, exist_ok=True)
+            
+            # 生成檔案名前綴
+            timestamp = int(time.time())
+            filename_base = os.path.join(
+                error_dir, 
+                f"error_{os.path.basename(self.template_file).replace('.json', '')}_{timestamp}"
+            )
+            
+            # 保存截圖
+            screenshot_path = f"{filename_base}.png"
+            self.driver.save_screenshot(screenshot_path)
+            
+            # 保存頁面源碼
+            html_path = f"{filename_base}.html"
+            with open(html_path, 'w', encoding='utf-8') as f:
+                f.write(self.driver.page_source)
+                
+            self.logger.info(f"已保存錯誤信息: 截圖={screenshot_path}, HTML={html_path}")
+        except Exception as e:
+            self.logger.error(f"保存錯誤信息失敗: {str(e)}")

@@ -1,56 +1,47 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+CrawlerEngine 模組
+負責協調多個爬蟲任務，提供任務隊列、多線程支持和狀態管理
+"""
+
 import os
 import time
 import logging
 import threading
 import queue
 from typing import Dict, List, Optional, Any, Union, Callable
+import json
 
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import (
-    TimeoutException, 
-    NoSuchElementException, 
-    StaleElementReferenceException
-)
-
-from .webdriver_manager import WebDriverManager
 from .template_crawler import TemplateCrawler
+from .config_loader import ConfigLoader
 from ..utils.logger import setup_logger
-from ..utils.error_handler import retry_on_exception, handle_exception
-from ..anti_detection.anti_detection_manager import AntiDetectionManager
-from ..captcha.captcha_manager import CaptchaManager
-from ..state.crawler_state_manager import CrawlerStateManager
-from ..persistence.data_persistence_manager import DataPersistenceManager
-
 
 class CrawlerEngine:
     """
-    爬蟲引擎，負責協調各個組件的工作。
-    提供多線程爬取、任務隊列管理、錯誤處理等功能。
+    爬蟲引擎類，負責協調多個爬蟲任務的執行
+    提供多線程支持、任務隊列管理、統計信息收集等功能
     """
     
     def __init__(
         self,
         config_file: str = "config/config.json",
-        log_level: int = logging.INFO
+        logger=None
     ):
         """
         初始化爬蟲引擎
         
         Args:
             config_file: 配置文件路徑
-            log_level: 日誌級別
+            logger: 日誌記錄器，如果為None則創建新的
         """
-        self.logger = setup_logger(__name__, log_level)
+        self.logger = logger or setup_logger(__name__)
         self.logger.info(f"初始化爬蟲引擎，配置: {config_file}")
         
         # 載入配置
-        from ..utils.config_loader import ConfigLoader
-        self.config = ConfigLoader.load_config(config_file)
+        self.config_loader = ConfigLoader(self.logger)
+        self.config = self.config_loader.load_config(config_file)
         self.engine_config = self.config.get("engine_config", {})
         
         # 任務隊列和結果
@@ -78,7 +69,12 @@ class CrawlerEngine:
         
         # 初始化數據持久化管理器
         persistence_config = self.config.get("persistence_config", {})
-        self.data_manager = DataPersistenceManager(persistence_config)
+        try:
+            from ..persistence.data_persistence_manager import DataPersistenceManager
+            self.data_manager = DataPersistenceManager(persistence_config)
+        except ImportError:
+            self.logger.warning("無法載入 DataPersistenceManager，將使用簡單的文件存儲")
+            self.data_manager = None
         
         # 狀態鎖
         self.thread_lock = threading.Lock()
@@ -156,20 +152,16 @@ class CrawlerEngine:
                 crawler = TemplateCrawler(
                     template_file=task["template_file"],
                     config_file=self.config.get("config_file", "config/config.json"),
-                    log_level=self.logger.level
+                    logger=self.logger
                 )
                 
                 # 檢查是否需要恢復爬取
-                if self.engine_config.get("resume_crawling", True):
-                    data = crawler.resume_crawl(
-                        max_pages=task["config"].get("max_pages"),
-                        max_items=task["config"].get("max_items")
-                    )
-                else:
-                    data = crawler.crawl(
-                        max_pages=task["config"].get("max_pages"),
-                        max_items=task["config"].get("max_items")
-                    )
+                resume_crawling = self.engine_config.get("resume_crawling", False)
+                max_pages = task["config"].get("max_pages")
+                max_items = task["config"].get("max_items")
+                
+                # 執行爬取
+                data = crawler.start(max_pages=max_pages, max_items=max_items)
                 
                 # 更新任務結果
                 task_result["success"] = True
@@ -180,6 +172,12 @@ class CrawlerEngine:
                     self.stats["items_scraped"] += len(data)
                 
                 self.logger.info(f"任務 {task['id']} 完成，爬取了 {len(data)} 個項目")
+                
+                # 保存數據
+                if self.data_manager is not None and data:
+                    self._save_data(task["id"], data)
+                else:
+                    self._save_to_file(task["id"], data)
             
             except Exception as e:
                 task_result["success"] = False
@@ -189,6 +187,8 @@ class CrawlerEngine:
                     self.stats["tasks_failed"] += 1
                 
                 self.logger.error(f"任務 {task['id']} 失敗: {str(e)}")
+                import traceback
+                self.logger.debug(traceback.format_exc())
             
             finally:
                 # 標記任務完成時間
@@ -341,29 +341,26 @@ class CrawlerEngine:
             crawler = TemplateCrawler(
                 template_file=template_file,
                 config_file=self.config.get("config_file", "config/config.json"),
-                log_level=self.logger.level
+                logger=self.logger
             )
             
             # 執行爬取
-            if self.engine_config.get("resume_crawling", True):
-                data = crawler.resume_crawl(
-                    max_pages=config.get("max_pages"),
-                    max_items=config.get("max_items")
-                )
-            else:
-                data = crawler.crawl(
-                    max_pages=config.get("max_pages"),
-                    max_items=config.get("max_items")
-                )
+            data = crawler.start(
+                max_pages=config.get("max_pages"),
+                max_items=config.get("max_items")
+            )
             
             # 更新結果
             result["success"] = True
             result["items_count"] = len(data)
             result["data"] = data
             
-            # 保存數據到持久化管理器
+            # 保存數據
             if data and config.get("save_data", True):
-                self.data_manager.save_data(task_id, data)
+                if self.data_manager is not None:
+                    self._save_data(task_id, data)
+                else:
+                    self._save_to_file(task_id, data)
                 
             self.logger.info(f"任務 {task_id} 完成，爬取了 {len(data)} 個項目")
         
@@ -379,3 +376,62 @@ class CrawlerEngine:
             result["end_time"] = time.time()
         
         return result
+    
+    def _save_data(self, task_id: str, data: List[Dict]) -> bool:
+        """
+        使用數據持久化管理器保存數據
+        
+        Args:
+            task_id: 任務ID
+            data: 爬取的數據
+            
+        Returns:
+            是否保存成功
+        """
+        try:
+            self.logger.info(f"使用數據持久化管理器保存 {len(data)} 項數據")
+            result = self.data_manager.save_data(task_id, data)
+            if result:
+                self.logger.info(f"數據保存成功: {task_id}")
+            else:
+                self.logger.warning(f"數據保存失敗: {task_id}")
+            return result
+        except Exception as e:
+            self.logger.error(f"保存數據時出錯: {str(e)}")
+            self._save_to_file(task_id, data)  # 備用方案
+            return False
+    
+    def _save_to_file(self, task_id: str, data: List[Dict]) -> bool:
+        """
+        將數據保存到文件
+        
+        Args:
+            task_id: 任務ID
+            data: 爬取的數據
+            
+        Returns:
+            是否保存成功
+        """
+        if not data:
+            self.logger.warning(f"沒有數據需要保存: {task_id}")
+            return False
+        
+        try:
+            # 獲取輸出目錄
+            output_dir = self.engine_config.get("output_dir", "output")
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # 生成文件名
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            filename = f"{task_id}_{timestamp}.json"
+            filepath = os.path.join(output_dir, filename)
+            
+            # 保存數據
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            self.logger.info(f"數據已保存到文件: {filepath}")
+            return True
+        except Exception as e:
+            self.logger.error(f"保存數據到文件時出錯: {str(e)}")
+            return False
