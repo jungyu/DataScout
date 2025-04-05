@@ -1,0 +1,222 @@
+{
+    "site_name": "Shopee",
+    "base_url": "https://shopee.tw",
+    "encoding": "utf-8",
+    "description": "蝦皮購物爬蟲程式",
+    "version": "1.0.0",
+    "request": {
+      "method": "GET",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+        "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "sec-ch-ua": "\"Chromium\";v=\"135\", \"Not=A?Brand\";v=\"99\"",
+        "sec-ch-ua-platform": "\"macOS\"",
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "same-origin",
+        "sec-fetch-user": "?1"
+      }
+    },
+    "delays": {
+      "page_load": 3,
+      "between_pages": 2,
+      "between_items": 1,
+      "scroll": 1.5,
+      "finish": 3
+    },
+    "search_parameters": {
+      "keyword": {
+        "default": "手機殼",
+        "input_selector": "//input[@class='shopee-searchbar-input__input']",
+        "submit_selector": "//button[@class='btn btn-solid-primary btn--s btn--inline shopee-searchbar__search-button']",
+        "wait_after_submit": 5,
+        "description": "搜尋關鍵字"
+      },
+      "shop": {
+        "default": "娜娜正版專賣",
+        "selector": "//div[@class='shop-search-result-view__item']//a[contains(., '{value}')]",
+        "alternative_selector": "//div[contains(@class, 'shop-search-result-view__item')]/a[.//img/@alt='{value}']",
+        "wait_after_click": 5,
+        "description": "目標商店"
+      },
+      "category": {
+        "default": "",
+        "selector": "//button[contains(., '{value}')]",
+        "wait_after_click": 3,
+        "description": "商品類別"
+      },
+      "product": {
+        "default": "",
+        "selector": "//div[contains(@class, 'shop-search-result-view__item')]//img[@alt='{value}']/ancestor::a",
+        "wait_after_click": 3,
+        "description": "目標商品"
+      },
+      "variation": {
+        "default": "",
+        "selector": "//button[.//*[contains(text(), '{value}')]]",
+        "wait_after_click": 1,
+        "description": "商品選項"
+      },
+      "addToCart": {
+        "selector": "//button[contains(., '加入購物車')]",
+        "description": "加入購物車按鈕",
+        "wait_after_click": 2
+      }
+    },
+    "list_page": {
+      "container_xpath": "//div[contains(@class, 'shop-search-result-view')]",
+      "item_xpath": "//div[contains(@class, 'shop-search-result-view__item')]/a",
+      "total_count_xpath": "//span[@class='shopee-mini-page-controller__total']/text()",
+      "fields": {
+        "product_name": {
+          "xpath": ".//img/@alt",
+          "type": "attribute",
+          "description": "商品名稱"
+        },
+        "product_price": {
+          "xpath": ".//div[contains(@class, 'Wro8bk')]//span/text()",
+          "type": "text",
+          "description": "商品價格"
+        },
+        "product_image": {
+          "xpath": ".//img/@src",
+          "type": "attribute",
+          "description": "商品圖片"
+        },
+        "detail_link": {
+          "xpath": "./@href",
+          "type": "attribute",
+          "description": "詳情連結"
+        }
+      }
+    },
+    "detail_page": {
+      "url_pattern": "{base_url}{detail_link}",
+      "container_xpath": "//div[@class='product-briefing']",
+      "fields": {
+        "product_name": {
+          "xpath": "//div[@class='VCNVHn']/span/text()",
+          "type": "text",
+          "description": "商品名稱"
+        },
+        "product_price": {
+          "xpath": "//div[contains(@class, 'pqTWkA')]/div[contains(text(), '$')]/text()",
+          "type": "text",
+          "description": "商品價格"
+        },
+        "stock": {
+          "xpath": "//label[contains(text(), '商品數量')]/following::div[1]/text()",
+          "type": "text",
+          "description": "庫存數量"
+        },
+        "from_address": {
+          "xpath": "//label[contains(text(), '出貨地')]/following::div[1]/text()",
+          "type": "text",
+          "description": "出貨地"
+        },
+        "tags": {
+          "xpath": "//label[contains(text(),'分類')]/following::a/text()",
+          "type": "list",
+          "description": "商品分類標籤"
+        },
+        "detail": {
+          "xpath": "//div[contains(text(), '商品詳情')]/following::div[1]",
+          "type": "html",
+          "description": "商品詳情"
+        },
+        "specifications": {
+          "xpath": "//div[contains(text(), '商品規格')]/following::div[1]",
+          "type": "html",
+          "description": "商品規格"
+        },
+        "images": {
+          "xpath": "//div[contains(@style,'background-image: url')]/@style",
+          "pattern": "url\\(\"([^\"]+)\"\\)",
+          "type": "attribute",
+          "description": "商品圖片"
+        }
+      }
+    },
+    "pagination": {
+      "items_per_page": 20,
+      "next_page_selector": "//button[contains(@class, 'shopee-icon-button--right')]",
+      "max_pages": 3
+    },
+    "advanced_settings": {
+      "save_error_page": true,
+      "error_page_dir": "./debug",
+      "max_results_per_page": 50,
+      "text_cleaning": {
+        "remove_extra_whitespace": true,
+        "trim_strings": true
+      },
+      "url_format": {
+        "pattern": "{base_url}{shop_url}?sortBy=ctime&page={page}#product_list",
+        "encode_parameters": true
+      },
+      "login_required": true,
+      "screenshot": {
+        "enabled": true,
+        "directory": "./screenshots",
+        "filename_pattern": "shopee_{timestamp}_{page_type}.png"
+      },
+      "scroll_behavior": {
+        "enable_lazy_loading": true,
+        "scroll_pause": 1.5,
+        "max_scroll_attempts": 5
+      },
+      "recaptcha_handling": {
+        "enabled": true,
+        "retry_attempts": 3,
+        "iframe_selector": "//iframe[@title='reCAPTCHA']",
+        "checkbox_selector": "//div[@class='recaptcha-checkbox-border']",
+        "wait_time": 5,
+        "detect_patterns": ["請通過人機驗證", "機器人驗證", "請完成安全驗證"],
+        "bypass_strategies": ["wait_and_click", "iframe_switch", "action_delay"],
+        "auto_solve": false
+      },
+      "session_management": {
+        "cookies_file": "./cookies/shopee_cookies.json",
+        "save_cookies": true,
+        "load_cookies": true,
+        "update_cookies": true
+      },
+      "anti_detection": {
+        "random_user_agent": true,
+        "user_agents": [
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+        ],
+        "stealth_mode": true,
+        "disable_webdriver": true,
+        "randomize_viewport": true,
+        "undetected_mode": true
+      },
+      "request_throttling": {
+        "enabled": true,
+        "min_delay": 2,
+        "max_delay": 5,
+        "random_delay": true
+      }
+    },
+    "login": {
+      "required": true,
+      "url": "https://shopee.tw/buyer/login",
+      "method": "credentials",
+      "fields": {
+        "username_selector": "//input[@name='loginKey']",
+        "password_selector": "//input[@name='password']",
+        "submit_selector": "//button[contains(@class, 'btn-solid-primary')]"
+      },
+      "success_indicators": {
+        "url_contains": "user",
+        "element_present": "//div[contains(@class, 'shopee-avatar')]"
+      },
+      "retry_attempts": 2,
+      "wait_after_login": 5,
+      "bypass_if_cookies_valid": true,
+      "username": "",
+      "password": ""
+    }
+  }
