@@ -1,0 +1,190 @@
+{
+    "site_name": "UberEats",
+    "base_url": "https://www.ubereats.com",
+    "encoding": "utf-8",
+    "description": "UberEats爬蟲程式",
+    "version": "1.0.0",
+    "request": {
+      "method": "GET",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+      }
+    },
+    "delays": {
+      "page_load": 5,
+      "between_pages": 3,
+      "between_items": 1,
+      "scroll": 1.5,
+      "finish": 3
+    },
+    "search_parameters": {
+      "address": {
+        "default": "屏東縣內埔鄉學府路1號",
+        "input_selector": "//input[@data-test='address-field-input']",
+        "submit_selector": "//button[@data-test='address-field-submit']",
+        "wait_after_submit": 5,
+        "description": "送餐地址"
+      },
+      "want": {
+        "default": "咖啡",
+        "input_selector": "//input[@data-test='search-input']",
+        "submit_selector": "//button[@data-test='search-submit']",
+        "wait_after_submit": 5,
+        "description": "搜尋關鍵字"
+      },
+      "wantStore": {
+        "default": "巨森早午餐",
+        "selector": "//a[contains(@href, '/store/') and contains(., '{value}')]",
+        "wait_after_click": 5,
+        "description": "目標餐廳"
+      },
+      "wantCategory": {
+        "default": "人氣精選",
+        "selector": "//button[@data-baseweb='tab']//span[contains(text(), '{value}')]/parent::button",
+        "backup_selectors": [
+          "//button[@data-baseweb='tab']//span[text()='{value}']/parent::button",
+          "//div[@data-baseweb='tab-list']//button//span[contains(text(), '{value}')]/parent::button",
+          "//button/div[text()='{value}']/parent::button",
+          "//button[contains(., '{value}')]"
+        ],
+        "tab_list_selector": "//div[@data-baseweb='tab-list']",
+        "wait_after_click": 3,
+        "description": "餐點類別"
+      },
+      "wantItem": {
+        "default": "喜揚揚拼盤",
+        "backup_items": ["脆皮德式香腸拼盤", "杏子豬排拼盤", "軟 Q 軟法香腸拼盤"],
+        "selector": "//span[contains(text(), '{value}')]/ancestor::a",
+        "backup_selectors": [
+          "//li[@data-testid='store-item']//span[contains(text(), '{value}')]/ancestor::li",
+          "//span[text()='{value}']/ancestor::a"
+        ],
+        "wait_after_click": 3,
+        "description": "目標餐點"
+      },
+      "wantOption": {
+        "default": "原味",
+        "selector": "//label[contains(., '{value}')]",
+        "wait_after_click": 1,
+        "description": "餐點選項"
+      },
+      "addToCart": {
+        "selector": "//button[@data-test='add-to-cart-button']",
+        "description": "加入購物車按鈕",
+        "wait_after_click": 2
+      }
+    },
+    "list_page": {
+      "container_xpath": "//div[@data-test='restaurant-list']",
+      "item_xpath": "//a[@data-test='store-link']",
+      "total_count_xpath": "//div[@data-test='store-count']/text()",
+      "fields": {
+        "restaurant_name": {
+          "xpath": ".//h3[@data-test='store-name']/text()",
+          "type": "text",
+          "description": "餐廳名稱"
+        },
+        "restaurant_rating": {
+          "xpath": ".//div[@data-test='rating']/text()",
+          "type": "text",
+          "description": "餐廳評分"
+        },
+        "delivery_time": {
+          "xpath": ".//div[@data-test='delivery-time']/text()",
+          "type": "text",
+          "description": "送達時間"
+        },
+        "delivery_fee": {
+          "xpath": ".//div[@data-test='delivery-fee']/text()",
+          "type": "text",
+          "description": "外送費"
+        },
+        "restaurant_image": {
+          "xpath": ".//img/@src",
+          "type": "attribute",
+          "description": "餐廳圖片"
+        },
+        "detail_link": {
+          "xpath": "./@href",
+          "type": "attribute",
+          "description": "詳情連結"
+        }
+      }
+    },
+    "detail_page": {
+      "url_pattern": "{base_url}{detail_link}",
+      "container_xpath": "//div[@data-test='menu-container']",
+      "fields": {
+        "restaurant_name": {
+          "xpath": "//h1[@data-test='store-name']/text()",
+          "type": "text",
+          "description": "餐廳名稱"
+        },
+        "restaurant_rating": {
+          "xpath": "//div[@data-test='ratings-and-reviews']/text()",
+          "type": "text",
+          "description": "餐廳評分"
+        },
+        "categories": {
+          "xpath": "//div[@data-test='category-list']//button/text()",
+          "type": "list",
+          "description": "菜單類別"
+        },
+        "menu_items": {
+          "container_xpath": "//div[@data-test='menu-item-list']",
+          "item_xpath": ".//div[@data-test='menu-item']",
+          "fields": {
+            "item_name": {
+              "xpath": ".//h4[@data-test='item-name']/text()",
+              "type": "text",
+              "description": "餐點名稱"
+            },
+            "item_price": {
+              "xpath": ".//span[@data-test='item-price']/text()",
+              "type": "text",
+              "description": "餐點價格"
+            },
+            "item_description": {
+              "xpath": ".//p[@data-test='item-description']/text()",
+              "type": "text",
+              "description": "餐點描述"
+            },
+            "item_image": {
+              "xpath": ".//img/@src",
+              "type": "attribute",
+              "description": "餐點圖片"
+            }
+          }
+        }
+      }
+    },
+    "pagination": {
+      "items_per_page": 20,
+      "load_more_selector": "//button[@data-test='load-more']",
+      "max_pages": 3
+    },
+    "advanced_settings": {
+      "save_error_page": true,
+      "error_page_dir": "../debug",
+      "max_results_per_page": 50,
+      "text_cleaning": {
+        "remove_extra_whitespace": true,
+        "trim_strings": true
+      },
+      "url_format": {
+        "pattern": "{base_url}/tw/feed?pl={encoded_address}&q={encoded_search}",
+        "encode_parameters": true
+      },
+      "login_required": false,
+      "screenshot": {
+        "enabled": true,
+        "directory": "../screenshots",
+        "filename_pattern": "ubereats_{timestamp}_{page_type}.png"
+      },
+      "scroll_behavior": {
+        "enable_lazy_loading": true,
+        "scroll_pause": 1.5,
+        "max_scroll_attempts": 5
+      }
+    }
+  }
