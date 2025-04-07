@@ -227,7 +227,7 @@ class DetailExtractor:
             
         # 正則表達式提取
         regex = field_config.get("regex")
-        if regex:
+        if (regex):
             match = re.search(regex, text)
             if match:
                 if match.groups():
@@ -431,7 +431,7 @@ class DetailExtractor:
 
     def extract_detail_page(self, detail_config: Dict, container_xpath: Optional[str] = None) -> Dict[str, Any]:
         """
-        提取詳情頁面數據
+        提取詳情頁面數據 - 改進版
         
         Args:
             detail_config: 詳情頁配置
@@ -443,74 +443,220 @@ class DetailExtractor:
         try:
             # 等待主容器
             container_xpath = container_xpath or detail_config.get("container_xpath", "//body")
+            self.logger.info(f"使用容器 XPath: {container_xpath}")
+            
             container = self.wait_for_container(container_xpath)
             
+            # 如果找不到指定容器，嘗試更廣泛的容器
             if not container:
-                self.logger.error(f"找不到容器元素: {container_xpath}")
-                return {}
+                self.logger.warning(f"找不到容器元素: {container_xpath}，嘗試使用備用容器")
+                backup_containers = [
+                    "//main", 
+                    "//article", 
+                    "//div[@role='main']", 
+                    "//div[contains(@class, 'content')]",
+                    "//body"
+                ]
                 
+                for backup_xpath in backup_containers:
+                    if backup_xpath != container_xpath:  # 避免重複嘗試
+                        self.logger.info(f"嘗試備用容器: {backup_xpath}")
+                        container = self.wait_for_container(backup_xpath)
+                        if container:
+                            self.logger.info(f"使用備用容器: {backup_xpath}")
+                            break
+            
+            if not container:
+                self.logger.error("無法找到任何有效的內容容器")
+                return {"_error": "無法找到內容容器", "_metadata": {"url": self.driver.current_url}}
+            
             # 提取字段
             fields_config = detail_config.get("fields", {})
-            result = self.extract_fields(fields_config)
+            result = {}
+            
+            # 如果配置包含字段定義
+            if fields_config:
+                field_results = self.extract_fields(fields_config)
+                result.update(field_results)
+                
+                # 記錄提取字段數量
+                self.logger.info(f"從字段配置中提取了 {len(field_results)} 個字段")
+                
+                # 如果沒有足夠的字段被提取，嘗試使用更通用的XPath
+                if len(field_results) < len(fields_config) / 2:
+                    self.logger.warning("提取到的字段數較少，嘗試使用更通用的XPath")
+                    
+                    # 為每個字段添加更通用的備用XPath
+                    generic_fields = {}
+                    for field_name, field_config in fields_config.items():
+                        if field_name not in field_results or not field_results[field_name]:
+                            generic_config = field_config.copy()
+                            
+                            # 根據字段名稱生成通用XPath
+                            field_type = field_config.get("type", "text")
+                            
+                            # 不同類型字段的通用XPath
+                            if field_name == "title" or "title" in field_name:
+                                generic_config["xpath"] = "//h1 | //h2[1] | //title"
+                            elif "content" in field_name or "description" in field_name:
+                                generic_config["xpath"] = "//article//p | //div[contains(@class, 'content')]//p | //main//p"
+                            elif "date" in field_name or "time" in field_name:
+                                generic_config["xpath"] = "//time | //span[contains(@class, 'date')] | //p[contains(text(), '日期') or contains(text(), '時間')]"
+                            elif "author" in field_name:
+                                generic_config["xpath"] = "//span[contains(@class, 'author')] | //div[contains(@class, 'author')] | //a[contains(@class, 'author')]"
+                            
+                            generic_fields[f"{field_name}_generic"] = generic_config
+                    
+                    if generic_fields:
+                        generic_results = self.extract_fields(generic_fields)
+                        
+                        # 將通用結果合併到結果中（只添加原始結果中不存在的字段）
+                        for generic_name, value in generic_results.items():
+                            original_name = generic_name.replace("_generic", "")
+                            if original_name not in result or not result[original_name]:
+                                result[original_name] = value
+                                self.logger.info(f"使用通用XPath提取字段: {original_name}")
             
             # 提取表格（如果配置了）
-            tables_config = detail_config.get("tables", {})
+            tables_config = detail_config.get("extract_tables", False)
             if tables_config:
-                tables_xpath = tables_config.get("tables_xpath")
-                title_xpath = tables_config.get("title_xpath", ".//caption | .//th[1]")
+                # 判斷 extract_tables 是字典還是布林值
+                if isinstance(tables_config, dict):
+                    # 如果是字典，直接從中獲取配置
+                    tables_xpath = tables_config.get("xpath")
+                    title_xpath = tables_config.get("title_xpath", ".//caption | .//th[1]")
+                else:
+                    # 如果是布林值，從 detail_config 中獲取配置
+                    tables_xpath = detail_config.get("tables_xpath")
+                    title_xpath = detail_config.get("table_title_xpath", ".//caption | .//th[1]")
+                    
                 if tables_xpath:
-                    tables_data = self.extract_tables(tables_xpath, title_xpath)
-                    result["tables"] = tables_data
+                    try:
+                        tables_data = self.extract_tables(tables_xpath, title_xpath)
+                        if tables_data:
+                            result["tables"] = tables_data
+                    except Exception as table_error:
+                        self.logger.warning(f"提取表格數據失敗: {str(table_error)}")
             
             # 添加元數據
-            result["_metadata"] = {
+            if "_metadata" not in result:
+                result["_metadata"] = {}
+                
+            result["_metadata"].update({
                 "url": self.driver.current_url,
                 "title": self.driver.title,
                 "extraction_time": int(time.time())
-            }
+            })
             
             return result
             
         except Exception as e:
             self.logger.error(f"提取詳情頁數據失敗: {str(e)}")
-            return {}
+            import traceback
+            self.logger.debug(traceback.format_exc())
+            
+            # 返回錯誤信息而不是空字典，以便於調試
+            return {
+                "_error": str(e),
+                "_metadata": {
+                    "url": self.driver.current_url if self.driver else None,
+                    "extraction_time": int(time.time())
+                }
+            }
 
     def expand_sections(self, expand_sections: List[Dict]) -> None:
         """
         展開頁面中的可折疊區塊
         
         Args:
-            expand_sections: 展開區塊配置
+            expand_sections: 展開區塊配置列表
         """
         if not self.driver or not expand_sections:
             return
         
         for section in expand_sections:
             try:
-                xpath = section.get("xpath")
-                if not xpath:
+                # 獲取所有所需的配置
+                section_name = section.get("name", "未命名區塊")
+                button_selector = section.get("button_selector", "")
+                target_selector = section.get("target_selector", "")
+                wait_time = section.get("wait_time", 1)
+                max_attempts = section.get("max_attempts", 3)
+                
+                self.logger.info(f"嘗試展開區塊: {section_name}")
+                
+                if not button_selector:
+                    self.logger.warning(f"區塊 {section_name} 未指定按鈕選擇器，跳過")
+                    continue
+                
+                # 嘗試找到所有展開按鈕
+                buttons = self.driver.find_elements(By.XPATH, button_selector)
+                
+                if not buttons:
+                    self.logger.info(f"未找到區塊 {section_name} 的展開按鈕")
                     continue
                     
-                elements = self.driver.find_elements(By.XPATH, xpath)
-                click_attempts = section.get("click_attempts", 1)
-                wait_time = section.get("wait_time", 0.5)
+                self.logger.info(f"找到 {len(buttons)} 個展開按鈕")
                 
-                if elements:
-                    for i in range(min(len(elements), section.get("max_clicks", len(elements)))):
+                # 決定點擊的按鈕數量
+                max_clicks = section.get("max_clicks", len(buttons))
+                buttons_to_click = buttons[:max_clicks]
+                
+                for idx, button in enumerate(buttons_to_click):
+                    for attempt in range(max_attempts):
                         try:
-                            for attempt in range(click_attempts):
+                            # 確保按鈕在可視區域內
+                            self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", button)
+                            time.sleep(0.5)  # 等待滾動完成
+                            
+                            # 檢查按鈕是否可見
+                            if not button.is_displayed():
+                                self.logger.warning(f"按鈕 #{idx+1} 不可見，嘗試使用JavaScript點擊")
+                                self.driver.execute_script("arguments[0].click();", button)
+                            else:
+                                button.click()
+                                
+                            self.logger.info(f"已點擊按鈕 #{idx+1}")
+                            
+                            # 等待區塊展開
+                            time.sleep(wait_time)
+                            
+                            # 檢查區塊是否已展開（如果有目標選擇器）
+                            if target_selector:
                                 try:
-                                    elements[i].click()
-                                    time.sleep(wait_time)
-                                    break
-                                except:
-                                    if attempt == click_attempts - 1:
-                                        raise
-                                    time.sleep(0.2)
-                        except Exception as click_error:
-                            self.logger.debug(f"點擊元素失敗: {str(click_error)}")
+                                    target_element = self.driver.find_element(By.XPATH, target_selector)
+                                    if target_element.is_displayed():
+                                        self.logger.info(f"區塊 #{idx+1} 已成功展開")
+                                        break  # 成功展開，退出重試循環
+                                    else:
+                                        self.logger.warning(f"目標元素存在但不可見，可能未成功展開")
+                                except NoSuchElementException:
+                                    if attempt == max_attempts - 1:
+                                        self.logger.warning(f"多次點擊後仍未找到目標元素")
+                                    # 繼續重試
+                                    pass
+                            else:
+                                # 沒有目標選擇器，假設點擊成功
+                                break
+                                
+                        except StaleElementReferenceException:
+                            self.logger.warning(f"元素已過期，重新查找按鈕")
+                            # 重新獲取按鈕
+                            buttons = self.driver.find_elements(By.XPATH, button_selector)
+                            if idx < len(buttons):
+                                button = buttons[idx]
+                            else:
+                                self.logger.warning(f"無法重新獲取按鈕 #{idx+1}")
+                                break
+                        except Exception as e:
+                            self.logger.warning(f"點擊按鈕 #{idx+1} 第 {attempt+1} 次嘗試失敗: {str(e)}")
+                            if attempt == max_attempts - 1:
+                                self.logger.error(f"點擊按鈕 #{idx+1} 失敗，放棄")
+                
             except Exception as e:
-                self.logger.warning(f"展開區塊失敗: {str(e)}")
+                self.logger.error(f"展開區塊 {section.get('name', '未命名區塊')} 時出錯: {str(e)}")
+                import traceback
+                self.logger.debug(traceback.format_exc())
 
     def get_statistics(self) -> Dict[str, int]:
         """

@@ -11,6 +11,7 @@ import sys
 import time
 import logging
 import json
+import re  # 新增 re 模組的導入
 from typing import Dict, List, Any, Optional
 
 # 添加專案根目錄到 Python 路徑
@@ -174,22 +175,31 @@ class GoogleSearchCrawler(TemplateCrawler):
             
             # 執行搜尋
             search_keyword = self.config.get("search", {}).get("keyword", "Google")
-            self.perform_search(search_keyword)
+            success = self.perform_search(search_keyword)
+            if not success:
+                self.logger.error("執行搜尋操作失敗")
+                return False
             
             # 爬取多個頁面
             current_page = 1
             max_pages = self.config.get("pagination", {}).get("max_pages", 1)
+            
+            all_search_results = []  # 收集所有頁面的搜索結果
             
             while current_page <= max_pages:
                 self.logger.info(f"處理第 {current_page} 頁")
                 
                 # 解析當前頁面結果
                 page_results = self.extract_search_results()
-                self.all_results.extend(page_results)
                 
-                # 檢查是否需要採集詳情頁
-                if self.config.get("detail_page", {}).get("enabled", False):
-                    self.extract_detail_pages(page_results)
+                if not page_results:
+                    self.logger.warning(f"第 {current_page} 頁未提取到結果")
+                    break
+                    
+                self.all_results.extend(page_results)
+                all_search_results.extend(page_results)  # 添加到總結果
+                
+                self.logger.info(f"第 {current_page} 頁找到 {len(page_results)} 條結果")
                 
                 # 檢查是否需要繼續下一頁
                 if current_page >= max_pages or not self.has_next_page():
@@ -198,23 +208,139 @@ class GoogleSearchCrawler(TemplateCrawler):
                 # 前往下一頁
                 self.logger.info(f"前往第 {current_page + 1} 頁...")
                 if not self.go_to_next_page():
+                    self.logger.warning("無法前往下一頁，結束爬取")
                     break
                 
                 current_page += 1
+                
+                # 頁面間延遲
+                between_pages_delay = self.config.get("delays", {}).get("between_pages", 2)
+                time.sleep(between_pages_delay)
+            
+            # 檢查是否需要採集詳情頁
+            detail_enabled = self.config.get("detail_page", {}).get("enabled", False)
+            if detail_enabled and all_search_results:
+                self.logger.info("開始提取詳情頁內容...")
+                self.extract_detail_pages(all_search_results)
             
             # 保存結果
             self.save_results()
             
-            self.logger.info(f"完成爬取 {current_page} 頁，共 {len(self.all_results)} 條結果")
+            self.logger.info(f"完成爬取 {current_page} 頁，共 {len(self.all_results)} 條結果，{len(self.detail_results)} 個詳情頁")
             return True
             
         except Exception as e:
             self.logger.error(f"爬蟲執行失敗: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
             self.handle_error()
             return False
             
         finally:
             self.cleanup()
+
+    def perform_search(self, keyword: str) -> bool:
+        """
+        執行搜尋操作
+        
+        Args:
+            keyword: 搜尋關鍵字
+            
+        Returns:
+            是否成功執行搜尋
+        """
+        try:
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.common.keys import Keys
+            
+            # 獲取搜尋框配置
+            search_box_xpath = self.config.get("search_page", {}).get("search_box_xpath", "//textarea[@name='q']")
+            
+            # 找到搜尋框並輸入關鍵詞
+            self.logger.info(f"搜尋關鍵詞: {keyword}")
+            
+            # 使用正確的參數順序調用 wait_for_element 方法
+            search_box = self.list_extractor.wait_for_element(
+                By.XPATH,  # 第一個參數是 by
+                search_box_xpath,  # 第二個參數是 selector
+                timeout=10
+            )
+            
+            if not search_box:
+                self.logger.error(f"找不到搜尋框元素: {search_box_xpath}")
+                # 嘗試更多選擇器
+                alternative_selectors = [
+                    "//input[@name='q']", 
+                    "//input[@title='搜尋']",
+                    "//textarea[@title='搜尋']"
+                ]
+                for selector in alternative_selectors:
+                    self.logger.info(f"嘗試備用搜尋框選擇器: {selector}")
+                    search_box = self.list_extractor.wait_for_element(By.XPATH, selector, timeout=5)
+                    if search_box:
+                        self.logger.info(f"使用備用選擇器 {selector} 找到搜尋框")
+                        break
+                        
+                if not search_box:
+                    self.logger.error("所有選擇器都找不到搜尋框，無法繼續")
+                    return False
+            
+            # 清除並輸入搜尋關鍵詞
+            search_box.clear()
+            search_box.send_keys(keyword)
+            
+            # 嘗試提交搜尋
+            try:
+                search_box.send_keys(Keys.RETURN)
+            except:
+                try:
+                    search_box.submit()
+                except:
+                    self.logger.warning("無法使用常規方法提交搜尋，嘗試使用JavaScript點擊")
+                    self.driver.execute_script("document.querySelector('form[action*=\"search\"]').submit();")
+            
+            # 等待搜尋結果載入
+            result_container_xpath = self.config.get("search_page", {}).get("result_container_xpath", "//div[@id='search']")
+            
+            # 使用正確的參數順序調用 wait_for_element 方法
+            result_container = self.list_extractor.wait_for_element(
+                By.XPATH,  # 第一個參數是 by
+                result_container_xpath,  # 第二個參數是 selector
+                timeout=15
+            )
+            
+            if not result_container:
+                self.logger.warning(f"未找到結果容器: {result_container_xpath}")
+                # 嘗試更多備用容器選擇器
+                alternative_containers = [
+                    "//div[@id='rso']",
+                    "//div[@id='main']",
+                    "//div[@id='center_col']",
+                    "//div[contains(@class, 'g')]"
+                ]
+                
+                for selector in alternative_containers:
+                    self.logger.info(f"嘗試備用結果容器選擇器: {selector}")
+                    result_container = self.list_extractor.wait_for_element(By.XPATH, selector, timeout=5)
+                    if result_container:
+                        self.logger.info(f"使用備用選擇器 {selector} 找到結果容器")
+                        break
+            
+            # 如果還是找不到，我們等待一段時間然後繼續
+            if not result_container:
+                self.logger.warning("無法找到任何結果容器，等待頁面完全載入後繼續")
+                # 等待頁面載入
+                time.sleep(5)
+            
+            # 頁面載入延遲
+            page_load_delay = self.config.get("delays", {}).get("page_load", 1)
+            time.sleep(page_load_delay)
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"執行搜尋操作失敗: {str(e)}")
+            return False
 
     def extract_detail_pages(self, search_results: List[Dict[str, Any]]) -> None:
         """
@@ -226,6 +352,7 @@ class GoogleSearchCrawler(TemplateCrawler):
         # 獲取詳情頁配置
         detail_config = self.config.get("detail_page", {})
         if not detail_config.get("enabled", False):
+            self.logger.info("詳情頁提取未啟用，跳過")
             return
 
         # 獲取最大處理數量
@@ -244,47 +371,75 @@ class GoogleSearchCrawler(TemplateCrawler):
 
                 self.logger.info(f"訪問詳情頁 #{index+1}: {url}")
 
-                # 打開詳情頁
-                self.driver.get(url)
-                
-                # 等待頁面載入
-                time.sleep(detail_config.get("page_load_delay", 3))
+                # 使用 NavigateToPage 函數訪問頁面並處理可能的錯誤
+                success = self._navigate_to_detail_page(url, detail_config.get("page_load_delay", 3))
+                if not success:
+                    self.logger.warning(f"詳情頁 #{index+1} 導航失敗，跳過")
+                    continue
                 
                 # 檢查並處理可能的驗證碼
                 if detail_config.get("check_captcha", True):
-                    # 檢查頁面是否包含驗證碼線索
-                    if "recaptcha" in self.driver.page_source.lower() or "驗證" in self.driver.page_source:
-                        self.logger.warning(f"詳情頁 #{index+1} 可能需要驗證，請手動解決")
-                        screenshot_path = f"detail_captcha_{index+1}.png"
-                        self.driver.save_screenshot(screenshot_path)
-                        # 給予足夠時間手動解決驗證碼
-                        time.sleep(30)
-                        self.logger.info("繼續處理詳情頁")
+                    captcha_detected = self._check_and_handle_captcha()
+                    if captcha_detected:
+                        self.logger.info("已嘗試處理驗證碼")
                 
                 # 展開需要展開的區塊
                 expand_sections = detail_config.get("expand_sections", [])
                 if expand_sections:
                     self.detail_extractor.expand_sections(expand_sections)
+                    # 展開後等待內容加載
+                    time.sleep(1)
                 
                 # 提取詳情頁數據
                 container_xpath = detail_config.get("container_xpath")
-                detail_data = self.detail_extractor.extract_detail_page(detail_config, container_xpath)
+                try:
+                    self.logger.info(f"正在使用容器: {container_xpath} 提取詳情頁內容")
+                    detail_data = self.detail_extractor.extract_detail_page(detail_config, container_xpath)
+                    
+                    # 確保 detail_data 不為 None
+                    if detail_data is None:
+                        detail_data = {}
+                        
+                    # 檢查結果是否為空
+                    if not detail_data or (isinstance(detail_data, dict) and len(detail_data) <= 1):  # 只有元數據
+                        self.logger.warning(f"詳情頁 #{index+1} 未提取到有效數據")
+                        
+                        # 嘗試使用備用提取策略
+                        fields_config = detail_config.get("fields", {})
+                        if fields_config:
+                            self.logger.info("嘗試使用直接字段提取方式")
+                            alternate_data = self.detail_extractor.extract_fields(fields_config)
+                            if alternate_data:
+                                detail_data.update(alternate_data)
+                                self.logger.info(f"使用備用策略成功提取 {len(alternate_data)} 個字段")
+                except Exception as e:
+                    self.logger.error(f"提取詳情頁內容出錯: {str(e)}")
+                    # 創建空結果
+                    detail_data = {"_error": str(e)}
                 
                 # 提取表格數據（如果需要）
                 if detail_config.get("extract_tables", False):
-                    tables_xpath = detail_config.get("tables_xpath")
-                    title_xpath = detail_config.get("table_title_xpath", ".//caption")
-                    if tables_xpath:
-                        table_data = self.detail_extractor.extract_tables(tables_xpath, title_xpath)
-                        if table_data:
-                            detail_data["tables"] = table_data
+                    try:
+                        tables_xpath = detail_config.get("tables_xpath")
+                        title_xpath = detail_config.get("table_title_xpath", ".//caption")
+                        if tables_xpath:
+                            table_data = self.detail_extractor.extract_tables(tables_xpath, title_xpath)
+                            if table_data:
+                                detail_data["tables"] = table_data
+                                self.logger.info(f"提取到 {len(table_data)} 個表格")
+                    except Exception as e:
+                        self.logger.warning(f"提取表格數據失敗: {str(e)}")
                 
                 # 提取圖片（如果需要）
                 if detail_config.get("extract_images", False):
-                    images_container = detail_config.get("images_container_xpath")
-                    images = self.detail_extractor.extract_images(images_container)
-                    if images:
-                        detail_data["images"] = images
+                    try:
+                        images_container = detail_config.get("images_container_xpath")
+                        images = self.detail_extractor.extract_images(images_container)
+                        if images:
+                            detail_data["images"] = images
+                            self.logger.info(f"提取到 {len(images)} 張圖片")
+                    except Exception as e:
+                        self.logger.warning(f"提取圖片失敗: {str(e)}")
                 
                 # 整合基本搜尋結果和詳情頁數據
                 detail_data["_search_result"] = {
@@ -304,56 +459,123 @@ class GoogleSearchCrawler(TemplateCrawler):
                     
             except Exception as e:
                 self.logger.error(f"提取詳情頁 #{index+1} 失敗: {str(e)}")
+                import traceback
+                self.logger.debug(traceback.format_exc())
 
         self.logger.info(f"完成 {len(self.detail_results)} 個詳情頁提取")
-    
-    def perform_search(self, keyword: str) -> None:
+
+    def _navigate_to_detail_page(self, url: str, delay: float = 3) -> bool:
         """
-        執行搜尋操作
+        安全地導航到詳情頁面
         
         Args:
-            keyword: 搜尋關鍵字
+            url: 詳情頁URL
+            delay: 頁面加載等待時間
+            
+        Returns:
+            是否成功導航
+        """
+        retry_count = 0
+        max_retries = 2
+        
+        while retry_count <= max_retries:
+            try:
+                self.driver.get(url)
+                
+                # 等待頁面載入
+                time.sleep(delay)
+                
+                # 檢查頁面是否成功載入
+                if self._is_page_valid():
+                    return True
+                    
+                retry_count += 1
+                if retry_count <= max_retries:
+                    self.logger.warning(f"頁面載入似乎不完整，重試 ({retry_count}/{max_retries})...")
+                    time.sleep(1)  # 短暫等待後重試
+                
+            except Exception as e:
+                self.logger.error(f"導航到詳情頁失敗: {str(e)}")
+                retry_count += 1
+                if retry_count <= max_retries:
+                    self.logger.info(f"嘗試重新訪問 ({retry_count}/{max_retries})...")
+                    time.sleep(2)  # 稍長等待後重試
+                
+        return False
+
+    def _is_page_valid(self) -> bool:
+        """
+        檢查當前頁面是否有效
+        
+        Returns:
+            頁面是否有效
         """
         try:
-            from selenium.webdriver.common.by import By
+            # 檢查頁面標題
+            title = self.driver.title.lower()
+            body_text = self.driver.find_element(By.TAG_NAME, "body").text.lower()
             
-            # 獲取搜尋框配置
-            search_box_xpath = self.config.get("search_page", {}).get("search_box_xpath", "//textarea[@name='q']")
+            invalid_patterns = ["404", "not found", "error", "無法連接", "不存在", "服務暫停"]
             
-            # 找到搜尋框並輸入關鍵詞
-            self.logger.info(f"搜尋關鍵詞: {keyword}")
+            # 檢查標題是否含有錯誤關鍵字
+            for pattern in invalid_patterns:
+                if pattern in title:
+                    self.logger.warning(f"頁面標題包含無效關鍵字: '{pattern}'")
+                    return False
             
-            # 使用正確的參數順序調用 wait_for_element 方法
-            search_box = self.list_extractor.wait_for_element(
-                By.XPATH,  # 第一個參數是 by
-                search_box_xpath,  # 第二個參數是 selector
-                timeout=10
-            )
+            # 檢查是否有主要內容
+            if len(body_text) < 100:  # 太短的內容可能是錯誤頁面
+                self.logger.warning("頁面內容過短，可能是錯誤頁面")
+                return False
+                
+            return True
             
-            if search_box:
-                search_box.clear()
-                search_box.send_keys(keyword)
-                search_box.submit()
-                
-                # 等待搜尋結果載入
-                result_container_xpath = self.config.get("search_page", {}).get("result_container_xpath", "//div[@id='search']")
-                
-                # 使用正確的參數順序調用 wait_for_element 方法
-                self.list_extractor.wait_for_element(
-                    By.XPATH,  # 第一個參數是 by
-                    result_container_xpath,  # 第二個參數是 selector
-                    timeout=10
-                )
-                
-                # 頁面載入延遲
-                page_load_delay = self.config.get("delays", {}).get("page_load", 1)
-                time.sleep(page_load_delay)
-            else:
-                raise Exception("找不到搜尋框")
-                
         except Exception as e:
-            self.logger.error(f"執行搜尋時出錯: {str(e)}")
-            raise
+            self.logger.error(f"檢查頁面有效性時出錯: {str(e)}")
+            return False
+
+    def _check_and_handle_captcha(self) -> bool:
+        """
+        檢查並處理可能的驗證碼
+        
+        Returns:
+            是否檢測到驗證碼
+        """
+        try:
+            # 檢查頁面是否包含驗證碼線索
+            captcha_elements = [
+                "//div[contains(@class, 'g-recaptcha')]",
+                "//iframe[contains(@src, 'recaptcha')]",
+                "//div[contains(@class, 'captcha')]",
+                "//*[contains(text(), '驗證') and contains(text(), '人類')]"
+            ]
+            
+            captcha_detected = False
+            
+            for xpath in captcha_elements:
+                elements = self.driver.find_elements(By.XPATH, xpath)
+                if elements:
+                    captcha_detected = True
+                    self.logger.warning(f"詳情頁可能需要驗證，發現元素: {xpath}")
+                    break
+                    
+            if captcha_detected or "recaptcha" in self.driver.page_source.lower() or "驗證" in self.driver.page_source:
+                self.logger.warning("詳情頁需要驗證，請手動解決")
+                screenshot_path = f"detail_captcha_{int(time.time())}.png"
+                self.driver.save_screenshot(screenshot_path)
+                self.logger.info(f"驗證碼截圖已保存至: {screenshot_path}")
+                
+                # 給予足夠時間手動解決驗證碼
+                time.sleep(30)
+                
+                self.logger.info("繼續處理詳情頁")
+                return True
+                
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"檢查驗證碼時出錯: {str(e)}")
+            return False
 
     def extract_search_results(self) -> List[Dict[str, Any]]:
         self.logger.info("開始提取搜索結果...")
@@ -524,30 +746,151 @@ class GoogleSearchCrawler(TemplateCrawler):
         # 創建輸出目錄
         os.makedirs("output", exist_ok=True)
         
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        site_name = self.config.get('site_name', 'google_search').replace(' ', '_').lower()
+        
         # 保存搜尋結果
         if self.all_results:
-            search_output_file = f"output/{self.config.get('site_name', 'google_search')}_results.json"
+            search_output_file = f"output/{site_name}_results_{timestamp}.json"
             try:
-                # 直接使用 json 模組保存，不依賴 StorageHandler
+                # 確保 JSON 序列化前的數據是可序列化的
+                sanitized_results = []
+                for item in self.all_results:
+                    sanitized_item = {}
+                    for k, v in item.items():
+                        # 過濾無法序列化的值
+                        if isinstance(v, (str, int, float, bool, list, dict, type(None))):
+                            sanitized_item[k] = v
+                        else:
+                            sanitized_item[k] = str(v)
+                    sanitized_results.append(sanitized_item)
+                
+                # 寫入JSON文件
                 with open(search_output_file, 'w', encoding='utf-8') as f:
-                    json.dump(self.all_results, f, ensure_ascii=False, indent=2)
+                    json.dump(sanitized_results, f, ensure_ascii=False, indent=2)
                 self.logger.info(f"搜尋結果已儲存至: {search_output_file}")
+                
+                # 同時保存為CSV（可選）
+                if self.config.get("advanced_settings", {}).get("save_csv", False):
+                    try:
+                        import csv
+                        import pandas as pd
+                        
+                        # 嘗試使用pandas存為CSV
+                        csv_file = search_output_file.replace('.json', '.csv')
+                        df = pd.DataFrame(sanitized_results)
+                        df.to_csv(csv_file, index=False, encoding='utf-8-sig')
+                        self.logger.info(f"搜尋結果已儲存為CSV: {csv_file}")
+                    except Exception as csv_err:
+                        self.logger.warning(f"儲存CSV失敗: {str(csv_err)}")
+                        
             except Exception as e:
                 self.logger.error(f"保存搜尋結果失敗: {str(e)}")
+                import traceback
+                self.logger.debug(traceback.format_exc())
         else:
             self.logger.warning("沒有搜尋結果可保存")
         
         # 保存詳情頁結果
         if self.detail_results:
-            detail_output_file = f"output/{self.config.get('site_name', 'google_search')}_details.json"
+            # 確保詳情頁結果是列表
+            if not isinstance(self.detail_results, list):
+                self.detail_results = [self.detail_results]
+                
+            detail_output_file = f"output/{site_name}_details_{timestamp}.json"
             try:
+                # 確保 JSON 序列化前的數據是可序列化的
+                sanitized_details = []
+                for item in self.detail_results:
+                    if not isinstance(item, dict):
+                        self.logger.warning(f"跳過非字典類型的詳情頁結果: {type(item)}")
+                        continue
+                        
+                    sanitized_item = {}
+                    for k, v in item.items():
+                        # 對複雜對象進行特殊處理
+                        if isinstance(v, (str, int, float, bool, type(None))):
+                            sanitized_item[k] = v
+                        elif isinstance(v, (list, tuple)):
+                            sanitized_item[k] = self._sanitize_list(v)
+                        elif isinstance(v, dict):
+                            sanitized_item[k] = self._sanitize_dict(v)
+                        else:
+                            sanitized_item[k] = str(v)
+                    sanitized_details.append(sanitized_item)
+                
                 with open(detail_output_file, 'w', encoding='utf-8') as f:
-                    json.dump(self.detail_results, f, ensure_ascii=False, indent=2)
+                    json.dump(sanitized_details, f, ensure_ascii=False, indent=2)
                 self.logger.info(f"詳情頁結果已儲存至: {detail_output_file}")
+                
+                # 保存詳情頁到獨立文件（如果配置啟用）
+                if self.config.get("advanced_settings", {}).get("save_details_individually", False):
+                    details_dir = f"output/{site_name}_details_{timestamp}"
+                    os.makedirs(details_dir, exist_ok=True)
+                    
+                    for idx, detail in enumerate(sanitized_details):
+                        # 嘗試從標題或URL獲取合適的文件名
+                        title = None
+                        if "_search_result" in detail and "title" in detail["_search_result"]:
+                            title = detail["_search_result"]["title"]
+                        elif "title" in detail:
+                            title = detail["title"]
+                            
+                        if title:
+                            # 清理文件名
+                            title = re.sub(r'[\\/*?:"<>|]', "", title)
+                            title = title[:50]  # 截斷長文件名
+                        else:
+                            title = f"detail_{idx+1}"
+                            
+                        detail_file = os.path.join(details_dir, f"{title}.json")
+                        with open(detail_file, 'w', encoding='utf-8') as f:
+                            json.dump(detail, f, ensure_ascii=False, indent=2)
+                            
+                    self.logger.info(f"已將 {len(sanitized_details)} 個詳情頁存為獨立文件在 {details_dir} 目錄")
+                    
             except Exception as e:
                 self.logger.error(f"保存詳情頁結果失敗: {str(e)}")
+                import traceback
+                self.logger.debug(traceback.format_exc())
+        else:
+            self.logger.warning("沒有詳情頁結果可保存")
         
         # 輸出統計信息
+        if hasattr(self, 'detail_extractor') and self.detail_extractor:
+            stats = self.detail_extractor.get_statistics()
+            self.logger.info(f"詳情頁提取統計: {stats}")
+            
+        self.logger.info(f"總共提取了 {len(self.all_results)} 個搜尋結果和 {len(self.detail_results)} 個詳情頁")
+
+    def _sanitize_dict(self, d: Dict) -> Dict:
+        """處理字典對象，確保可序列化"""
+        result = {}
+        for k, v in d.items():
+            if isinstance(v, (str, int, float, bool, type(None))):
+                result[k] = v
+            elif isinstance(v, (list, tuple)):
+                result[k] = self._sanitize_list(v)
+            elif isinstance(v, dict):
+                result[k] = self._sanitize_dict(v)
+            else:
+                result[k] = str(v)
+        return result
+
+    def _sanitize_list(self, lst: List) -> List:
+        """處理列表對象，確保可序列化"""
+        result = []
+        for item in lst:
+            if isinstance(item, (str, int, float, bool, type(None))):
+                result.append(item)
+            elif isinstance(item, (list, tuple)):
+                result.append(self._sanitize_list(item))
+            elif isinstance(item, dict):
+                result.append(self._sanitize_dict(item))
+            else:
+                result.append(str(item))
+        return result
+
         if hasattr(self, 'detail_extractor') and self.detail_extractor:
             stats = self.detail_extractor.get_statistics()
             self.logger.info(f"詳情頁提取統計: {stats}")
