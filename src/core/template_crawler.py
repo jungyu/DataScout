@@ -32,7 +32,7 @@ class TemplateCrawler:
     
     def __init__(
         self, 
-        template_file: str, 
+        template_file_or_config: Union[str, Dict[str, Any]], 
         config_file: Optional[str] = None,
         logger=None
     ):
@@ -40,18 +40,24 @@ class TemplateCrawler:
         初始化模板爬蟲
 
         Args:
-            template_file: 模板文件路徑
-            config_file: 配置文件路徑，如果不提供則使用默認配置
+            template_file_or_config: 模板文件路徑或配置文件路徑
+            config_file: 額外配置文件路徑，如果不提供則使用默認配置
             logger: 日誌記錄器，如果為None則創建新的
         """
         self.logger = logger or logging.getLogger(__name__)
-        self.template_file = template_file
-        self.config_file = config_file
-        
-        # 載入模板和配置
         self.config_loader = ConfigLoader(self.logger)
-        self.template = self._load_template()
-        self.config = self._load_config()
+        
+        # 判斷傳入的是配置對象還是文件路徑
+        if isinstance(template_file_or_config, dict):
+            # 直接使用配置對象
+            self.template = template_file_or_config
+            self.config = {}
+        else:
+            # 載入模板和配置
+            self.template_file = template_file_or_config
+            self.config_file = config_file
+            self.template = self._load_template()
+            self.config = self._load_config()
         
         # 初始化WebDriver管理器
         webdriver_config = self.config.get("webdriver_config", {})
@@ -1038,7 +1044,7 @@ class TemplateCrawler:
                 
                 # 點擊展開按鈕
                 button = self.webdriver_manager.wait_for_clickable(By.XPATH, button_selector)
-                if button:
+                if (button):
                     self.webdriver_manager.safe_click(button)
                     
                     # 等待區塊展開
