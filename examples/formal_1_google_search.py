@@ -61,10 +61,6 @@ class GoogleSearchCrawler(TemplateCrawler):
                 handler.setFormatter(formatter)
                 selenium_logger.addHandler(handler)
         
-        # 初始化基類 (不使用 super().__init__ 因為我們已經載入了配置)
-        # 注意：如果 TemplateCrawler 需要 config_path 而不是 config 對象，則需要調整
-        # super().__init__(config_path)  # 舊的方法
-        
         # 初始化 WebDriver 管理器
         self.webdriver_manager = None
         self.driver = None
@@ -75,6 +71,7 @@ class GoogleSearchCrawler(TemplateCrawler):
         
         self.logger.info("Google 搜尋爬蟲初始化完成")
     
+    # 在 _setup_logger 方法中修改
     def _setup_logger(self) -> logging.Logger:
         """設置日誌記錄器"""
         logger = logging.getLogger("GoogleSearchCrawler")
@@ -112,6 +109,11 @@ class GoogleSearchCrawler(TemplateCrawler):
             # 更新主配置中的瀏覽器配置
             self.config["browser"] = browser_config
             
+            # 確保配置包含詳情頁設置
+            if "detail_page" not in self.config:
+                self.config["detail_page"] = {}
+            self.config["detail_page"]["enabled"] = True
+            
             # 初始化 WebDriverManager 與配置
             self.webdriver_manager = WebDriverManager(config=self.config, logger=self.logger)
             
@@ -132,7 +134,7 @@ class GoogleSearchCrawler(TemplateCrawler):
             self.detail_extractor = DetailExtractor(
                 driver=self.driver,
                 logger=self.logger,
-                base_url=self.config.get("base_url"),
+                base_url=self.config.get("base_url", "https://www.google.com"),
                 timeout=20
             )
             
@@ -217,10 +219,13 @@ class GoogleSearchCrawler(TemplateCrawler):
                 between_pages_delay = self.config.get("delays", {}).get("between_pages", 2)
                 time.sleep(between_pages_delay)
             
-            # 檢查是否需要採集詳情頁
-            detail_enabled = self.config.get("detail_page", {}).get("enabled", False)
-            if detail_enabled and all_search_results:
+            # 修改: 強制啟用詳情頁提取
+            if all_search_results:
                 self.logger.info("開始提取詳情頁內容...")
+                # 確保 detail_page.enabled 設置為 True
+                if "detail_page" not in self.config:
+                    self.config["detail_page"] = {}
+                self.config["detail_page"]["enabled"] = True
                 self.extract_detail_pages(all_search_results)
             
             # 保存結果
@@ -351,6 +356,10 @@ class GoogleSearchCrawler(TemplateCrawler):
         """
         # 獲取詳情頁配置
         detail_config = self.config.get("detail_page", {})
+        
+        # 強制啟用詳情頁面提取
+        detail_config["enabled"] = True
+        
         if not detail_config.get("enabled", False):
             self.logger.info("詳情頁提取未啟用，跳過")
             return
@@ -363,11 +372,14 @@ class GoogleSearchCrawler(TemplateCrawler):
 
         for index, result in enumerate(details_to_process):
             try:
-                # 獲取詳情頁URL
+                # 確保從搜尋結果中獲取詳情頁URL
                 url = result.get("link")
                 if not url:
-                    self.logger.warning(f"結果 #{index} 缺少 URL，跳過")
-                    continue
+                    # 嘗試從其他可能的字段獲取URL
+                    url = result.get("url") or result.get("href")
+                    if not url:
+                        self.logger.warning(f"結果 #{index} 缺少 URL，跳過")
+                        continue
 
                 self.logger.info(f"訪問詳情頁 #{index+1}: {url}")
 
@@ -390,25 +402,85 @@ class GoogleSearchCrawler(TemplateCrawler):
                     # 展開後等待內容加載
                     time.sleep(1)
                 
-                # 提取詳情頁數據
-                container_xpath = detail_config.get("container_xpath")
+                # 如果沒有設置容器xpath，使用更通用的選擇器
+                container_xpath = detail_config.get("container_xpath", "//body")
+                
+                # 為詳情頁提取器提供回調函數，以記錄提取過程
+                def log_extraction(msg):
+                    self.logger.debug(f"詳情頁提取: {msg}")
+                
+                # 設置詳情頁提取器的回調
+                self.detail_extractor.set_callback(log_extraction) if hasattr(self.detail_extractor, "set_callback") else None
+                
                 try:
                     self.logger.info(f"正在使用容器: {container_xpath} 提取詳情頁內容")
+                    
+                    # 創建一個包含獲取主要內容和常見欄位的備用配置
+                    fallback_config = {
+                        "fields": {
+                            "title": {"xpath": "//h1|//title", "type": "text"},
+                            "content": {"xpath": "//article|//main|//div[@id='content']|//div[@class='content']", "type": "text"},
+                            "description": {"xpath": "//meta[@name='description']/@content", "type": "attribute"},
+                            "keywords": {"xpath": "//meta[@name='keywords']/@content", "type": "attribute"}
+                        },
+                        "container_xpath": container_xpath
+                    }
+                    
+                    # 如果詳情頁配置不完整，使用備用配置
+                    if not detail_config.get("fields"):
+                        detail_config["fields"] = fallback_config["fields"]
+                    
+                    # 提取詳情頁數據
                     detail_data = self.detail_extractor.extract_detail_page(detail_config, container_xpath)
                     
                     # 確保 detail_data 不為 None
                     if detail_data is None:
                         detail_data = {}
                         
+                    # 添加網頁標題（如果沒有）
+                    if "title" not in detail_data:
+                        try:
+                            detail_data["title"] = self.driver.title
+                        except:
+                            pass
+                            
+                    # 添加當前URL（如果發生了重定向）
+                    detail_data["current_url"] = self.driver.current_url
+                    
                     # 檢查結果是否為空
-                    if not detail_data or (isinstance(detail_data, dict) and len(detail_data) <= 1):  # 只有元數據
-                        self.logger.warning(f"詳情頁 #{index+1} 未提取到有效數據")
+                    if not detail_data or (isinstance(detail_data, dict) and len(detail_data) <= 2):  # 只有元數據和URL
+                        self.logger.warning(f"詳情頁 #{index+1} 未提取到有效數據，嘗試備用方法")
                         
                         # 嘗試使用備用提取策略
                         fields_config = detail_config.get("fields", {})
                         if fields_config:
                             self.logger.info("嘗試使用直接字段提取方式")
-                            alternate_data = self.detail_extractor.extract_fields(fields_config)
+                            alternate_data = {}
+                            
+                            # 嘗試提取標題
+                            try:
+                                title_element = self.driver.find_element(By.XPATH, "//h1|//title")
+                                if title_element:
+                                    alternate_data["title"] = title_element.text
+                            except:
+                                pass
+                                
+                            # 嘗試提取主要內容
+                            try:
+                                content_element = self.driver.find_element(By.XPATH, 
+                                    "//article|//main|//div[@id='content']|//div[@class='content']")
+                                if content_element:
+                                    alternate_data["content"] = content_element.text
+                            except:
+                                pass
+                                
+                            # 如果仍然沒有內容，獲取頁面的全部文本
+                            if not alternate_data.get("content"):
+                                try:
+                                    alternate_data["content"] = self.driver.find_element(By.TAG_NAME, "body").text
+                                except:
+                                    pass
+                                
                             if alternate_data:
                                 detail_data.update(alternate_data)
                                 self.logger.info(f"使用備用策略成功提取 {len(alternate_data)} 個字段")
@@ -420,7 +492,7 @@ class GoogleSearchCrawler(TemplateCrawler):
                 # 提取表格數據（如果需要）
                 if detail_config.get("extract_tables", False):
                     try:
-                        tables_xpath = detail_config.get("tables_xpath")
+                        tables_xpath = detail_config.get("tables_xpath", "//table")
                         title_xpath = detail_config.get("table_title_xpath", ".//caption")
                         if tables_xpath:
                             table_data = self.detail_extractor.extract_tables(tables_xpath, title_xpath)
@@ -433,7 +505,7 @@ class GoogleSearchCrawler(TemplateCrawler):
                 # 提取圖片（如果需要）
                 if detail_config.get("extract_images", False):
                     try:
-                        images_container = detail_config.get("images_container_xpath")
+                        images_container = detail_config.get("images_container_xpath", "//img")
                         images = self.detail_extractor.extract_images(images_container)
                         if images:
                             detail_data["images"] = images
@@ -441,10 +513,11 @@ class GoogleSearchCrawler(TemplateCrawler):
                     except Exception as e:
                         self.logger.warning(f"提取圖片失敗: {str(e)}")
                 
-                # 整合基本搜尋結果和詳情頁數據
+                # 確保保存原始搜尋結果的資訊
                 detail_data["_search_result"] = {
                     "title": result.get("title", ""),
                     "description": result.get("description", ""),
+                    "link": url,
                     "position": index
                 }
                 
