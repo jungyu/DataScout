@@ -1,6 +1,124 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+錯誤處理模組
+
+提供統一的錯誤處理、記錄和報告功能
+"""
+
+import os
+import time
+import traceback
+import logging
+from typing import Optional, Dict, Any
+from selenium import webdriver
+
+
+class ErrorHandler:
+    """
+    錯誤處理類
+    
+    提供捕獲、記錄和處理爬蟲執行過程中的錯誤的功能
+    """
+    
+    def __init__(self, logger: Optional[logging.Logger] = None):
+        """
+        初始化錯誤處理器
+        
+        Args:
+            logger: 記錄器實例，如果為None則創建新的記錄器
+        """
+        self.logger = logger or self._setup_default_logger()
+        
+    def _setup_default_logger(self) -> logging.Logger:
+        """設置默認記錄器"""
+        logger = logging.getLogger("ErrorHandler")
+        logger.setLevel(logging.INFO)
+        
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(level別)s - %(message)s"
+            )
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+            
+        return logger
+    
+    def handle_exception(
+        self, 
+        exception: Exception, 
+        driver: Optional[webdriver.Remote] = None,
+        context: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """
+        處理異常
+        
+        Args:
+            exception: 異常實例
+            driver: WebDriver 實例，用於獲取截圖和頁面源碼
+            context: 提供異常上下文的附加信息
+            
+        Returns:
+            包含錯誤詳情的字典
+        """
+        # 記錄異常
+        error_message = str(exception)
+        self.logger.error(f"捕獲異常: {error_message}")
+        
+        # 獲取堆疊跟踪
+        error_traceback = traceback.format_exc()
+        self.logger.debug(f"異常堆疊: {error_traceback}")
+        
+        # 初始化錯誤詳情
+        error_details = {
+            "error_type": exception.__class__.__name__,
+            "error_message": error_message,
+            "traceback": error_traceback,
+            "timestamp": time.time(),
+            "context": context or {}
+        }
+        
+        # 如果有WebDriver，保存頁面截圖和源碼
+        if driver:
+            try:
+                debug_dir = os.path.join(os.getcwd(), "debug")
+                os.makedirs(debug_dir, exist_ok=True)
+                timestamp = int(time.time())
+                
+                # 保存截圖
+                screenshot_path = os.path.join(debug_dir, f"error_{timestamp}.png")
+                driver.save_screenshot(screenshot_path)
+                error_details["screenshot"] = screenshot_path
+                
+                # 保存頁面源碼
+                html_path = os.path.join(debug_dir, f"error_{timestamp}.html")
+                with open(html_path, "w", encoding="utf-8") as f:
+                    f.write(driver.page_source)
+                error_details["page_source"] = html_path
+                
+                self.logger.info(f"已保存錯誤頁面: 截圖={screenshot_path}, HTML={html_path}")
+            except Exception as e:
+                self.logger.error(f"保存錯誤頁面時出錯: {str(e)}")
+        
+        return error_details
+    
+    def log_error(self, message: str, error: Optional[Exception] = None) -> None:
+        """
+        記錄錯誤信息
+        
+        Args:
+            message: 錯誤消息
+            error: 錯誤實例
+        """
+        if error:
+            self.logger.error(f"{message}: {str(error)}")
+            self.logger.debug(traceback.format_exc())
+        else:
+            self.logger.error(message)
+
+
 import time
 import logging
 import functools

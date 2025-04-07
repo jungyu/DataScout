@@ -17,7 +17,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
 from src.extractors.config import ExtractionConfig
-from src.core.base_extractor import BaseExtractor
+from .base_extractor import BaseExtractor
 
 
 class CompoundExtractor(BaseExtractor):
