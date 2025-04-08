@@ -1,4 +1,4 @@
-src/core/__pycache__/template_crawler.cpython-312.pyc
+src/core/__pycache__/*.pyc
 src/.DS_Store
 src/extractors/.DS_Store
 output/*.json
