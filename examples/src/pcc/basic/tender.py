@@ -239,50 +239,36 @@ def extract_list_items(driver: webdriver.Chrome, config: Dict) -> List[Dict]:
     
     for i, item in enumerate(list_items, 1):
         print(f"\n處理第 {i} 個項目")
-        item_data = {
-            "機關資料": {},
-            "基本資料": {}
-        }
+        item_data = {}
         
-        # 提取機關資料
-        for field_name, field_config in config["list_page"]["fields"]["機關資料"].items():
-            try:
-                element = item.find_element(By.XPATH, field_config["xpath"])
-                item_data["機關資料"][field_name] = clean_text(element.text)
-                print(f"    提取到 機關資料/{field_name}: {item_data['機關資料'][field_name]}")
-            except Exception as e:
-                print(f"    提取 機關資料/{field_name} 時發生錯誤: {str(e)}")
-                item_data["機關資料"][field_name] = None
-        
-        # 提取基本資料
-        for field_name, field_config in config["list_page"]["fields"]["基本資料"].items():
-            try:
-                element = item.find_element(By.XPATH, field_config["xpath"])
-                if field_config.get("attribute"):
-                    value = element.get_attribute(field_config["attribute"])
-                else:
-                    value = clean_text(element.text)
-                item_data["基本資料"][field_name] = value
-                print(f"    提取到 基本資料/{field_name}: {value}")
-            except Exception as e:
-                print(f"    提取 基本資料/{field_name} 時發生錯誤: {str(e)}")
-                item_data["基本資料"][field_name] = None
-        
-        # 提取詳細頁面連結
+        # 提取詳細頁面主鍵
         try:
-            link_element = item.find_element(By.XPATH, config["list_page"]["fields"]["內容頁連結"]["xpath"])
-            detail_url = link_element.get_attribute("href")
-            if detail_url:
-                item_data["內容頁連結"] = normalize_url(detail_url)
-                print(f"    提取到 內容頁連結: {item_data['內容頁連結']}")
+            pk_config = config["list_page"]["fields"]["detail_pk"]
+            
+            # 修正 XPath，去除 @href 部分
+            xpath = pk_config["xpath"]
+            if "@href" in xpath:
+                element_xpath = xpath.split("/@")[0]  # 取得元素部分的 XPath
+                element = item.find_element(By.XPATH, element_xpath)
             else:
-                print("    未找到詳細頁面連結")
-                item_data["內容頁連結"] = None
+                element = item.find_element(By.XPATH, xpath)
+                
+            # 獲取 href 屬性
+            href = element.get_attribute("href") if element else None
+            
+            if href and "extract_pattern" in pk_config:
+                match = re.search(pk_config["extract_pattern"], href)
+                if match:
+                    item_data["detail_pk"] = match.group(1)
+                    print(f"  提取到 detail_pk: {item_data['detail_pk']}")
+                else:
+                    print(f"  無法從 href 中提取 detail_pk: {href}")
+            else:
+                print(f"  無法獲取有效的 href 或缺少 extract_pattern")
         except Exception as e:
-            print(f"    提取詳細頁面連結時發生錯誤: {str(e)}")
-            item_data["內容頁連結"] = None
+            print(f"  提取 detail_pk 時發生錯誤: {str(e)}")
         
-        if item_data["機關資料"] or item_data["基本資料"]:
+        if "detail_pk" in item_data:  # 只有成功提取 detail_pk 才添加項目
             items.append(item_data)
             print(f"  成功添加第 {i} 個項目")
     
@@ -382,27 +368,31 @@ def process_detail_pages(driver: webdriver.Chrome, items: List[Dict], config: Di
     
     for i, item in enumerate(items):
         try:
-            # 獲取詳細頁面連結
-            detail_link = item.get('內容頁連結')
-            if not detail_link:
-                print(f"項目 {i+1} 無詳細頁面連結，跳過處理")
+            # 獲取詳細頁面 pk
+            pk = item.get('detail_pk')
+            if not pk:
+                print(f"項目 {i+1} 無詳細頁面主鍵，跳過處理")
                 continue
-                
+            
+            # 構建詳細頁面 URL
+            detail_url = config["detail_page"]["url_pattern"].format(pk=pk)
+            
             # 訪問詳細頁面
-            print(f"\n處理第 {i+1} 個詳細頁面: {detail_link}")
-            driver.get(detail_link)
+            print(f"\n處理第 {i+1} 個詳細頁面: {detail_url}")
+            driver.get(detail_url)
             time.sleep(config.get("delays", {}).get("page_load", 3))
             
             # 提取詳細頁面資料
-            detail_data = {
+            item_data = {
                 "機關資料": {},
                 "採購資料": {},
                 "招標資料": {},
-                "領投開票": {}
+                "領投開標": {},
+                "其他": {}
             }
             
             # 提取各個分類的資料
-            for category in detail_data.keys():
+            for category in item_data.keys():
                 if category in config.get("detail_page", {}).get("fields", {}):
                     for field_name, field_config in config["detail_page"]["fields"][category].items():
                         try:
@@ -410,32 +400,22 @@ def process_detail_pages(driver: webdriver.Chrome, items: List[Dict], config: Di
                             if not xpath:
                                 continue
                                 
-                            element = driver.find_element(By.XPATH, xpath)
-                            if not element:
+                            elements = driver.find_elements(By.XPATH, xpath)
+                            if not elements:
                                 print(f"  無法找到欄位 {category}/{field_name} 的元素")
                                 continue
                                 
-                            # 根據配置提取屬性或文字
-                            if field_config.get("attribute"):
-                                value = element.get_attribute(field_config["attribute"])
-                            else:
-                                value = clean_text(element.text)
-                                
-                            # 如果有提取模式，則應用正則表達式
-                            if field_config.get("extract_pattern"):
-                                match = re.search(field_config["extract_pattern"], value)
-                                if match:
-                                    value = match.group(1)
-                                    
-                            detail_data[category][field_name] = value
+                            # 取得元素文本
+                            value = clean_text(elements[0].text)
+                            item_data[category][field_name] = value
                             print(f"  成功提取 {category}/{field_name}: {value}")
                             
                         except Exception as e:
                             print(f"  提取欄位 {category}/{field_name} 時發生錯誤: {str(e)}")
-                            detail_data[category][field_name] = None
+                            item_data[category][field_name] = None
             
             # 更新原始項目資料
-            item.update(detail_data)
+            item.update(item_data)
             print(f"完成第 {i+1} 個詳細頁面處理")
             
         except Exception as e:

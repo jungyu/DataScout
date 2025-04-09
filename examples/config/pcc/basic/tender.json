@@ -116,18 +116,6 @@
   "list_page": {
     "container": "//table[@class='tb_01']//tr[not(contains(@class,'g_')) and not(contains(@class,'header'))]",
     "fields": {
-      "機關資料": {
-        "機關名稱": {
-          "description": "機關名稱",
-          "xpath": ".//td[2]//text()"
-        }
-      },
-      "基本資料": {
-        "採購性質": {
-          "description": "採購性質",
-          "xpath": ".//td[5]//text()"
-        }
-      },
       "detail_pk": {
         "description": "詳細頁面主鍵",
         "xpath": ".//td[3]//a/@href",
@@ -140,17 +128,33 @@
     "container_xpath": "//div[@id='printRange']",
     "fields": {
       "機關資料": {
-        "機關名稱": {
-          "description": "機關名稱",
-          "xpath": "//td[contains(text(), '機關名稱')]/following-sibling::td[1]"
-        },
         "機關代碼": {
           "description": "機關代碼",
           "xpath": "//td[contains(text(), '機關代碼')]/following-sibling::td[1]"
         },
+        "機關名稱": {
+          "description": "機關名稱",
+          "xpath": "//td[contains(text(), '機關名稱')]/following-sibling::td[1]"
+        },
         "單位名稱": {
           "description": "單位名稱",
           "xpath": "//td[contains(text(), '單位名稱')]/following-sibling::td[1]"
+        },
+        "機關地址": {
+          "description": "機關地址",
+          "xpath": "//td[contains(text(), '機關地址')]/following-sibling::td[1]"
+        },
+        "聯絡人": {
+          "description": "聯絡人",
+          "xpath": "//td[contains(text(), '聯絡人')]/following-sibling::td[1]"
+        },
+        "聯絡電話": {
+          "description": "聯絡電話",
+          "xpath": "//td[contains(text(), '聯絡電話')]/following-sibling::td[1]"
+        },
+        "電子郵件信箱": {
+          "description": "電子郵件信箱",
+          "xpath": "//td[contains(text(), '電子郵件信箱')]/following-sibling::td[1]"
         }
       },
       "採購資料": {
@@ -166,37 +170,91 @@
           "description": "標的分類",
           "xpath": "//td[contains(text(), '標的分類')]/following-sibling::td[1]"
         },
-        "工程地點": {
-          "description": "工程地點",
-          "xpath": "//td[contains(text(), '工程地點')]/following-sibling::td[1]"
+        "財物採購性質": {
+          "description": "財物採購性質",
+          "xpath": "//span[@id='fkTpamProperty']"
+        },
+        "採購金額級距": {
+          "description": "採購金額級距",
+          "xpath": "//span[@id='fkPmsProcurementRange']"
+        },
+        "敏感性疑慮": {
+          "description": "敏感性疑慮",
+          "xpath": "//td[contains(text(), '本採購是否屬「具敏感性或國安(含資安)疑慮之業務範疇」採購')]/following-sibling::td[1]//span"
+        },
+        "涉及國家安全": {
+          "description": "涉及國家安全",
+          "xpath": "//span[@id='isAffectSec']"
+        },
+        "預算金額": {
+          "description": "預算金額",
+          "xpath": "//td[contains(text(), '預算金額')]/following-sibling::td[1]/div[1]"
         }
       },
       "招標資料": {
         "招標方式": {
           "description": "招標方式",
-          "xpath": "//td[contains(text(), '招標方式')]/following-sibling::td[1]"
+          "xpath": "//span[@id='fkPmsTenderWay']"
         },
-        "採購金額": {
-          "description": "採購金額",
-          "xpath": "//td[contains(text(), '採購金額級距')]/following-sibling::td[1]"
+        "決標方式": {
+          "description": "決標方式",
+          "xpath": "//span[@id='fkPmsAwardWay']"
         },
-        "預算金額": {
-          "description": "預算金額",
-          "xpath": "//td[contains(text(), '預算金額')]/following-sibling::td[1]"
+        "傳輸次數": {
+          "description": "傳輸次數",
+          "xpath": "//td[contains(text(), '新增公告傳輸次數')]/following-sibling::td[1]"
+        },
+        "公告日": {
+          "description": "公告日",
+          "xpath": "//span[@id='targetDate']"
+        },
+        "訂有底價": {
+          "description": "訂有底價",
+          "xpath": "//div[@id='isGovernmentEstimate']"
+        },
+        "特殊採購": {
+          "description": "特殊採購",
+          "xpath": "//span[@id='isSpecial']"
+        },
+        "公開閱覽": {
+          "description": "公開閱覽",
+          "xpath": "//span[@id='isReadbidTpam']"
+        },
+        "共同供應契約": {
+          "description": "共同供應契約",
+          "xpath": "//td[contains(text(), '是否屬共同供應契約採購')]/following-sibling::td[1]"
         }
       },
       "領投開標": {
-        "公告日期": {
-          "description": "公告日期",
-          "xpath": "//td[contains(text(), '公告日期')]/following-sibling::td[1]"
+        "提供電子投標": {
+          "description": "提供電子投標",
+          "xpath": "//span[@id='isEsubmit']"
         },
         "截止投標": {
           "description": "截止投標",
-          "xpath": "//td[contains(text(), '截止投標')]/following-sibling::td[1]"
+          "xpath": "//span[@id='spdt']"
         },
         "開標時間": {
           "description": "開標時間",
           "xpath": "//td[contains(text(), '開標時間')]/following-sibling::td[1]"
+        },
+        "開標地點": {
+          "description": "開標地點",
+          "xpath": "//td[contains(text(), '開標地點')]/following-sibling::td[1]/span"
+        },
+        "收受投標文件地點": {
+          "description": "收受投標文件地點",
+          "xpath": "//td[contains(text(), '收受投標文件地點')]/following-sibling::td[1]/span"
+        }
+      },
+      "其他": {
+        "依據採購法99條": {
+          "description": "依據採購法99條",
+          "xpath": "//span[@id='adaptLaw']"
+        },
+        "廠商資格摘要": {
+          "description": "廠商資格摘要",
+          "xpath": "//td[contains(text(), '廠商資格摘要')]/following-sibling::td[1]/div"
         }
       }
     }
