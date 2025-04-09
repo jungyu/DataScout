@@ -1,64 +1,118 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+爬蟲運行腳本
+
+此模組提供爬蟲程序的運行入口，包括：
+1. 命令行參數解析
+2. 配置文件加載
+3. 爬蟲任務執行
+4. 結果保存
+"""
+
+import os
+import sys
+import json
 import logging
-import time
+import argparse
+from datetime import datetime
+from pathlib import Path
 
-class WebCrawler:
-    def __init__(self):
-        self.setup_logger()
-        self.setup_driver()
+# 添加項目根目錄到 Python 路徑
+project_root = Path(__file__).parent.parent
+sys.path.append(str(project_root))
+
+from src.config.paths import OUTPUT_DIR, DEBUG_DIR, SCREENSHOTS_DIR
+from src.core.crawler_engine import CrawlerEngine
+from src.utils.logger import setup_logger
+from src.utils.config_loader import ConfigLoader
+from src.anti_detection.stealth_manager import StealthManager
+from src.captcha.captcha_manager import CaptchaManager
+
+def parse_args():
+    """解析命令行參數"""
+    parser = argparse.ArgumentParser(description="爬蟲程序")
+    parser.add_argument("-c", "--config", required=True, help="配置文件路徑")
+    parser.add_argument("-t", "--template", required=True, help="爬蟲模板文件路徑")
+    parser.add_argument("-o", "--output", help="輸出文件路徑")
+    parser.add_argument("-v", "--verbose", action="store_true", help="顯示詳細日誌")
+    parser.add_argument("-d", "--debug", action="store_true", help="啟用調試模式")
+    parser.add_argument("--headless", action="store_true", help="使用無頭模式")
+    parser.add_argument("--screenshot", action="store_true", help="保存截圖")
+    return parser.parse_args()
+
+def setup_environment(args):
+    """設置運行環境"""
+    # 設置日誌
+    log_level = logging.DEBUG if args.debug or args.verbose else logging.INFO
+    logger = setup_logger("crawler", log_level)
     
-    def setup_logger(self):
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
-        )
-        self.logger = logging.getLogger(__name__)
+    # 加載配置
+    config = ConfigLoader(args.config).load()
+    
+    # 更新配置
+    if args.headless:
+        config["webdriver"]["headless"] = True
+    if args.screenshot:
+        config["debug"] = config.get("debug", {})
+        config["debug"]["screenshot"] = True
+        config["debug"]["directory"] = SCREENSHOTS_DIR
+    
+    return logger, config
 
-    def setup_driver(self):
-        chrome_options = Options()
-        chrome_options.add_argument('--headless')  # 無頭模式
-        chrome_options.add_argument('--no-sandbox')
-        chrome_options.add_argument('--disable-dev-shm-usage')
-        
-        service = Service()
-        self.driver = webdriver.Chrome(service=service, options=chrome_options)
-        self.wait = WebDriverWait(self.driver, 10)
-
-    def crawl(self, url):
-        try:
-            self.logger.info(f"開始爬取網址: {url}")
-            self.driver.get(url)
-            
-            # 在這裡加入您的爬蟲邏輯
-            # 例如：等待特定元素出現並擷取內容
-            
-            return True
-            
-        except TimeoutException:
-            self.logger.error("頁面載入超時")
-            return False
-        except Exception as e:
-            self.logger.error(f"爬取過程發生錯誤: {str(e)}")
-            return False
-        
-    def close(self):
-        if self.driver:
-            self.driver.quit()
+def save_results(data, output_path=None):
+    """保存結果"""
+    if not output_path:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = os.path.join(OUTPUT_DIR, f"results_{timestamp}.json")
+    
+    output_dir = os.path.dirname(output_path)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+    
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    return output_path
 
 def main():
-    crawler = WebCrawler()
+    """主函數"""
+    # 解析參數
+    args = parse_args()
+    
     try:
-        # 在這裡加入要爬取的網址
-        target_url = "https://example.com"
-        crawler.crawl(target_url)
-    finally:
-        crawler.close()
+        # 設置環境
+        logger, config = setup_environment(args)
+        logger.info("開始執行爬蟲任務")
+        
+        # 初始化組件
+        stealth_manager = StealthManager(config.get("anti_detection", {}))
+        captcha_manager = CaptchaManager(config.get("captcha", {}))
+        
+        # 創建爬蟲引擎
+        engine = CrawlerEngine(
+            config=config,
+            template_file=args.template,
+            stealth_manager=stealth_manager,
+            captcha_manager=captcha_manager
+        )
+        
+        # 執行爬蟲
+        results = engine.run()
+        
+        # 保存結果
+        if results:
+            output_path = save_results(results, args.output)
+            logger.info(f"數據已保存到: {output_path}")
+        else:
+            logger.warning("未獲取到任何數據")
+        
+    except Exception as e:
+        logger.error(f"程序執行失敗: {str(e)}", exc_info=True)
+        return 1
+    
+    return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -4,12 +4,34 @@
 """
 基礎提取器模組
 
-定義基本的提取器接口和共用功能
+定義基本的提取器接口和共用功能。
+
+主要功能：
+- 元素等待和查找
+- 頁面導航和滾動
+- 截圖和源碼保存
+- 統計信息收集
+- 工具類整合
+
+使用示例：
+    from src.extractors.core import BaseExtractor
+    
+    class MyExtractor(BaseExtractor):
+        def extract(self, config):
+            # 等待元素出現
+            element = self.wait_for_element(By.ID, "target")
+            
+            # 提取數據
+            data = element.text
+            
+            # 返回結果
+            return data
 """
 
 import logging
 import random
 import time
+import os
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Union, Set
 
@@ -29,7 +51,25 @@ from ..utils.number_parser import NumberParser
 
 
 class BaseExtractor(ABC):
-    """基礎提取器抽象類，定義共用方法和抽象接口"""
+    """基礎提取器抽象類
+    
+    定義共用方法和抽象接口，提供基本的提取功能。
+    
+    Attributes:
+        driver: Selenium WebDriver實例
+        base_url: 基礎URL
+        logger: 日誌記錄器
+        default_timeout: 默認等待超時時間
+        visited_urls: 已訪問的URL集合
+        text_cleaner: 文本清理工具
+        url_normalizer: URL標準化工具
+        html_cleaner: HTML清理工具
+        date_parser: 日期解析工具
+        number_parser: 數字解析工具
+        extracted_items_count: 已提取項目數
+        extracted_fields_count: 已提取字段數
+        extraction_errors_count: 提取錯誤數
+    """
     
     def __init__(
         self, 
@@ -98,10 +138,10 @@ class BaseExtractor(ABC):
     
     def get_statistics(self) -> Dict[str, int]:
         """
-        獲取提取統計信息
+        獲取統計信息
         
         Returns:
-            包含提取統計的字典
+            包含統計信息的字典
         """
         return {
             "extracted_items": self.extracted_items_count,
@@ -124,28 +164,20 @@ class BaseExtractor(ABC):
             by: 定位方式
             selector: 選擇器
             timeout: 超時時間(秒)
-            parent: 父元素，用於限制搜索範圍
+            parent: 父元素
             
         Returns:
-            找到的元素，超時則返回None
+            找到的元素，如果超時則返回None
         """
         if not self.driver:
-            self.logger.error("WebDriver未初始化")
+            self.logger.warning("WebDriver未初始化")
             return None
-            
-        timeout = timeout or self.default_timeout
-        context = parent or self.driver
-            
+        
         try:
+            wait = WebDriverWait(self.driver, timeout or self.default_timeout)
             if parent:
-                # 如果有父元素，直接查找
-                element = context.find_element(by, selector)
-                return element
-            else:
-                # 使用WebDriverWait等待元素
-                wait = WebDriverWait(self.driver, timeout)
-                element = wait.until(EC.presence_of_element_located((by, selector)))
-                return element
+                return wait.until(EC.presence_of_element_located((by, selector)), parent)
+            return wait.until(EC.presence_of_element_located((by, selector)))
         except TimeoutException:
             self.logger.warning(f"等待元素超時: {by}={selector}")
             return None
@@ -167,29 +199,20 @@ class BaseExtractor(ABC):
             by: 定位方式
             selector: 選擇器
             timeout: 超時時間(秒)
-            parent: 父元素，用於限制搜索範圍
+            parent: 父元素
             
         Returns:
             找到的元素列表
         """
         if not self.driver:
-            self.logger.error("WebDriver未初始化")
+            self.logger.warning("WebDriver未初始化")
             return []
-            
-        timeout = timeout or self.default_timeout
-        context = parent or self.driver
-            
+        
         try:
+            wait = WebDriverWait(self.driver, timeout or self.default_timeout)
             if parent:
-                # 如果有父元素，直接查找
-                elements = context.find_elements(by, selector)
-                return elements
-            else:
-                # 使用WebDriverWait等待元素
-                wait = WebDriverWait(self.driver, timeout)
-                wait.until(EC.presence_of_element_located((by, selector)))
-                elements = self.driver.find_elements(by, selector)
-                return elements
+                return wait.until(EC.presence_of_all_elements_located((by, selector)), parent)
+            return wait.until(EC.presence_of_all_elements_located((by, selector)))
         except TimeoutException:
             self.logger.warning(f"等待元素超時: {by}={selector}")
             return []
@@ -212,18 +235,15 @@ class BaseExtractor(ABC):
             timeout: 超時時間(秒)
             
         Returns:
-            可點擊的元素，超時則返回None
+            可點擊的元素，如果超時則返回None
         """
         if not self.driver:
-            self.logger.error("WebDriver未初始化")
+            self.logger.warning("WebDriver未初始化")
             return None
-            
-        timeout = timeout or self.default_timeout
-            
+        
         try:
-            wait = WebDriverWait(self.driver, timeout)
-            element = wait.until(EC.element_to_be_clickable((by, selector)))
-            return element
+            wait = WebDriverWait(self.driver, timeout or self.default_timeout)
+            return wait.until(EC.element_to_be_clickable((by, selector)))
         except TimeoutException:
             self.logger.warning(f"等待元素可點擊超時: {by}={selector}")
             return None
@@ -233,44 +253,44 @@ class BaseExtractor(ABC):
     
     def safe_click(self, element: WebElement, retries: int = 3) -> bool:
         """
-        安全點擊元素，處理常見的點擊問題
+        安全點擊元素
         
         Args:
             element: 要點擊的元素
             retries: 重試次數
             
         Returns:
-            是否成功點擊
+            是否點擊成功
         """
         if not self.driver:
-            self.logger.error("WebDriver未初始化")
+            self.logger.warning("WebDriver未初始化")
             return False
-            
+        
         for i in range(retries):
             try:
-                # 嘗試滾動到元素位置
-                self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
-                time.sleep(0.5)
-                
-                # 直接點擊
+                # 嘗試直接點擊
                 element.click()
                 return True
-                
             except Exception as e:
-                self.logger.debug(f"直接點擊失敗 (嘗試 {i+1}/{retries}): {str(e)}")
+                self.logger.warning(f"直接點擊失敗 (嘗試 {i+1}/{retries}): {str(e)}")
                 
                 try:
+                    # 嘗試滾動到元素
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+                    time.sleep(0.5)
+                    
                     # 使用JavaScript點擊
                     self.driver.execute_script("arguments[0].click();", element)
                     return True
                 except Exception as js_e:
-                    self.logger.debug(f"JavaScript點擊失敗 (嘗試 {i+1}/{retries}): {str(js_e)}")
+                    self.logger.warning(f"JavaScript點擊失敗 (嘗試 {i+1}/{retries}): {str(js_e)}")
                     
                     if i == retries - 1:
-                        self.logger.warning("所有點擊嘗試均失敗")
-                    else:
-                        # 短暫延遲後重試
-                        time.sleep(1)
+                        self.logger.error("所有點擊嘗試均失敗")
+                        return False
+                    
+                    # 短暫延遲後重試
+                    time.sleep(1)
         
         return False
     
@@ -280,34 +300,26 @@ class BaseExtractor(ABC):
         
         Args:
             url: 目標URL
-            timeout: 頁面加載超時時間(秒)
+            timeout: 超時時間(秒)
             
         Returns:
-            是否成功導航
+            是否導航成功
         """
         if not self.driver:
-            self.logger.error("WebDriver未初始化")
+            self.logger.warning("WebDriver未初始化")
             return False
-            
-        timeout = timeout or self.default_timeout
-            
+        
         try:
             self.logger.info(f"導航到: {url}")
-            self.driver.set_page_load_timeout(timeout)
+            self.driver.set_page_load_timeout(timeout or self.default_timeout)
             self.driver.get(url)
-            
-            # 記錄訪問
-            self.visited_urls.add(url)
-            
-            # 等待頁面加載完成
             self._wait_for_page_load(timeout)
-            
             return True
         except TimeoutException:
-            self.logger.warning(f"頁面載入超時: {url}")
+            self.logger.error(f"頁面加載超時: {url}")
             return False
         except Exception as e:
-            self.logger.error(f"導航到URL出錯: {str(e)}")
+            self.logger.error(f"導航失敗: {str(e)}")
             return False
     
     def _wait_for_page_load(self, timeout: Optional[int] = None) -> None:
@@ -319,27 +331,18 @@ class BaseExtractor(ABC):
         """
         if not self.driver:
             return
-            
-        if timeout is None:
-            timeout = self.default_timeout
-            
+        
         try:
-            # 等待頁面完成加載
-            WebDriverWait(self.driver, timeout).until(
-                lambda d: d.execute_script("return document.readyState") == "complete"
-            )
-            
-            # 短暫等待
-            time.sleep(random.uniform(0.5, 1.5))
-                
+            wait = WebDriverWait(self.driver, timeout or self.default_timeout)
+            wait.until(lambda driver: driver.execute_script("return document.readyState") == "complete")
         except TimeoutException:
-            self.logger.warning(f"頁面加載超時，繼續處理")
+            self.logger.warning("等待頁面加載超時")
         except Exception as e:
-            self.logger.warning(f"等待頁面加載出錯: {str(e)}")
+            self.logger.error(f"等待頁面加載出錯: {str(e)}")
     
     def random_delay(self, min_seconds: float = 1.0, max_seconds: float = 3.0) -> None:
         """
-        隨機延遲一段時間
+        隨機延遲
         
         Args:
             min_seconds: 最小延遲時間(秒)
@@ -353,13 +356,13 @@ class BaseExtractor(ABC):
         滾動頁面
         
         Args:
-            direction: 滾動方向 (up/down/top/bottom)
-            amount: 滾動距離
+            direction: 滾動方向 ("up", "down", "top", "bottom")
+            amount: 滾動距離(像素)
         """
         if not self.driver:
-            self.logger.error("WebDriver未初始化")
+            self.logger.warning("WebDriver未初始化")
             return
-            
+        
         try:
             if direction == "down":
                 self.driver.execute_script(f"window.scrollBy(0, {amount});")
@@ -374,68 +377,64 @@ class BaseExtractor(ABC):
     
     def take_screenshot(self, filepath: Optional[str] = None) -> Optional[str]:
         """
-        截取當前頁面截圖
+        截取頁面截圖
         
         Args:
-            filepath: 保存路徑，如果為None則自動生成
+            filepath: 保存路徑
             
         Returns:
-            截圖保存路徑
+            截圖文件路徑，如果失敗則返回None
         """
         if not self.driver:
-            self.logger.error("WebDriver未初始化")
+            self.logger.warning("WebDriver未初始化")
             return None
-            
+        
         try:
-            import os
-            
             if not filepath:
-                os.makedirs("screenshots", exist_ok=True)
+                # 生成默認文件名
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
-                filepath = os.path.join("screenshots", f"screenshot_{timestamp}.png")
-            else:
-                # 確保目錄存在
-                os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
-                
-            self.driver.save_screenshot(filepath)
-            self.logger.info(f"截圖已保存到: {filepath}")
-            return filepath
+                filepath = f"screenshot_{timestamp}.png"
             
+            # 確保目錄存在
+            os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
+            
+            # 截圖
+            self.driver.save_screenshot(filepath)
+            self.logger.info(f"截圖已保存: {filepath}")
+            return filepath
         except Exception as e:
             self.logger.error(f"截圖失敗: {str(e)}")
             return None
     
     def save_page_source(self, filepath: Optional[str] = None) -> Optional[str]:
         """
-        保存當前頁面源碼
+        保存頁面源碼
         
         Args:
-            filepath: 保存路徑，如果為None則自動生成
+            filepath: 保存路徑
             
         Returns:
-            頁面源碼保存路徑
+            源碼文件路徑，如果失敗則返回None
         """
         if not self.driver:
-            self.logger.error("WebDriver未初始化")
+            self.logger.warning("WebDriver未初始化")
             return None
-            
+        
         try:
-            import os
-            
             if not filepath:
-                os.makedirs("page_sources", exist_ok=True)
+                # 生成默認文件名
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
-                filepath = os.path.join("page_sources", f"page_{timestamp}.html")
-            else:
-                # 確保目錄存在
-                os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
-                
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(self.driver.page_source)
-                
-            self.logger.info(f"頁面源碼已保存到: {filepath}")
-            return filepath
+                filepath = f"page_source_{timestamp}.html"
             
+            # 確保目錄存在
+            os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
+            
+            # 保存源碼
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(self.driver.page_source)
+            
+            self.logger.info(f"頁面源碼已保存: {filepath}")
+            return filepath
         except Exception as e:
             self.logger.error(f"保存頁面源碼失敗: {str(e)}")
             return None
@@ -449,12 +448,12 @@ class BaseExtractor(ABC):
             *args: 腳本參數
             
         Returns:
-            腳本返回結果
+            腳本執行結果
         """
         if not self.driver:
-            self.logger.error("WebDriver未初始化")
+            self.logger.warning("WebDriver未初始化")
             return None
-            
+        
         try:
             return self.driver.execute_script(script, *args)
         except Exception as e:
@@ -463,43 +462,36 @@ class BaseExtractor(ABC):
     
     def is_page_valid(self) -> bool:
         """
-        檢查當前頁面是否有效
+        檢查頁面是否有效
         
         Returns:
             頁面是否有效
         """
         if not self.driver:
             return False
-            
+        
         try:
             # 檢查頁面標題
             title = self.driver.title.lower()
-            invalid_patterns = ["404", "not found", "error", "無法連接", "不存在", "服務暫停"]
-            
-            for pattern in invalid_patterns:
-                if pattern in title:
-                    self.logger.warning(f"頁面標題包含無效關鍵字: {pattern}")
-                    return False
+            invalid_titles = ["error", "404", "not found", "forbidden"]
+            if any(t in title for t in invalid_titles):
+                return False
             
             # 檢查頁面內容
-            body_text = self.driver.find_element(By.TAG_NAME, "body").text.lower()
-            error_patterns = ["404", "not found", "page not found", "無法連接"]
-            
-            for pattern in error_patterns:
-                if pattern in body_text:
-                    self.logger.warning(f"頁面內容包含錯誤文本: {pattern}")
-                    return False
+            body = self.driver.find_element(By.TAG_NAME, "body").text.lower()
+            invalid_texts = ["error", "404", "not found", "forbidden", "access denied"]
+            if any(t in body for t in invalid_texts):
+                return False
             
             return True
-            
         except Exception as e:
-            self.logger.error(f"檢查頁面有效性出錯: {str(e)}")
+            self.logger.error(f"檢查頁面有效性失敗: {str(e)}")
             return False
     
     @abstractmethod
     def extract(self, config: Any) -> Any:
         """
-        提取數據的抽象方法，需要由子類實現
+        提取數據的抽象方法
         
         Args:
             config: 提取配置

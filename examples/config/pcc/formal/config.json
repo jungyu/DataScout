@@ -1,0 +1,31 @@
+{
+  "site_name": "政府電子採購網",
+  "base_url": "https://web.pcc.gov.tw",
+  "encoding": "utf-8",
+  "description": "政府電子採購網爬蟲程式",
+  "version": "1.0.0",
+  "request": {
+    "method": "GET",
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+    }
+  },
+  "delays": {
+    "page_load": 3,
+    "between_pages": 2,
+    "between_items": 1,
+    "scroll": 1,
+    "finish": 3
+  },
+  "advanced_settings": {
+    "detect_captcha": true,
+    "captcha_detection_xpath": "//div[contains(@class, 'g-recaptcha')]",
+    "save_error_page": true,
+    "error_page_dir": "../debug",
+    "max_results_per_page": 10,
+    "text_cleaning": {
+      "remove_extra_whitespace": true,
+      "trim_strings": true
+    }
+  }
+} 

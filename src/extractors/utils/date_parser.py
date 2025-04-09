@@ -4,13 +4,19 @@
 """
 日期解析工具模組
 
-提供解析各種格式日期字符串的工具類和函數
+提供解析各種格式日期字符串的工具類和函數，包括：
+- 常見日期格式解析
+- 中文日期解析
+- 相對時間解析
+- 時區處理
+- 日期提取
 """
 
 import re
 import logging
-from datetime import datetime
-from typing import Optional, Dict, List, Union, Any
+from datetime import datetime, timedelta
+from dataclasses import dataclass, field
+from typing import Optional, Dict, List, Union, Pattern, Any
 
 # 檢查dateparser是否可用
 try:
@@ -19,57 +25,103 @@ try:
 except ImportError:
     DATEPARSER_AVAILABLE = False
 
+# 檢查arrow是否可用
+try:
+    import arrow
+    ARROW_AVAILABLE = True
+except ImportError:
+    ARROW_AVAILABLE = False
+
+@dataclass
+class DateParserConfig:
+    """日期解析器配置類"""
+    
+    # 輸出格式
+    output_format: Optional[str] = None
+    default_timezone: Optional[str] = None
+    
+    # 日期格式
+    common_formats: List[str] = field(default_factory=lambda: [
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d",
+        "%Y/%m/%d %H:%M:%S",
+        "%Y/%m/%d %H:%M",
+        "%Y/%m/%d",
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y %H:%M",
+        "%d/%m/%Y",
+        "%Y年%m月%d日 %H:%M:%S",
+        "%Y年%m月%d日 %H:%M",
+        "%Y年%m月%d日",
+        "%d.%m.%Y %H:%M:%S",
+        "%d.%m.%Y %H:%M",
+        "%d.%m.%Y",
+        "%b %d, %Y %H:%M:%S",
+        "%b %d, %Y %H:%M",
+        "%b %d, %Y",
+        "%d %b %Y %H:%M:%S",
+        "%d %b %Y %H:%M",
+        "%d %b %Y"
+    ])
+    
+    # 正則表達式模式
+    date_patterns: Dict[str, Union[str, Pattern]] = field(default_factory=lambda: {
+        "iso": r"\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?",
+        "cn_date": r"(\d{2,4})[年\-/\.](\d{1,2})[月\-/\.](\d{1,2})日?",
+        "common_date": r"\d{4}[/\-年]\d{1,2}[/\-月]\d{1,2}日?",
+        "slash_date": r"\d{1,2}[/\-]\d{1,2}[/\-]\d{4}",
+        "dot_date": r"\d{1,2}\.\d{1,2}\.\d{4}",
+        "en_date1": r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}",
+        "en_date2": r"\d{1,2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{4}"
+    })
+    
+    # 相對時間模式
+    relative_patterns: Dict[str, Dict[str, Union[str, Pattern]]] = field(default_factory=lambda: {
+        "cn": {
+            "days_ago": r"(\d+)天前",
+            "hours_ago": r"(\d+)小時前",
+            "minutes_ago": r"(\d+)分鐘前",
+            "just_now": r"剛剛|剛才"
+        },
+        "en": {
+            "days_ago": r"(\d+) days? ago",
+            "hours_ago": r"(\d+) hours? ago",
+            "minutes_ago": r"(\d+) minutes? ago",
+            "just_now": r"just now|moments ago"
+        }
+    })
+    
+    def __post_init__(self):
+        """初始化後處理"""
+        # 編譯正則表達式模式
+        self.compiled_patterns = {
+            name: re.compile(pattern) if isinstance(pattern, str) else pattern
+            for name, pattern in self.date_patterns.items()
+        }
+        
+        # 編譯相對時間模式
+        self.compiled_relative_patterns = {
+            lang: {
+                name: re.compile(pattern) if isinstance(pattern, str) else pattern
+                for name, pattern in patterns.items()
+            }
+            for lang, patterns in self.relative_patterns.items()
+        }
+
 
 class DateParser:
     """日期解析工具類"""
     
-    def __init__(self):
-        """初始化日期解析器"""
+    def __init__(self, config: Optional[DateParserConfig] = None):
+        """
+        初始化日期解析器
+        
+        Args:
+            config: 解析器配置，如果不提供則使用默認配置
+        """
+        self.config = config or DateParserConfig()
         self.logger = logging.getLogger(__name__)
-        
-        # 常見日期格式
-        self.common_formats = [
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%d %H:%M",
-            "%Y-%m-%d",
-            "%Y/%m/%d %H:%M:%S",
-            "%Y/%m/%d %H:%M",
-            "%Y/%m/%d",
-            "%d/%m/%Y %H:%M:%S",
-            "%d/%m/%Y %H:%M",
-            "%d/%m/%Y",
-            "%Y年%m月%d日 %H:%M:%S",
-            "%Y年%m月%d日 %H:%M",
-            "%Y年%m月%d日",
-            "%d.%m.%Y %H:%M:%S",
-            "%d.%m.%Y %H:%M",
-            "%d.%m.%Y",
-            "%b %d, %Y %H:%M:%S",
-            "%b %d, %Y %H:%M",
-            "%b %d, %Y",
-            "%d %b %Y %H:%M:%S",
-            "%d %b %Y %H:%M",
-            "%d %b %Y"
-        ]
-        
-        # 中文日期正則
-        self.cn_date_pattern = re.compile(r"(\d{2,4})[年\-/\.](\d{1,2})[月\-/\.](\d{1,2})日?")
-        
-        # 相對時間正則
-        self.relative_patterns = {
-            "cn": {
-                "days_ago": re.compile(r"(\d+)天前"),
-                "hours_ago": re.compile(r"(\d+)小時前"),
-                "minutes_ago": re.compile(r"(\d+)分鐘前"),
-                "just_now": re.compile(r"剛剛|剛才")
-            },
-            "en": {
-                "days_ago": re.compile(r"(\d+) days? ago"),
-                "hours_ago": re.compile(r"(\d+) hours? ago"),
-                "minutes_ago": re.compile(r"(\d+) minutes? ago"),
-                "just_now": re.compile(r"just now|moments ago")
-            }
-        }
     
     def parse_date(self, date_str: str, output_format: Optional[str] = None, 
                   default_timezone: Optional[str] = None) -> Optional[str]:
@@ -88,8 +140,26 @@ class DateParser:
             return None
         
         date_str = date_str.strip()
+        output_format = output_format or self.config.output_format
+        default_timezone = default_timezone or self.config.default_timezone
         
-        # 1. 嘗試使用dateparser庫(如果可用)
+        # 1. 嘗試使用arrow庫(如果可用)
+        if ARROW_AVAILABLE:
+            try:
+                # 設置時區
+                if default_timezone:
+                    arrow_date = arrow.get(date_str, default_timezone)
+                else:
+                    arrow_date = arrow.get(date_str)
+                
+                if arrow_date:
+                    if output_format:
+                        return arrow_date.format(output_format)
+                    return arrow_date.isoformat()
+            except Exception as e:
+                self.logger.debug(f"arrow解析失敗: {e}")
+        
+        # 2. 嘗試使用dateparser庫(如果可用)
         if DATEPARSER_AVAILABLE:
             try:
                 settings = {}
@@ -102,16 +172,16 @@ class DateParser:
             except Exception as e:
                 self.logger.debug(f"dateparser解析失敗: {e}")
         
-        # 2. 嘗試使用常見日期格式
-        for fmt in self.common_formats:
+        # 3. 嘗試使用常見日期格式
+        for fmt in self.config.common_formats:
             try:
                 parsed_date = datetime.strptime(date_str, fmt)
                 return self._format_date(parsed_date, output_format)
             except ValueError:
                 continue
         
-        # 3. 嘗試解析中文日期
-        match = self.cn_date_pattern.search(date_str)
+        # 4. 嘗試解析中文日期
+        match = self.config.compiled_patterns["cn_date"].search(date_str)
         if match:
             try:
                 year, month, day = match.groups()
@@ -123,7 +193,7 @@ class DateParser:
             except Exception:
                 pass
         
-        # 4. 嘗試解析相對時間
+        # 5. 嘗試解析相對時間
         parsed_date = self._parse_relative_time(date_str)
         if parsed_date:
             return self._format_date(parsed_date, output_format)
@@ -144,30 +214,30 @@ class DateParser:
         now = datetime.now()
         
         # 檢查中文相對時間
-        for pattern_name, pattern in self.relative_patterns["cn"].items():
+        for pattern_name, pattern in self.config.compiled_relative_patterns["cn"].items():
             match = pattern.search(date_str)
             if match:
                 if pattern_name == "just_now":
                     return now
                 elif pattern_name == "minutes_ago":
-                    return now.replace(minute=now.minute - int(match.group(1)))
+                    return now - timedelta(minutes=int(match.group(1)))
                 elif pattern_name == "hours_ago":
-                    return now.replace(hour=now.hour - int(match.group(1)))
+                    return now - timedelta(hours=int(match.group(1)))
                 elif pattern_name == "days_ago":
-                    return now.replace(day=now.day - int(match.group(1)))
+                    return now - timedelta(days=int(match.group(1)))
         
         # 檢查英文相對時間
-        for pattern_name, pattern in self.relative_patterns["en"].items():
+        for pattern_name, pattern in self.config.compiled_relative_patterns["en"].items():
             match = pattern.search(date_str)
             if match:
                 if pattern_name == "just_now":
                     return now
                 elif pattern_name == "minutes_ago":
-                    return now.replace(minute=now.minute - int(match.group(1)))
+                    return now - timedelta(minutes=int(match.group(1)))
                 elif pattern_name == "hours_ago":
-                    return now.replace(hour=now.hour - int(match.group(1)))
+                    return now - timedelta(hours=int(match.group(1)))
                 elif pattern_name == "days_ago":
-                    return now.replace(day=now.day - int(match.group(1)))
+                    return now - timedelta(days=int(match.group(1)))
         
         return None
     
@@ -201,29 +271,62 @@ class DateParser:
         if not text:
             return None
         
-        # 嘗試常見日期模式
-        date_patterns = [
-            # ISO格式
-            r"\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?",
-            # 常見日期格式
-            r"\d{4}[/\-年]\d{1,2}[/\-月]\d{1,2}日?",
-            r"\d{1,2}[/\-]\d{1,2}[/\-]\d{4}",
-            r"\d{1,2}\.\d{1,2}\.\d{4}",
-            # 英文日期格式
-            r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}",
-            r"\d{1,2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{4}"
-        ]
-        
-        for pattern in date_patterns:
-            match = re.search(pattern, text)
+        # 嘗試所有日期模式
+        for pattern in self.config.compiled_patterns.values():
+            match = pattern.search(text)
             if match:
                 date_str = match.group(0)
                 return self.parse_date(date_str, output_format)
         
         return None
+    
+    def shift(self, date_str: str, **kwargs) -> Optional[str]:
+        """
+        類似 moment.js 的 shift 功能，用於日期時間的增減
+        
+        Args:
+            date_str: 日期字符串
+            **kwargs: 要增減的時間參數，例如 days=3, hours=2, minutes=30
+            
+        Returns:
+            計算後的日期字符串
+        """
+        if not ARROW_AVAILABLE:
+            self.logger.warning("arrow庫未安裝，無法使用shift功能")
+            return None
+            
+        try:
+            arrow_date = arrow.get(date_str)
+            shifted_date = arrow_date.shift(**kwargs)
+            return shifted_date.isoformat()
+        except Exception as e:
+            self.logger.error(f"shift操作失敗: {e}")
+            return None
+    
+    def format(self, date_str: str, format_str: str) -> Optional[str]:
+        """
+        類似 moment.js 的 format 功能，用於格式化日期
+        
+        Args:
+            date_str: 日期字符串
+            format_str: 格式化字符串
+            
+        Returns:
+            格式化後的日期字符串
+        """
+        if not ARROW_AVAILABLE:
+            self.logger.warning("arrow庫未安裝，無法使用format功能")
+            return None
+            
+        try:
+            arrow_date = arrow.get(date_str)
+            return arrow_date.format(format_str)
+        except Exception as e:
+            self.logger.error(f"format操作失敗: {e}")
+            return None
 
 
-# 單例模式，提供一個全局實例
+# 創建默認實例
 default_parser = DateParser()
 
 
@@ -253,3 +356,31 @@ def extract_date_from_text(text: str, output_format: Optional[str] = None) -> Op
         提取的日期字符串
     """
     return default_parser.extract_date_from_text(text, output_format)
+
+
+def shift_date(date_str: str, **kwargs) -> Optional[str]:
+    """
+    日期時間增減的便捷函數
+    
+    Args:
+        date_str: 日期字符串
+        **kwargs: 要增減的時間參數
+        
+    Returns:
+        計算後的日期字符串
+    """
+    return default_parser.shift(date_str, **kwargs)
+
+
+def format_date(date_str: str, format_str: str) -> Optional[str]:
+    """
+    格式化日期的便捷函數
+    
+    Args:
+        date_str: 日期字符串
+        format_str: 格式化字符串
+        
+    Returns:
+        格式化後的日期字符串
+    """
+    return default_parser.format(date_str, format_str)

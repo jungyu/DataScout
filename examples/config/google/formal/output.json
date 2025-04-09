@@ -1,0 +1,90 @@
+{
+  "version": "1.0.0",
+  "name": "google_search_output",
+  "description": "Google 搜尋結果輸出格式配置",
+  "formats": {
+    "json": {
+      "enabled": true,
+      "structure": {
+        "query": {
+          "type": "string",
+          "description": "搜尋關鍵字"
+        },
+        "total_results": {
+          "type": "integer",
+          "description": "搜尋結果總數"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "搜尋結果標題"
+              },
+              "url": {
+                "type": "string",
+                "description": "搜尋結果連結"
+              },
+              "snippet": {
+                "type": "string",
+                "description": "搜尋結果摘要"
+              },
+              "date": {
+                "type": "string",
+                "description": "搜尋結果日期"
+              },
+              "source": {
+                "type": "string",
+                "description": "搜尋結果來源"
+              }
+            }
+          }
+        }
+      }
+    },
+    "csv": {
+      "enabled": true,
+      "columns": [
+        "title",
+        "url",
+        "snippet",
+        "date",
+        "source"
+      ],
+      "delimiter": ",",
+      "encoding": "utf-8"
+    },
+    "excel": {
+      "enabled": true,
+      "sheets": {
+        "search_results": {
+          "columns": [
+            "title",
+            "url",
+            "snippet",
+            "date",
+            "source"
+          ]
+        }
+      }
+    }
+  },
+  "output_settings": {
+    "base_directory": "output/google",
+    "file_naming": {
+      "pattern": "{query}_{timestamp}",
+      "timestamp_format": "%Y%m%d_%H%M%S"
+    },
+    "compression": {
+      "enabled": true,
+      "format": "zip"
+    },
+    "metadata": {
+      "include_query": true,
+      "include_timestamp": true,
+      "include_version": true
+    }
+  }
+} 

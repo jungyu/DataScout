@@ -1,4 +1,28 @@
+# Python 快取檔案
 src/core/__pycache__/*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 系統檔案
 src/.DS_Store
 src/extractors/.DS_Store
+.DS_Store
+
+# 輸出資料
 output/*.json
+
+# 配置檔案（忽略所有配置，但保留範例檔案）
+config/*.json
+!config/_*.json
+
+# 憑證和敏感資訊
+config/credentials.json
+certs/
+keys/
+
+# 資料和日誌
+data/
+logs/
+captchas/
+debug/

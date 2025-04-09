@@ -4,7 +4,31 @@
 """
 數據提取器核心模組 (data_extractor.py)
 
-提供中心化、可配置的網頁數據提取功能，協調其他提取器
+提供中心化、可配置的網頁數據提取功能，協調其他提取器處理不同類型的數據提取任務。
+
+主要功能：
+- 從網頁中提取結構化數據
+- 支持多種數據類型的提取（文本、屬性、HTML、複合字段等）
+- 處理驗證碼和頁面有效性檢查
+- 提供統計信息追蹤
+
+使用示例：
+    from src.extractors.core import DataExtractor
+    from src.extractors.config import ExtractionConfig
+    
+    # 創建提取器
+    extractor = DataExtractor(driver, base_url="https://example.com")
+    
+    # 配置提取
+    config = {
+        "title": ExtractionConfig(xpath="//h1", type="text"),
+        "price": ExtractionConfig(xpath="//span[@class='price']", type="number"),
+        "description": ExtractionConfig(xpath="//p[@class='description']", type="text"),
+        "images": ExtractionConfig(xpath="//img", type="attribute", attribute="src", multiple=True)
+    }
+    
+    # 提取數據
+    data = extractor.extract_from_page(config)
 """
 
 import logging
@@ -27,6 +51,23 @@ from ..handlers.storage_handler import StorageHandler
 class DataExtractor(BaseExtractor):
     """
     主數據提取器類，協調其他提取器處理不同類型的數據提取任務
+    
+    該類提供了一個統一的接口來從網頁中提取各種類型的數據，包括文本、屬性、HTML內容、
+    複合字段等。它還處理驗證碼檢測和頁面有效性檢查。
+    
+    Attributes:
+        driver: Selenium WebDriver實例
+        base_url: 基礎URL，用於URL標準化
+        logger: 日誌記錄器
+        timeout: 默認等待超時時間(秒)
+        max_workers: 並行提取的最大工作線程數
+        extracted_items_count: 已提取項目數
+        extracted_fields_count: 已提取字段數
+        extraction_errors_count: 提取錯誤數
+        visited_urls: 已訪問的URL集合
+        captcha_handler: 驗證碼處理器
+        pagination_handler: 分頁處理器
+        storage_handler: 存儲處理器
     """
     
     def __init__(
@@ -66,7 +107,11 @@ class DataExtractor(BaseExtractor):
         self.logger.info("數據提取器初始化完成")
     
     def reset_statistics(self) -> None:
-        """重置統計計數"""
+        """
+        重置統計計數
+        
+        將所有統計計數器重置為初始值。
+        """
         self.extracted_items_count = 0
         self.extracted_fields_count = 0
         self.extraction_errors_count = 0
@@ -77,7 +122,7 @@ class DataExtractor(BaseExtractor):
         獲取提取統計信息
         
         Returns:
-            包含提取統計的字典
+            包含提取統計的字典，包括已提取項目數、字段數、錯誤數和已訪問URL數
         """
         return {
             "extracted_items": self.extracted_items_count,
@@ -94,12 +139,15 @@ class DataExtractor(BaseExtractor):
         """
         從頁面或元素中提取數據
         
+        根據提供的配置字典，從指定的上下文（頁面或元素）中提取數據。
+        支持多種數據類型的提取，並處理提取過程中的錯誤。
+        
         Args:
-            config: 字段提取配置字典
+            config: 字段提取配置字典，鍵為字段名，值為提取配置
             context: 上下文元素，默認為整個頁面
             
         Returns:
-            提取的數據字典
+            提取的數據字典，鍵為字段名，值為提取的數據
         """
         result = {}
         context = context or self.driver
@@ -142,12 +190,14 @@ class DataExtractor(BaseExtractor):
         """
         根據配置從元素中提取字段數據
         
+        根據配置的類型，調用相應的提取方法從元素中提取數據。
+        
         Args:
             context: 上下文元素
             config: 提取配置
             
         Returns:
-            提取的數據
+            提取的數據，如果提取失敗則返回默認值
         """
         # 查找元素
         elements = self._find_elements(context, config)
@@ -191,12 +241,14 @@ class DataExtractor(BaseExtractor):
         """
         查找頁面元素
         
+        根據配置的XPath查找元素，如果主XPath失敗則嘗試備用XPath。
+        
         Args:
             context: 上下文元素
             config: 提取配置
             
         Returns:
-            找到的元素列表
+            找到的元素列表，如果查找失敗則返回空列表
         """
         try:
             # 先嘗試主XPath
@@ -224,12 +276,14 @@ class DataExtractor(BaseExtractor):
         """
         提取元素文本
         
+        從元素中提取文本內容，並應用文本清理和正則提取。
+        
         Args:
             elements: 元素列表
             config: 提取配置
             
         Returns:
-            提取的文本
+            提取的文本，可能是單個字符串或字符串列表
         """
         def process_text(el: WebElement) -> str:
             text = el.text.strip()
@@ -264,12 +318,14 @@ class DataExtractor(BaseExtractor):
         """
         提取元素屬性
         
+        從元素中提取指定屬性的值，並應用正則提取和URL標準化。
+        
         Args:
             elements: 元素列表
             config: 提取配置
             
         Returns:
-            提取的屬性值
+            提取的屬性值，可能是單個字符串或字符串列表
         """
         attribute = config.attribute or 'href'  # 默認提取href屬性
         
@@ -303,12 +359,14 @@ class DataExtractor(BaseExtractor):
         """
         提取元素HTML內容
         
+        從元素中提取完整的HTML內容。
+        
         Args:
             elements: 元素列表
             config: 提取配置
             
         Returns:
-            提取的HTML內容
+            提取的HTML內容，可能是單個字符串或字符串列表
         """
         def process_html(el: WebElement) -> str:
             return el.get_attribute('outerHTML') or ""
@@ -327,12 +385,14 @@ class DataExtractor(BaseExtractor):
         """
         提取複合字段（嵌套字段）
         
+        從元素中提取複合字段，支持嵌套的數據結構。
+        
         Args:
             elements: 元素列表
             config: 提取配置
             
         Returns:
-            提取的複合數據
+            提取的複合數據，可能是字典或字典列表
         """
         # 檢查是否有嵌套字段配置
         if not config.nested_fields:
@@ -356,12 +416,14 @@ class DataExtractor(BaseExtractor):
         """
         提取並解析日期
         
+        從元素中提取日期文本，並解析為指定格式的日期字符串。
+        
         Args:
             elements: 元素列表
             config: 提取配置
             
         Returns:
-            解析後的日期
+            解析後的日期，可能是單個字符串或字符串列表
         """
         from ..utils.date_parser import DateParser
         
@@ -383,12 +445,14 @@ class DataExtractor(BaseExtractor):
         """
         提取並解析數字
         
+        從元素中提取數字文本，並解析為數字類型。
+        
         Args:
             elements: 元素列表
             config: 提取配置
             
         Returns:
-            解析後的數字
+            解析後的數字，可能是單個數字或數字列表
         """
         from ..utils.number_parser import NumberParser
         
@@ -410,12 +474,14 @@ class DataExtractor(BaseExtractor):
         """
         提取URL
         
+        從元素中提取URL，並標準化為絕對URL。
+        
         Args:
             elements: 元素列表
             config: 提取配置
             
         Returns:
-            提取後的URL
+            提取後的URL，可能是單個字符串或字符串列表
         """
         attribute = config.attribute or 'href'
         
@@ -433,17 +499,21 @@ class DataExtractor(BaseExtractor):
         """
         檢測並嘗試處理驗證碼
         
+        使用驗證碼處理器檢測並處理頁面上的驗證碼。
+        
         Args:
             detection_xpath: 驗證碼檢測XPath
             
         Returns:
-            是否成功處理
+            是否成功處理驗證碼
         """
         return self.captcha_handler.handle_captcha(detection_xpath)
     
     def is_page_valid(self) -> bool:
         """
         檢查當前頁面是否有效
+        
+        檢查當前頁面是否為有效的內容頁面，而不是錯誤頁面或無效頁面。
         
         Returns:
             頁面是否有效

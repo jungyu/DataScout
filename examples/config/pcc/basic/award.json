@@ -1,0 +1,311 @@
+{
+    "site_name": "政府電子採購網-決標查詢",
+    "urls": {
+        "base": "https://web.pcc.gov.tw/prkms/tender/common/agent/indexTenderAgent",
+        "search": "https://web.pcc.gov.tw/prkms/tender/common/agent/readTenderAgent"
+    },
+    "encoding": "utf-8",
+    "description": "政府電子採購網決標查詢爬蟲程式",
+    "version": "1.0.0",
+    "request": {
+      "method": "GET",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+      }
+    },
+    "delays": {
+      "page_load": 5,
+      "between_pages": 3,
+      "between_items": 2,
+      "scroll": 1,
+      "finish": 3,
+      "retry": 3
+    },
+    "search_parameters": {
+      "pageSize": {
+        "type": "hidden",
+        "value": "100",
+        "description": "每頁顯示筆數"
+      },
+      "firstSearch": {
+        "type": "hidden",
+        "value": "true",
+        "description": "是否為第一次搜尋"
+      },
+      "isQuery": {
+        "type": "hidden",
+        "value": "true",
+        "description": "是否為查詢"
+      },
+      "isBinding": {
+        "type": "hidden",
+        "value": "N",
+        "description": "是否綁定"
+      },
+      "isLogIn": {
+        "type": "hidden",
+        "value": "N",
+        "description": "是否登入"
+      },
+      "orgName": {
+        "type": "input",
+        "value": "",
+        "description": "機關名稱"
+      },
+      "orgId": {
+        "type": "input",
+        "value": "",
+        "description": "機關代碼"
+      },
+      "tender_name": {
+        "type": "input",
+        "value": "防火牆",
+        "description": "標案名稱"
+      },
+      "tender_id": {
+        "type": "input",
+        "value": "",
+        "description": "標案案號"
+      },
+      "tender_status": {
+        "type": "hidden",
+        "value": "TENDER_STATUS_1",
+        "description": "標案狀態（決標公告）"
+      },
+      "tender_way": {
+        "type": "hidden",
+        "value": "TENDER_WAY_ALL_DECLARATION",
+        "description": "招標方式（各式招標公告）"
+      },
+      "award_announce_start_date": {
+        "type": "input",
+        "value": "2025/01/01",
+        "date_format": "%Y/%m/%d",
+        "description": "決標公告開始日期"
+      },
+      "award_announce_end_date": {
+        "type": "input",
+        "value": "2025/04/08",
+        "date_format": "%Y/%m/%d",
+        "description": "決標公告結束日期"
+      },
+      "procurement_category": {
+        "type": "radio",
+        "value": "RAD_PROCTRG_CATE_3",
+        "description": "採購性質（勞務類）"
+      },
+      "tender_range": {
+        "type": "hidden",
+        "value": "TENDER_RANGE_ALL",
+        "description": "採購級距（全部）"
+      },
+      "min_budget": {
+        "type": "input",
+        "value": "",
+        "description": "預算下限"
+      },
+      "max_budget": {
+        "type": "input",
+        "value": "",
+        "description": "預算上限"
+      },
+      "item": {
+        "type": "input",
+        "value": "",
+        "description": "標的分類"
+      },
+      "gotten_vendor_name": {
+        "type": "input",
+        "value": "",
+        "description": "得標廠商名稱"
+      },
+      "gotten_vendor_id": {
+        "type": "input",
+        "value": "",
+        "description": "得標廠商統編"
+      },
+      "submit_vendor_name": {
+        "type": "input",
+        "value": "",
+        "description": "投標廠商名稱"
+      },
+      "submit_vendor_id": {
+        "type": "input",
+        "value": "",
+        "description": "投標廠商統編"
+      },
+      "exec_location": {
+        "type": "input",
+        "value": "",
+        "description": "履約地點"
+      },
+      "priority_cate": {
+        "type": "hidden",
+        "value": "",
+        "description": "優先採購項目"
+      },
+      "rad_reconstruct": {
+        "type": "hidden",
+        "value": "",
+        "description": "災後重建工程"
+      },
+      "policy_advocacy": {
+        "type": "hidden",
+        "value": "",
+        "description": "政策宣導"
+      },
+      "is_cpp": {
+        "type": "hidden",
+        "value": "",
+        "description": "是否為共同供應契約"
+      }
+    },
+    "pagination": {
+      "next_button_xpath": "//a[contains(text(), '下一頁')]",
+      "has_next_page_check": "boolean(//a[contains(text(), '下一頁')])",
+      "page_number_xpath": "//div[@class='pagination']//span[@class='current']/text()",
+      "max_pages": 3,
+      "page_size": 100
+    },
+    "list_page": {
+      "container_xpath": "//table[@class='tb_01']",
+      "item_xpath": ".//tr[contains(@class, 'tb_b')]",
+      "total_count_xpath": "//div[contains(text(), '共有')]",
+      "fields": {
+        "org_name": {
+          "xpath": ".//td[2]/text()",
+          "type": "text",
+          "description": "機關名稱"
+        },
+        "tender_id": {
+          "xpath": ".//td[3]/text()[1]",
+          "type": "text",
+          "description": "標案案號"
+        },
+        "tender_name": {
+          "xpath": ".//td[3]//a/@title",
+          "type": "text",
+          "description": "標案名稱"
+        },
+        "tender_way": {
+          "xpath": ".//td[4]/text()",
+          "type": "text",
+          "description": "招標方式"
+        },
+        "procurement_category": {
+          "xpath": ".//td[5]/text()",
+          "type": "text",
+          "description": "採購性質"
+        },
+        "announcement_date": {
+          "xpath": ".//td[6]/text()",
+          "type": "text",
+          "description": "公告日期"
+        },
+        "award_amount": {
+          "xpath": ".//td[7]//span/text()",
+          "type": "text",
+          "description": "決標金額"
+        },
+        "detail_pk": {
+          "xpath": ".//td[3]//a/@href",
+          "type": "attribute",
+          "description": "詳細資料連結",
+          "regex": "pk=([^\"]+)"
+        }
+      }
+    },
+    "retries": {
+      "max_retries": 3,
+      "delay": 3
+    },
+    "output": {
+      "path": "examples/data/output/award_results.json",
+      "format": "json"
+    },
+    "detail_page": {
+        "container_xpath": "//table[@class='tb_01']",
+        "fields": {
+            "tender_name": {
+                "xpath": "//tr[contains(.//td[1], '標案名稱')]/td[2]/text()",
+                "type": "text",
+                "description": "標案名稱"
+            },
+            "tender_id": {
+                "xpath": "//tr[contains(.//td[1], '標案案號')]/td[2]/text()",
+                "type": "text",
+                "description": "標案案號"
+            },
+            "org_name": {
+                "xpath": "//tr[contains(.//td[1], '機關名稱')]/td[2]/text()",
+                "type": "text",
+                "description": "機關名稱"
+            },
+            "org_id": {
+                "xpath": "//tr[contains(.//td[1], '機關代碼')]/td[2]/text()",
+                "type": "text",
+                "description": "機關代碼"
+            },
+            "tender_way": {
+                "xpath": "//tr[contains(.//td[1], '招標方式')]/td[2]/text()",
+                "type": "text",
+                "description": "招標方式"
+            },
+            "procurement_category": {
+                "xpath": "//tr[contains(.//td[1], '採購性質')]/td[2]/text()",
+                "type": "text",
+                "description": "採購性質"
+            },
+            "announcement_date": {
+                "xpath": "//tr[contains(.//td[1], '公告日')]/td[2]/text()",
+                "type": "text",
+                "description": "公告日期"
+            },
+            "award_amount": {
+                "xpath": "//tr[contains(.//td[1], '總決標金額')]/td[2]/text()",
+                "type": "text",
+                "description": "決標金額"
+            },
+            "award_date": {
+                "xpath": "//tr[contains(.//td[1], '決標日期')]/td[2]/text()",
+                "type": "text",
+                "description": "決標日期"
+            },
+            "award_vendor": {
+                "xpath": "//tr[contains(.//td[1], '得標廠商') or contains(.//td[1], '得標廠商名稱')]/td[2]/text()",
+                "type": "text",
+                "description": "得標廠商"
+            },
+            "vendor_code": {
+                "xpath": "//tr[contains(.//td[1], '廠商代碼') or contains(.//td[1], '得標廠商代碼')]/td[2]/text()",
+                "type": "text",
+                "description": "廠商代碼"
+            },
+            "vendor_name": {
+                "xpath": "//tr[contains(.//td[1], '廠商名稱') or contains(.//td[1], '得標廠商名稱')]/td[2]/text()",
+                "type": "text",
+                "description": "廠商名稱"
+            },
+            "legal_basis": {
+                "xpath": "//tr[contains(.//td[1], '限制性招標依據之法條')]/td[2]/text()",
+                "type": "text",
+                "description": "限制性招標依據之法條"
+            },
+            "subject_class": {
+                "xpath": "//tr[contains(.//td[1], '標的分類')]/td[2]/text()",
+                "type": "text",
+                "description": "標的分類"
+            },
+            "procurement_method": {
+                "xpath": "//tr[contains(.//td[1], '招標方式')]/td[2]/text()",
+                "type": "text",
+                "description": "招標方式"
+            },
+            "award_method": {
+                "xpath": "//tr[contains(.//td[1], '決標方式')]/td[2]/text()",
+                "type": "text",
+                "description": "決標方式"
+            }
+        }
+    }
+}

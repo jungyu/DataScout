@@ -1,7 +1,53 @@
-from typing import Dict, List, Any, Optional, Union
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+詳情頁提取器模組
+
+專門處理詳情頁面的數據提取，支持多種數據類型和提取策略。
+
+主要功能：
+- 詳情頁字段提取
+- 表格數據提取
+- 圖片提取
+- 可折疊區塊展開
+- 備用選擇器支持
+- 錯誤處理和恢復
+
+使用示例：
+    from src.extractors.core import DetailExtractor
+    
+    # 創建提取器
+    extractor = DetailExtractor(driver, base_url="https://example.com")
+    
+    # 配置提取
+    detail_config = {
+        "container_xpath": "//article",
+        "fields": {
+            "title": {
+                "xpath": "//h1",
+                "type": "text",
+                "fallback_xpath": "//title"
+            },
+            "content": {
+                "xpath": "//div[@class='content']",
+                "type": "text"
+            },
+            "published_date": {
+                "xpath": "//time",
+                "type": "date"
+            }
+        }
+    }
+    
+    # 提取數據
+    data = extractor.extract_detail_page(detail_config)
+"""
+
+import time
 import logging
 import re
-import time
+from typing import Dict, List, Any, Optional, Union, Tuple
 from urllib.parse import urljoin, urlparse
 
 from selenium import webdriver
@@ -26,9 +72,26 @@ except ImportError:
 
 
 class DetailExtractor:
-    """詳情頁面數據提取器，支持多種數據類型和提取策略"""
+    """詳情頁面數據提取器
     
-    def __init__(self, driver: webdriver.Chrome, logger=None, base_url: Optional[str] = None, timeout: int = 20):
+    專門處理詳情頁面的數據提取，支持多種數據類型和提取策略。
+    
+    Attributes:
+        driver: Selenium WebDriver實例
+        logger: 日誌記錄器
+        base_url: 基礎URL，用於URL標準化
+        default_timeout: 默認等待超時時間
+        extracted_fields_count: 已提取字段數
+        extraction_errors_count: 提取錯誤數
+    """
+    
+    def __init__(
+        self, 
+        driver: webdriver.Chrome, 
+        logger=None, 
+        base_url: Optional[str] = None, 
+        timeout: int = 20
+    ):
         """
         初始化詳情頁面提取器
         
@@ -121,10 +184,32 @@ class DetailExtractor:
         fields_data = {}
         for field_name, field_config in fields_config.items():
             try:
+                # 獲取主要XPath
                 xpath = field_config.get("xpath", "")
-                if xpath:
-                    elements = self.wait_for_elements(By.XPATH, xpath)
-                    if elements:
+                
+                # 嘗試使用主要XPath
+                elements = self.wait_for_elements(By.XPATH, xpath)
+                
+                # 如果沒有找到元素，嘗試使用備用XPath
+                if not elements and "fallback_xpath" in field_config:
+                    fallback_xpath = field_config.get("fallback_xpath", "")
+                    if fallback_xpath:
+                        self.logger.info(f"使用備用XPath提取字段 {field_name}: {fallback_xpath}")
+                        elements = self.wait_for_elements(By.XPATH, fallback_xpath)
+                
+                if elements:
+                    # 處理多值字段
+                    if field_config.get("multiple", False):
+                        values = []
+                        for element in elements:
+                            value = self._extract_field_value(element, field_config)
+                            if value is not None:
+                                values.append(value)
+                        if values:
+                            fields_data[field_name] = values
+                            self.extracted_fields_count += 1
+                    else:
+                        # 單值字段
                         value = self._extract_field_value(elements[0], field_config)
                         if value is not None:
                             fields_data[field_name] = value
@@ -161,8 +246,21 @@ class DetailExtractor:
                 return element.get_attribute("innerHTML")
                 
             elif extraction_type == "date":
+                # 首先嘗試從文本中提取
                 text = element.text.strip()
-                return self._parse_date(text, field_config)
+                if text:
+                    date_value = self._parse_date(text, field_config)
+                    if date_value:
+                        return date_value
+                
+                # 如果文本中沒有日期，嘗試從屬性中提取
+                date_attr = field_config.get("date_attribute", "datetime")
+                if date_attr:
+                    attr_value = element.get_attribute(date_attr)
+                    if attr_value:
+                        return self._parse_date(attr_value, field_config)
+                
+                return None
                 
             elif extraction_type == "number":
                 text = element.text.strip()
@@ -431,7 +529,7 @@ class DetailExtractor:
 
     def extract_detail_page(self, detail_config: Dict, container_xpath: Optional[str] = None) -> Dict[str, Any]:
         """
-        提取詳情頁面數據 - 改進版
+        提取詳情頁面數據
         
         Args:
             detail_config: 詳情頁配置
@@ -537,6 +635,30 @@ class DetailExtractor:
                             result["tables"] = tables_data
                     except Exception as table_error:
                         self.logger.warning(f"提取表格數據失敗: {str(table_error)}")
+            
+            # 提取圖片（如果配置了）
+            if detail_config.get("extract_images", False):
+                try:
+                    images = self.extract_images(container_xpath)
+                    if images:
+                        result["images"] = images
+                except Exception as image_error:
+                    self.logger.warning(f"提取圖片失敗: {str(image_error)}")
+            
+            # 展開可折疊區塊（如果配置了）
+            expand_sections = detail_config.get("expand_sections", [])
+            if expand_sections:
+                try:
+                    self.expand_sections(expand_sections)
+                    # 展開後可能需要重新提取一些字段
+                    if fields_config:
+                        updated_results = self.extract_fields(fields_config)
+                        # 只更新之前未提取到的字段
+                        for field_name, value in updated_results.items():
+                            if field_name not in result or not result[field_name]:
+                                result[field_name] = value
+                except Exception as expand_error:
+                    self.logger.warning(f"展開區塊失敗: {str(expand_error)}")
             
             # 添加元數據
             if "_metadata" not in result:

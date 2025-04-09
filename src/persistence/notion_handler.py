@@ -1,436 +1,95 @@
-# 獲取數據庫標題
-                    title = result.get("title", [])
-                    db_title = "".join([t.get("plain_text", "") for t in title])
-                    
-                    # 比較標題是否匹配
-                    if db_title.lower() == database_name.lower():
-                        database_id = result.get("id")
-                        
-                        # 更新緩存
-                        self.database_map[database_name] = database_id
-                        
-                        return database_id
-            
-            self.logger.warning(f"未找到Notion數據庫: {database_name}")
-            return ""
-        
-        except Exception as e:
-            self.logger.error(f"搜索Notion數據庫失敗: {str(e)}")
-            return ""
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Notion 存儲模組
+
+此模組提供 Notion 數據庫的存儲功能，支持頁面的增刪改查操作。
+"""
+
+import logging
+from typing import Dict, List, Optional, Union, Any
+from dataclasses import dataclass, field
+from datetime import datetime
+from notion_client import Client
+from notion_client.errors import APIResponseError
+
+@dataclass
+class NotionConfig:
+    """Notion 配置類"""
+    token: str
+    database_id: Optional[str] = None
+    default_page_id: Optional[str] = None
+    timeout: int = 30
+    retry_count: int = 3
+    retry_delay: int = 1
+    timestamp_field: str = "timestamp"
+    id_field: str = "id"
+    title_field: str = "title"
+    content_field: str = "content"
+    url_field: str = "url"
+    tags_field: str = "tags"
+    status_field: str = "status"
+
+class NotionHandler:
+    """Notion 處理類"""
     
-    def create_database(self, database_name: str, properties: Dict) -> str:
+    def __init__(self, config: Optional[Dict] = None):
         """
-        創建Notion數據庫
+        初始化 Notion 處理器
         
         Args:
-            database_name: 數據庫名稱
-            properties: 屬性定義
-            
-        Returns:
-            數據庫ID
+            config: 配置字典
         """
-        try:
-            if not self.client:
-                self.logger.error("Notion客戶端未初始化")
-                return ""
-            
-            if not self.parent_page_id:
-                self.logger.error("未設置Notion父頁面ID")
-                return ""
-            
-            # 檢查是否已存在
-            database_id = self._get_database_id(database_name)
-            if database_id:
-                self.logger.info(f"Notion數據庫已存在: {database_name}, ID: {database_id}")
-                return database_id
-            
-            # 創建數據庫
-            response = self.client.databases.create(
-                parent={"page_id": self.parent_page_id},
-                title=[{"type": "text", "text": {"content": database_name}}],
-                properties=properties
-            )
-            
-            database_id = response.get("id", "")
-            
-            if database_id:
-                # 更新緩存
-                self.database_map[database_name] = database_id
-                self.logger.info(f"已創建Notion數據庫: {database_name}, ID: {database_id}")
-            else:
-                self.logger.warning(f"創建Notion數據庫失敗: {database_name}")
-            
-            return database_id
+        self.logger = logging.getLogger(__name__)
         
-        except Exception as e:
-            self.logger.error(f"創建Notion數據庫失敗: {str(e)}")
-            return ""
+        # 加載配置
+        self.config = NotionConfig(**(config or {}))
+        
+        # 初始化客戶端
+        self._client: Optional[Client] = None
+        
+        # 連接 Notion
+        self._connect()
+        
+        self.logger.info("Notion 處理器初始化完成")
     
-    def get_database(self, database_name: str) -> Dict:
-        """
-        獲取數據庫信息
-        
-        Args:
-            database_name: 數據庫名稱
-            
-        Returns:
-            數據庫信息
-        """
+    def _connect(self) -> None:
+        """建立 Notion 連接"""
         try:
-            if not self.client:
-                self.logger.error("Notion客戶端未初始化")
-                return {}
+            # 創建客戶端
+            self._client = Client(auth=self.config.token)
             
-            # 獲取數據庫ID
-            database_id = self._get_database_id(database_name)
+            # 測試連接
+            self._client.users.me()
             
-            if not database_id:
-                self.logger.warning(f"未找到Notion數據庫: {database_name}")
-                return {}
-            
-            # 獲取數據庫
-            response = self.client.databases.retrieve(database_id=database_id)
-            
-            return response
+            self.logger.info("已連接到 Notion")
         
         except Exception as e:
-            self.logger.error(f"獲取Notion數據庫失敗: {str(e)}")
-            return {}
-    
-    def update_database(self, database_name: str, properties: Dict) -> bool:
-        """
-        更新數據庫
-        
-        Args:
-            database_name: 數據庫名稱
-            properties: 新的屬性定義
-            
-        Returns:
-            是否成功更新
-        """
-        try:
-            if not self.client:
-                self.logger.error("Notion客戶端未初始化")
-                return False
-            
-            # 獲取數據庫ID
-            database_id = self._get_database_id(database_name)
-            
-            if not database_id:
-                self.logger.warning(f"未找到Notion數據庫: {database_name}")
-                return False
-            
-            # 更新數據庫
-            self.client.databases.update(
-                database_id=database_id,
-                properties=properties
-            )
-            
-            self.logger.info(f"已更新Notion數據庫: {database_name}")
-            return True
-        
-        except Exception as e:
-            self.logger.error(f"更新Notion數據庫失敗: {str(e)}")
-            return False
-    
-    @retry_on_exception(retries=3, delay=1)
-    def query_database(
-        self,
-        database_name: str,
-        filter_obj: Dict = None,
-        sorts: List[Dict] = None,
-        page_size: int = 100,
-        start_cursor: str = None
-    ) -> Dict:
-        """
-        查詢數據庫
-        
-        Args:
-            database_name: 數據庫名稱
-            filter_obj: 過濾條件
-            sorts: 排序條件
-            page_size: 每頁大小
-            start_cursor: 起始游標
-            
-        Returns:
-            查詢結果
-        """
-        try:
-            if not self.client:
-                self.logger.error("Notion客戶端未初始化")
-                return {"results": []}
-            
-            # 獲取數據庫ID
-            database_id = self._get_database_id(database_name)
-            
-            if not database_id:
-                self.logger.warning(f"未找到Notion數據庫: {database_name}")
-                return {"results": []}
-            
-            # 構建查詢參數
-            query_params = {
-                "database_id": database_id,
-                "page_size": page_size
-            }
-            
-            if filter_obj:
-                query_params["filter"] = filter_obj
-            
-            if sorts:
-                query_params["sorts"] = sorts
-            
-            if start_cursor:
-                query_params["start_cursor"] = start_cursor
-            
-            # 執行查詢
-            response = self.client.databases.query(**query_params)
-            
-            return response
-        
-        except Exception as e:
-            self.logger.error(f"查詢Notion數據庫失敗: {str(e)}")
+            self.logger.error(f"Notion 連接失敗: {str(e)}")
             raise
     
-    def query_all_pages(self, database_name: str, filter_obj: Dict = None, sorts: List[Dict] = None) -> List[Dict]:
+    def _convert_to_notion_properties(self, data: Dict) -> Dict:
         """
-        查詢數據庫中的所有頁面
-        
-        Args:
-            database_name: 數據庫名稱
-            filter_obj: 過濾條件
-            sorts: 排序條件
-            
-        Returns:
-            所有頁面
-        """
-        try:
-            all_pages = []
-            has_more = True
-            next_cursor = None
-            
-            while has_more:
-                response = self.query_database(
-                    database_name=database_name,
-                    filter_obj=filter_obj,
-                    sorts=sorts,
-                    start_cursor=next_cursor
-                )
-                
-                pages = response.get("results", [])
-                all_pages.extend(pages)
-                
-                has_more = response.get("has_more", False)
-                next_cursor = response.get("next_cursor")
-                
-                if not has_more or not next_cursor:
-                    break
-            
-            self.logger.info(f"已查詢 {len(all_pages)} 個頁面，數據庫: {database_name}")
-            return all_pages
-        
-        except Exception as e:
-            self.logger.error(f"查詢所有頁面失敗: {str(e)}")
-            return []
-    
-    @retry_on_exception(retries=3, delay=1)
-    def create_page(self, database_name: str, properties: Dict, content: List[Dict] = None) -> str:
-        """
-        創建頁面
-        
-        Args:
-            database_name: 數據庫名稱
-            properties: 頁面屬性
-            content: 頁面內容
-            
-        Returns:
-            頁面ID
-        """
-        try:
-            if not self.client:
-                self.logger.error("Notion客戶端未初始化")
-                return ""
-            
-            # 獲取數據庫ID
-            database_id = self._get_database_id(database_name)
-            
-            if not database_id:
-                self.logger.warning(f"未找到Notion數據庫: {database_name}")
-                return ""
-            
-            # 構建頁面數據
-            page_data = {
-                "parent": {"database_id": database_id},
-                "properties": properties
-            }
-            
-            if content:
-                page_data["children"] = content
-            
-            # 創建頁面
-            response = self.client.pages.create(**page_data)
-            
-            page_id = response.get("id", "")
-            
-            if page_id:
-                self.logger.info(f"已創建Notion頁面，ID: {page_id}")
-            else:
-                self.logger.warning("創建Notion頁面失敗")
-            
-            return page_id
-        
-        except Exception as e:
-            self.logger.error(f"創建Notion頁面失敗: {str(e)}")
-            raise
-    
-    @retry_on_exception(retries=3, delay=1)
-    def update_page(self, page_id: str, properties: Dict = None, archived: bool = None) -> bool:
-        """
-        更新頁面
-        
-        Args:
-            page_id: 頁面ID
-            properties: 新的屬性
-            archived: 是否歸檔
-            
-        Returns:
-            是否成功更新
-        """
-        try:
-            if not self.client:
-                self.logger.error("Notion客戶端未初始化")
-                return False
-            
-            # 構建更新數據
-            update_data = {}
-            
-            if properties:
-                update_data["properties"] = properties
-            
-            if archived is not None:
-                update_data["archived"] = archived
-            
-            if not update_data:
-                self.logger.warning("沒有提供更新數據")
-                return False
-            
-            # 更新頁面
-            self.client.pages.update(page_id=page_id, **update_data)
-            
-            self.logger.info(f"已更新Notion頁面，ID: {page_id}")
-            return True
-        
-        except Exception as e:
-            self.logger.error(f"更新Notion頁面失敗，ID: {page_id}, 錯誤: {str(e)}")
-            raise
-    
-    def get_page(self, page_id: str) -> Dict:
-        """
-        獲取頁面
-        
-        Args:
-            page_id: 頁面ID
-            
-        Returns:
-            頁面數據
-        """
-        try:
-            if not self.client:
-                self.logger.error("Notion客戶端未初始化")
-                return {}
-            
-            response = self.client.pages.retrieve(page_id=page_id)
-            return response
-        
-        except Exception as e:
-            self.logger.error(f"獲取Notion頁面失敗，ID: {page_id}, 錯誤: {str(e)}")
-            return {}
-    
-    def delete_page(self, page_id: str) -> bool:
-        """
-        刪除頁面（實際為歸檔）
-        
-        Args:
-            page_id: 頁面ID
-            
-        Returns:
-            是否成功刪除
-        """
-        return self.update_page(page_id, archived=True)
-    
-    def create_block(self, page_id: str, block_content: List[Dict]) -> bool:
-        """
-        創建區塊
-        
-        Args:
-            page_id: 頁面ID
-            block_content: 區塊內容
-            
-        Returns:
-            是否成功創建
-        """
-        try:
-            if not self.client:
-                self.logger.error("Notion客戶端未初始化")
-                return False
-            
-            # 創建區塊
-            self.client.blocks.children.append(
-                block_id=page_id,
-                children=block_content
-            )
-            
-            self.logger.info(f"已創建Notion區塊，頁面ID: {page_id}")
-            return True
-        
-        except Exception as e:
-            self.logger.error(f"創建Notion區塊失敗，頁面ID: {page_id}, 錯誤: {str(e)}")
-            return False
-    
-    def get_blocks(self, page_id: str) -> List[Dict]:
-        """
-        獲取頁面下的所有區塊
-        
-        Args:
-            page_id: 頁面ID
-            
-        Returns:
-            區塊列表
-        """
-        try:
-            if not self.client:
-                self.logger.error("Notion客戶端未初始化")
-                return []
-            
-            response = self.client.blocks.children.list(block_id=page_id)
-            return response.get("results", [])
-        
-        except Exception as e:
-            self.logger.error(f"獲取Notion區塊失敗，頁面ID: {page_id}, 錯誤: {str(e)}")
-            return []
-    
-    def convert_to_notion_properties(self, data: Dict) -> Dict:
-        """
-        將普通數據轉換為Notion屬性格式
+        將數據轉換為 Notion 屬性格式
         
         Args:
             data: 數據字典
             
         Returns:
-            Notion屬性格式
+            Notion 屬性字典
         """
         properties = {}
         
         for key, value in data.items():
-            if key in ["notion_page_id", "parent", "id", "created_time", "last_edited_time", "url", "archived"]:
+            if value is None:
                 continue
             
-            # 根據值類型設置屬性
             if isinstance(value, str):
-                # 檢查是否應該作為標題
-                if key == "title" or key == "name":
-                    properties[key] = {"title": [{"text": {"content": value}}]}
-                else:
-                    properties[key] = {"rich_text": [{"text": {"content": value}}]}
+                properties[key] = {"rich_text": [{"text": {"content": value}}]}
+            
+            elif isinstance(value, bool):
+                properties[key] = {"checkbox": value}
             
             elif isinstance(value, int):
                 properties[key] = {"number": value}
@@ -438,114 +97,486 @@
             elif isinstance(value, float):
                 properties[key] = {"number": value}
             
-            elif isinstance(value, bool):
-                properties[key] = {"checkbox": value}
+            elif isinstance(value, datetime):
+                properties[key] = {"date": {"start": value.isoformat()}}
             
             elif isinstance(value, list):
-                # 處理多選項或關聯
                 if all(isinstance(item, str) for item in value):
                     properties[key] = {"multi_select": [{"name": item} for item in value]}
                 else:
-                    # 如果不是字符串列表，轉為JSON字符串
-                    json_value = json.dumps(value)
-                    properties[key] = {"rich_text": [{"text": {"content#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-import os
-import json
-import logging
-import time
-from typing import Dict, List, Optional, Any, Union
-
-from ..utils.logger import setup_logger
-from ..utils.error_handler import retry_on_exception, handle_exception
-
-
-class NotionHandler:
-    """
-    Notion處理器，提供Notion數據庫的連接和操作功能。
-    """
+                    properties[key] = {"rich_text": [{"text": {"content": str(value)}}]}
+            
+            elif isinstance(value, dict):
+                properties[key] = {"rich_text": [{"text": {"content": str(value)}}]}
+            
+            else:
+                properties[key] = {"rich_text": [{"text": {"content": str(value)}}]}
+        
+        return properties
     
-    def __init__(
-        self,
-        config: Dict = None,
-        log_level: int = logging.INFO
-    ):
+    def _convert_from_notion_properties(self, properties: Dict) -> Dict:
         """
-        初始化Notion處理器
+        將 Notion 屬性轉換為數據格式
         
         Args:
-            config: 配置字典
-            log_level: 日誌級別
-        """
-        self.logger = setup_logger(__name__, log_level)
-        self.config = config or {}
-        
-        # Notion設置
-        self.token = self.config.get("token", "")
-        self.database_map = self.config.get("database_map", {})
-        self.parent_page_id = self.config.get("parent_page_id", "")
-        
-        # 初始化客戶端
-        self.client = None
-        
-        # 初始化連接
-        self._init_connection()
-        
-        self.logger.info("Notion處理器初始化完成")
-    
-    def _init_connection(self):
-        """初始化Notion連接"""
-        try:
-            from notion_client import Client
-            
-            if not self.token:
-                self.logger.error("未提供Notion API令牌，請先設置token")
-                return
-            
-            # 創建客戶端
-            self.client = Client(auth=self.token)
-            
-            # 測試連接
-            self.client.users.me()
-            
-            self.logger.info("已連接Notion API")
-        
-        except ImportError:
-            self.logger.error("未安裝notion_client庫，請先安裝: pip install notion-client")
-            return
-        
-        except Exception as e:
-            self.logger.error(f"連接Notion API失敗: {str(e)}")
-            self.client = None
-    
-    def _get_database_id(self, database_name: str) -> str:
-        """
-        獲取數據庫ID
-        
-        Args:
-            database_name: 數據庫名稱
+            properties: Notion 屬性字典
             
         Returns:
-            數據庫ID
+            數據字典
         """
-        # 如果有緩存，直接返回
-        if database_name in self.database_map:
-            return self.database_map[database_name]
+        data = {}
         
-        # 否則搜索數據庫
-        try:
-            if not self.client:
-                self.logger.error("Notion客戶端未初始化")
-                return ""
+        for key, value in properties.items():
+            if not value:
+                continue
             
-            response = self.client.search(
-                query=database_name,
+            if "rich_text" in value:
+                text = "".join(item["text"]["content"] for item in value["rich_text"])
+                data[key] = text
+            
+            elif "checkbox" in value:
+                data[key] = value["checkbox"]
+            
+            elif "number" in value:
+                data[key] = value["number"]
+            
+            elif "date" in value:
+                data[key] = datetime.fromisoformat(value["date"]["start"])
+            
+            elif "multi_select" in value:
+                data[key] = [item["name"] for item in value["multi_select"]]
+            
+            elif "select" in value:
+                data[key] = value["select"]["name"]
+            
+            else:
+                data[key] = str(value)
+        
+        return data
+    
+    def create_page(self, data: Dict, parent_id: Optional[str] = None) -> Optional[str]:
+        """
+        創建頁面
+        
+        Args:
+            data: 頁面數據
+            parent_id: 父頁面ID，為None時使用默認數據庫
+            
+        Returns:
+            頁面ID，失敗時返回None
+        """
+        try:
+            # 添加時間戳
+            if self.config.timestamp_field not in data:
+                data[self.config.timestamp_field] = datetime.now()
+            
+            # 轉換屬性
+            properties = self._convert_to_notion_properties(data)
+            
+            # 確定父頁面
+            if parent_id is None:
+                if self.config.database_id:
+                    parent = {"database_id": self.config.database_id}
+                else:
+                    raise ValueError("未指定父頁面或數據庫")
+            else:
+                parent = {"page_id": parent_id}
+            
+            # 創建頁面
+            page = self._client.pages.create(
+                parent=parent,
+                properties=properties
+            )
+            
+            self.logger.debug(f"已創建頁面: {page['id']}")
+            return page["id"]
+        
+        except Exception as e:
+            self.logger.error(f"創建頁面失敗: {str(e)}")
+            return None
+    
+    def update_page(self, page_id: str, data: Dict) -> bool:
+        """
+        更新頁面
+        
+        Args:
+            page_id: 頁面ID
+            data: 更新數據
+            
+        Returns:
+            是否成功更新
+        """
+        try:
+            # 轉換屬性
+            properties = self._convert_to_notion_properties(data)
+            
+            # 更新頁面
+            self._client.pages.update(
+                page_id=page_id,
+                properties=properties
+            )
+            
+            self.logger.debug(f"已更新頁面: {page_id}")
+            return True
+        
+        except Exception as e:
+            self.logger.error(f"更新頁面失敗: {str(e)}")
+            return False
+    
+    def delete_page(self, page_id: str) -> bool:
+        """
+        刪除頁面
+        
+        Args:
+            page_id: 頁面ID
+            
+        Returns:
+            是否成功刪除
+        """
+        try:
+            # 刪除頁面
+            self._client.pages.update(
+                page_id=page_id,
+                archived=True
+            )
+            
+            self.logger.debug(f"已刪除頁面: {page_id}")
+            return True
+        
+        except Exception as e:
+            self.logger.error(f"刪除頁面失敗: {str(e)}")
+            return False
+    
+    def get_page(self, page_id: str) -> Optional[Dict]:
+        """
+        獲取頁面
+        
+        Args:
+            page_id: 頁面ID
+            
+        Returns:
+            頁面數據，失敗時返回None
+        """
+        try:
+            # 獲取頁面
+            page = self._client.pages.retrieve(page_id=page_id)
+            
+            # 轉換屬性
+            data = self._convert_from_notion_properties(page["properties"])
+            
+            # 添加頁面ID
+            data["id"] = page["id"]
+            
+            self.logger.debug(f"已獲取頁面: {page_id}")
+            return data
+        
+        except Exception as e:
+            self.logger.error(f"獲取頁面失敗: {str(e)}")
+            return None
+    
+    def query_database(self, database_id: str, filter_query: Optional[Dict] = None, 
+                      sorts: Optional[List[Dict]] = None, page_size: int = 100) -> List[Dict]:
+        """
+        查詢數據庫
+        
+        Args:
+            database_id: 數據庫ID
+            filter_query: 過濾條件
+            sorts: 排序條件
+            page_size: 每頁數量
+            
+        Returns:
+            頁面數據列表
+        """
+        try:
+            # 構建查詢
+            query = {
+                "page_size": page_size
+            }
+            
+            if filter_query:
+                query["filter"] = filter_query
+            
+            if sorts:
+                query["sorts"] = sorts
+            
+            # 執行查詢
+            results = self._client.databases.query(**query)
+            
+            # 轉換結果
+            pages = []
+            for page in results["results"]:
+                # 轉換屬性
+                data = self._convert_from_notion_properties(page["properties"])
+                
+                # 添加頁面ID
+                data["id"] = page["id"]
+                
+                pages.append(data)
+            
+            self.logger.debug(f"已查詢數據庫 {database_id}: {len(pages)} 個頁面")
+            return pages
+        
+        except Exception as e:
+            self.logger.error(f"查詢數據庫失敗: {str(e)}")
+            return []
+    
+    def append_block(self, page_id: str, block_type: str, content: Union[str, List[str]]) -> bool:
+        """
+        添加區塊
+        
+        Args:
+            page_id: 頁面ID
+            block_type: 區塊類型
+            content: 區塊內容
+            
+        Returns:
+            是否成功添加
+        """
+        try:
+            # 構建區塊
+            if block_type == "paragraph":
+                block = {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {
+                        "rich_text": [{"type": "text", "text": {"content": content}}]
+                    }
+                }
+            
+            elif block_type == "heading_1":
+                block = {
+                    "object": "block",
+                    "type": "heading_1",
+                    "heading_1": {
+                        "rich_text": [{"type": "text", "text": {"content": content}}]
+                    }
+                }
+            
+            elif block_type == "heading_2":
+                block = {
+                    "object": "block",
+                    "type": "heading_2",
+                    "heading_2": {
+                        "rich_text": [{"type": "text", "text": {"content": content}}]
+                    }
+                }
+            
+            elif block_type == "heading_3":
+                block = {
+                    "object": "block",
+                    "type": "heading_3",
+                    "heading_3": {
+                        "rich_text": [{"type": "text", "text": {"content": content}}]
+                    }
+                }
+            
+            elif block_type == "bulleted_list_item":
+                block = {
+                    "object": "block",
+                    "type": "bulleted_list_item",
+                    "bulleted_list_item": {
+                        "rich_text": [{"type": "text", "text": {"content": content}}]
+                    }
+                }
+            
+            elif block_type == "numbered_list_item":
+                block = {
+                    "object": "block",
+                    "type": "numbered_list_item",
+                    "numbered_list_item": {
+                        "rich_text": [{"type": "text", "text": {"content": content}}]
+                    }
+                }
+            
+            elif block_type == "code":
+                block = {
+                    "object": "block",
+                    "type": "code",
+                    "code": {
+                        "rich_text": [{"type": "text", "text": {"content": content}}]
+                    }
+                }
+            
+            elif block_type == "quote":
+                block = {
+                    "object": "block",
+                    "type": "quote",
+                    "quote": {
+                        "rich_text": [{"type": "text", "text": {"content": content}}]
+                    }
+                }
+            
+            elif block_type == "callout":
+                block = {
+                    "object": "block",
+                    "type": "callout",
+                    "callout": {
+                        "rich_text": [{"type": "text", "text": {"content": content}}]
+                    }
+                }
+            
+            else:
+                raise ValueError(f"不支持的區塊類型: {block_type}")
+            
+            # 添加區塊
+            self._client.blocks.children.append(
+                block_id=page_id,
+                children=[block]
+            )
+            
+            self.logger.debug(f"已在頁面 {page_id} 添加區塊: {block_type}")
+            return True
+        
+        except Exception as e:
+            self.logger.error(f"添加區塊失敗: {str(e)}")
+            return False
+    
+    def get_blocks(self, page_id: str, block_type: Optional[str] = None) -> List[Dict]:
+        """
+        獲取區塊
+        
+        Args:
+            page_id: 頁面ID
+            block_type: 區塊類型，為None時獲取所有類型
+            
+        Returns:
+            區塊列表
+        """
+        try:
+            # 獲取區塊
+            blocks = self._client.blocks.children.list(block_id=page_id)
+            
+            # 過濾區塊類型
+            if block_type:
+                blocks = [block for block in blocks["results"] if block["type"] == block_type]
+            
+            self.logger.debug(f"已獲取頁面 {page_id} 的區塊: {len(blocks)} 個")
+            return blocks
+        
+        except Exception as e:
+            self.logger.error(f"獲取區塊失敗: {str(e)}")
+            return []
+    
+    def create_database(self, parent_id: str, title: str, properties: Dict) -> Optional[str]:
+        """
+        創建數據庫
+        
+        Args:
+            parent_id: 父頁面ID
+            title: 數據庫標題
+            properties: 數據庫屬性
+            
+        Returns:
+            數據庫ID，失敗時返回None
+        """
+        try:
+            # 創建數據庫
+            database = self._client.databases.create(
+                parent={"page_id": parent_id},
+                title=[{"type": "text", "text": {"content": title}}],
+                properties=properties
+            )
+            
+            self.logger.debug(f"已創建數據庫: {database['id']}")
+            return database["id"]
+        
+        except Exception as e:
+            self.logger.error(f"創建數據庫失敗: {str(e)}")
+            return None
+    
+    def update_database(self, database_id: str, title: Optional[str] = None, 
+                       properties: Optional[Dict] = None) -> bool:
+        """
+        更新數據庫
+        
+        Args:
+            database_id: 數據庫ID
+            title: 數據庫標題
+            properties: 數據庫屬性
+            
+        Returns:
+            是否成功更新
+        """
+        try:
+            # 構建更新內容
+            update = {}
+            
+            if title:
+                update["title"] = [{"type": "text", "text": {"content": title}}]
+            
+            if properties:
+                update["properties"] = properties
+            
+            # 更新數據庫
+            self._client.databases.update(
+                database_id=database_id,
+                **update
+            )
+            
+            self.logger.debug(f"已更新數據庫: {database_id}")
+            return True
+        
+        except Exception as e:
+            self.logger.error(f"更新數據庫失敗: {str(e)}")
+            return False
+    
+    def get_database(self, database_id: str) -> Optional[Dict]:
+        """
+        獲取數據庫
+        
+        Args:
+            database_id: 數據庫ID
+            
+        Returns:
+            數據庫信息，失敗時返回None
+        """
+        try:
+            # 獲取數據庫
+            database = self._client.databases.retrieve(database_id=database_id)
+            
+            self.logger.debug(f"已獲取數據庫: {database_id}")
+            return database
+        
+        except Exception as e:
+            self.logger.error(f"獲取數據庫失敗: {str(e)}")
+            return None
+    
+    def list_databases(self) -> List[Dict]:
+        """
+        列出數據庫
+        
+        Returns:
+            數據庫列表
+        """
+        try:
+            # 搜索數據庫
+            results = self._client.search(
                 filter={"property": "object", "value": "database"}
             )
             
-            for result in response.get("results", []):
-                if result.get("object") == "database":
-                    # 獲取數據庫標題
-                    title = result.get("title", [])
-                    db_title = "".join([t.get("plain_text", "") for t in title])
+            self.logger.debug(f"已列出數據庫: {len(results['results'])} 個")
+            return results["results"]
+        
+        except Exception as e:
+            self.logger.error(f"列出數據庫失敗: {str(e)}")
+            return []
+    
+    def close(self) -> None:
+        """關閉 Notion 連接"""
+        try:
+            if self._client:
+                self._client = None
+                
+                self.logger.info("已關閉 Notion 連接")
+        
+        except Exception as e:
+            self.logger.error(f"關閉 Notion 連接失敗: {str(e)}")
+    
+    def __enter__(self):
+        """上下文管理器入口"""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """上下文管理器出口"""
+        self.close()

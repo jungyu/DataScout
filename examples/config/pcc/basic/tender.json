@@ -1,0 +1,269 @@
+{
+  "site_name": "政府電子採購網-招標公告查詢",
+  "base_url": "https://web.pcc.gov.tw/prkms/tender/common/basic/readTenderBasic",
+  "search_url": "https://web.pcc.gov.tw/prkms/tender/common/basic/readTenderBasic",
+  "detail_url": "https://web.pcc.gov.tw/tps/atm/AtmAwardWithoutSso/QueryAtmAwardDetail",
+  "encoding": "utf-8",
+  "description": "政府電子採購網招標公告查詢爬蟲程式",
+  "version": "1.0.0",
+  "request": {
+    "method": "GET",
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+    }
+  },
+  "delays": {
+    "page_load": 3,
+    "between_pages": 2,
+    "between_items": 1,
+    "scroll": 1,
+    "finish": 3
+  },
+  "search_parameters": {
+    "tenderName": {
+      "default": "",
+      "selector": "//input[@id='tenderName']",
+      "type": "input",
+      "description": "標案名稱"
+    },
+    "tenderStartDate": {
+      "default": "2025/04/01",
+      "selector": "//div[@id='tenderStartDateArea']//input[@class='form-date g_form-date'][not(@style='display:none')]",
+      "type": "input",
+      "description": "招標公告開始日期",
+      "date_format": "%Y/%m/%d"
+    },
+    "tenderEndDate": {
+      "default": "2025/04/09",
+      "selector": "//div[@id='tenderEndDateArea']//input[@class='form-date g_form-date'][not(@style='display:none')]",
+      "type": "input",
+      "description": "招標公告結束日期",
+      "date_format": "%Y/%m/%d",
+      "use_current_date": true
+    },
+    "orgId": {
+      "default": "",
+      "selector": "//input[@id='orgId']", 
+      "type": "input",
+      "description": "機關代碼"
+    },
+    "orgName": {
+      "default": "",
+      "selector": "//input[@id='orgName']", 
+      "type": "input",
+      "description": "機關名稱"
+    },
+    "dateType": {
+      "default": "isDate",
+      "selector": "//input[@id='level_23']",
+      "type": "radio",
+      "options": [
+        {"value": "當日", "selector": "//input[@id='level_21']", "option_value": "isNow"},
+        {"value": "等標期內", "selector": "//input[@id='level_22']", "option_value": "isSpdt"},
+        {"value": "日期區間", "selector": "//input[@id='level_23']", "option_value": "isDate"}
+      ],
+      "description": "日期類型"
+    },
+    "radProctrgCate": {
+      "default": "RAD_PROCTRG_CATE_3",
+      "selector": "//input[@id='RadProctrgCate3']",
+      "type": "radio",
+      "options": [
+        {"value": "工程類", "selector": "//input[@id='RadProctrgCate1']", "option_value": "RAD_PROCTRG_CATE_1"},
+        {"value": "財物類", "selector": "//input[@id='RadProctrgCate2']", "option_value": "RAD_PROCTRG_CATE_2"},
+        {"value": "勞務類", "selector": "//input[@id='RadProctrgCate3']", "option_value": "RAD_PROCTRG_CATE_3"},
+        {"value": "不限", "selector": "//input[@id='RadProctrgCate4']", "option_value": ""}
+      ],
+      "description": "採購性質"
+    },
+    "tenderType": {
+      "default": "TENDER_DECLARATION",
+      "container_selector": "//select[@id='tenderTypeSelect']",
+      "type": "select",
+      "options": [
+        {"value": "招標公告", "option_value": "TENDER_DECLARATION"},
+        {"value": "公開徵求", "option_value": "SEARCH_APPEAL"},
+        {"value": "公開閱覽", "option_value": "PUBLIC_READ"},
+        {"value": "政府採購預告", "option_value": "PREDICT"}
+      ],
+      "description": "招標類型"
+    },
+    "tenderWay": {
+      "default": "TENDER_WAY_1",
+      "container_selector": "//select[@id='declarationSelect']",
+      "type": "select",
+      "options": [
+        {"value": "各式招標方式", "option_value": "TENDER_WAY_ALL_DECLARATION"},
+        {"value": "公開招標", "option_value": "TENDER_WAY_1"},
+        {"value": "公開取得電子報價單", "option_value": "TENDER_WAY_12"},
+        {"value": "公開取得報價單或企劃書", "option_value": "TENDER_WAY_2"},
+        {"value": "經公開評選或公開徵求之限制性招標", "option_value": "TENDER_WAY_4"},
+        {"value": "選擇性招標(建立合格廠商名單)", "option_value": "TENDER_WAY_5"},
+        {"value": "選擇性招標(建立合格廠商名單後續邀標)", "option_value": "TENDER_WAY_7"},
+        {"value": "選擇性招標(個案)", "option_value": "TENDER_WAY_3"},
+        {"value": "電子競價", "option_value": "TENDER_WAY_10"},
+        {"value": "限制性招標(未經公開評選或公開徵求)", "option_value": "TENDER_WAY_6"}
+      ],
+      "description": "招標方式"
+    },
+    "search_button": {
+      "selector": "//button[contains(@class,'btn_search')]",
+      "type": "button",
+      "description": "查詢按鈕",
+      "wait_after_click": 5
+    }
+  },
+  "list_page": {
+    "container": "//table[@class='tb_01']//tr[not(contains(@class,'g_')) and not(contains(@class,'header'))]",
+    "fields": {
+      "機關資料": {
+        "機關名稱": {
+          "description": "機關名稱",
+          "xpath": ".//td[2]//text()"
+        }
+      },
+      "基本資料": {
+        "採購性質": {
+          "description": "採購性質",
+          "xpath": ".//td[5]//text()"
+        }
+      },
+      "detail_pk": {
+        "description": "詳細頁面主鍵",
+        "xpath": ".//td[3]//a/@href",
+        "extract_pattern": "pk=([A-Za-z0-9+/=]+)"
+      }
+    }
+  },
+  "detail_page": {
+    "url_pattern": "https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain={pk}",
+    "container_xpath": "//div[@id='printRange']",
+    "fields": {
+      "機關資料": {
+        "機關名稱": {
+          "description": "機關名稱",
+          "xpath": "//td[contains(text(), '機關名稱')]/following-sibling::td[1]"
+        },
+        "機關代碼": {
+          "description": "機關代碼",
+          "xpath": "//td[contains(text(), '機關代碼')]/following-sibling::td[1]"
+        },
+        "單位名稱": {
+          "description": "單位名稱",
+          "xpath": "//td[contains(text(), '單位名稱')]/following-sibling::td[1]"
+        }
+      },
+      "採購資料": {
+        "標案案號": {
+          "description": "標案案號",
+          "xpath": "//td[contains(text(), '標案案號')]/following-sibling::td[1]"
+        },
+        "標案名稱": {
+          "description": "標案名稱",
+          "xpath": "//td[contains(text(), '標案名稱')]/following-sibling::td[1]"
+        },
+        "標的分類": {
+          "description": "標的分類",
+          "xpath": "//td[contains(text(), '標的分類')]/following-sibling::td[1]"
+        },
+        "工程地點": {
+          "description": "工程地點",
+          "xpath": "//td[contains(text(), '工程地點')]/following-sibling::td[1]"
+        }
+      },
+      "招標資料": {
+        "招標方式": {
+          "description": "招標方式",
+          "xpath": "//td[contains(text(), '招標方式')]/following-sibling::td[1]"
+        },
+        "採購金額": {
+          "description": "採購金額",
+          "xpath": "//td[contains(text(), '採購金額級距')]/following-sibling::td[1]"
+        },
+        "預算金額": {
+          "description": "預算金額",
+          "xpath": "//td[contains(text(), '預算金額')]/following-sibling::td[1]"
+        }
+      },
+      "領投開標": {
+        "公告日期": {
+          "description": "公告日期",
+          "xpath": "//td[contains(text(), '公告日期')]/following-sibling::td[1]"
+        },
+        "截止投標": {
+          "description": "截止投標",
+          "xpath": "//td[contains(text(), '截止投標')]/following-sibling::td[1]"
+        },
+        "開標時間": {
+          "description": "開標時間",
+          "xpath": "//td[contains(text(), '開標時間')]/following-sibling::td[1]"
+        }
+      }
+    }
+  },
+  "pagination": {
+    "items_per_page": 10,
+    "total_count_xpath": "//span[@id='pagebanner']/span[@class='red']/text()",
+    "next_button_xpath": "//span[@id='pagelinks']/a[contains(text(), '下一頁')]",
+    "has_next_page_check": "boolean(//span[@id='pagelinks']/a[contains(text(), '下一頁')])",
+    "url_pattern": "https://web.pcc.gov.tw/prkms/tender/common/basic/readTenderBasic?pageSize=50&firstSearch=true&searchType=basic&isBinding=N&isLogIn=N&level_1=on&orgName={organization_name}&orgId={organization_id}&tenderName={tender_name}&tenderId=&tenderType={tender_type}&tenderWay={tender_way}&dateType={date_type}&tenderStartDate={tender_start_date}&tenderEndDate={tender_end_date}&radProctrgCate={procurement_category}&policyAdvocacy=",
+    "max_pages": 1
+  },
+  "advanced_settings": {
+    "save_error_page": true,
+    "error_page_dir": "../debug",
+    "max_results_per_page": 50,
+    "text_cleaning": {
+      "remove_extra_whitespace": true,
+      "trim_strings": true
+    },
+    "url_format": {
+      "pattern": "{search_url}?pageSize=50&firstSearch=true&searchType=basic&isBinding=N&isLogIn=N&level_1=on&orgName={organization_name}&orgId={organization_id}&tenderName={tender_name}&tenderId=&tenderType={tender_type}&tenderWay={tender_way}&dateType=isDate&tenderStartDate={tender_start_date}&tenderEndDate={tender_end_date}&radProctrgCate={procurement_category}&policyAdvocacy=",
+      "encode_parameters": true,
+      "parameter_mapping": {
+        "tender_name": "tenderName",
+        "tender_type": "tenderType",
+        "tender_way": "tenderWay",
+        "tender_start_date": "tenderStartDate",
+        "tender_end_date": "tenderEndDate",
+        "procurement_category": "radProctrgCate",
+        "organization_name": "orgName",
+        "organization_id": "orgId",
+        "date_type": "dateType"
+      },
+      "value_mapping": {
+        "procurement_category": {
+          "勞務類": "RAD_PROCTRG_CATE_3",
+          "財物類": "RAD_PROCTRG_CATE_2",
+          "工程類": "RAD_PROCTRG_CATE_1",
+          "不限": ""
+        },
+        "tender_type": {
+          "招標公告": "TENDER_DECLARATION",
+          "招標變更公告": "TENDER_CHANGE",
+          "招標更正公告": "TENDER_CORRECTION",
+          "公開招標公告": "TENDER_DECLARATION_1"
+        },
+        "tender_way": {
+          "各式招標方式": "TENDER_WAY_ALL_DECLARATION",
+          "公開招標": "TENDER_WAY_1",
+          "選擇性招標": "TENDER_WAY_2",
+          "限制性招標": "TENDER_WAY_3"
+        },
+        "date_type": {
+          "當日": "isNow",
+          "等標期內": "isSpdt",
+          "日期區間": "isDate"
+        }
+      }
+    },
+    "captcha_handling": {
+      "enabled": true,
+      "captcha_img_xpath": "//div[contains(@class,'areaA')]//img",
+      "captcha_input_xpath": "//div[contains(@class,'areaB')]//img",
+      "captcha_submit_xpath": "//button[contains(@class,'confirm')]",
+      "max_retry": 3,
+      "retry_delay": 2
+    }
+  }
+}

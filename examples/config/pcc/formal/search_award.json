@@ -1,0 +1,71 @@
+{
+  "version": "1.0.0",
+  "name": "pcc_search_award",
+  "description": "政府電子採購網決標公告搜尋配置",
+  "url": "https://web.pcc.gov.tw/prkms/tender/common/agent/indexTenderAgent",
+  "search_url": "https://web.pcc.gov.tw/prkms/tender/common/agent/readTenderAgent",
+  "parameters": {
+    "tender_name": {
+      "default": "防火牆",
+      "selector": "//input[@id='tenderName']",
+      "type": "input",
+      "description": "標案名稱"
+    },
+    "award_announce_start_date": {
+      "default": "114/01/01",
+      "selector": "//div[@id='awardAnnounceStartDateArea']//input[@class='form-date'][not(@style='display:none')]",
+      "type": "input",
+      "description": "決標公告開始日期",
+      "date_format": "yyy/MM/dd"
+    },
+    "award_announce_end_date": {
+      "default": "",
+      "selector": "//div[@id='awardAnnounceEndDateArea']//input[@class='form-date'][not(@style='display:none')]",
+      "type": "input",
+      "description": "決標公告結束日期",
+      "date_format": "yyy/MM/dd",
+      "use_current_date": true
+    },
+    "procurement_category": {
+      "default": "勞務類",
+      "selector": "//input[@id='RadProctrgCate3']",
+      "type": "radio",
+      "options": [
+        {"value": "工程類", "selector": "//input[@id='RadProctrgCate1']"},
+        {"value": "財物類", "selector": "//input[@id='RadProctrgCate2']"},
+        {"value": "勞務類", "selector": "//input[@id='RadProctrgCate3']"},
+        {"value": "不限", "selector": "//input[@id='RadProctrgCate4']"}
+      ],
+      "description": "採購性質"
+    },
+    "tender_status": {
+      "default": "決標公告",
+      "container_selector": "//select[@id='declarationSelectTenderStatus']",
+      "type": "select",
+      "options": [
+        {"value": "決標公告", "option_value": "TENDER_STATUS_1"},
+        {"value": "無法決標", "option_value": "TENDER_STATUS_2"},
+        {"value": "撤銷公告", "option_value": "TENDER_STATUS_3"}
+      ],
+      "description": "標案狀態"
+    },
+    "tender_way": {
+      "default": "各式招標公告",
+      "container_selector": "//select[@id='declarationSelectTenderWay']",
+      "type": "select",
+      "options": [
+        {"value": "各式招標公告", "option_value": "TENDER_WAY_ALL_DECLARATION"},
+        {"value": "公開招標", "option_value": "TENDER_WAY_1"},
+        {"value": "公開取得電子報價單", "option_value": "TENDER_WAY_12"},
+        {"value": "限制性招標", "option_value": "TENDER_WAY_6"}
+      ],
+      "description": "招標方式"
+    }
+  },
+  "search_button": {
+    "selector": "//div[contains(@class,'bt_cen2')]/a[contains(text(),'查詢')]",
+    "type": "button",
+    "description": "查詢按鈕",
+    "wait_after_click": 5
+  }
+} 

@@ -4,50 +4,82 @@
 """
 文本清理工具模組
 
-提供清理和格式化文本的工具類和函數
+提供清理和格式化文本的工具類和函數，包括：
+- 文本清理和格式化
+- HTML 文本處理
+- 文本截斷
+- 正則表達式提取
+- 符號處理
 """
 
 import re
 import logging
-from typing import Optional, Dict, List
+from dataclasses import dataclass, field
+from typing import Optional, Dict, List, Union, Pattern
 
-from ..config import TextCleaningOptions
+@dataclass
+class TextCleanerConfig:
+    """文本清理器配置類"""
+    
+    # 基本清理選項
+    remove_whitespace: bool = True
+    remove_newlines: bool = True
+    trim: bool = True
+    lowercase: bool = False
+    uppercase: bool = False
+    
+    # 自定義替換
+    custom_replacements: Dict[str, str] = field(default_factory=dict)
+    
+    # 正則表達式模式
+    regex_patterns: Dict[str, Union[str, Pattern]] = field(default_factory=dict)
+    
+    # 符號處理
+    keep_symbols: List[str] = field(default_factory=lambda: [' '])
+    remove_emojis: bool = True
+    remove_urls: bool = True
+    
+    # 截斷設置
+    max_length: int = 0
+    truncate_suffix: str = '...'
+    
+    def __post_init__(self):
+        """初始化後處理"""
+        # 編譯正則表達式模式
+        self.compiled_patterns = {
+            name: re.compile(pattern) if isinstance(pattern, str) else pattern
+            for name, pattern in self.regex_patterns.items()
+        }
 
 
 class TextCleaner:
     """文本清理工具類"""
     
-    def __init__(self, default_options: Optional[TextCleaningOptions] = None):
+    def __init__(self, config: Optional[TextCleanerConfig] = None):
         """
         初始化文本清理器
         
         Args:
-            default_options: 默認清理選項，如果不提供則使用默認配置
+            config: 清理器配置，如果不提供則使用默認配置
         """
-        self.default_options = default_options or TextCleaningOptions()
+        self.config = config or TextCleanerConfig()
         self.logger = logging.getLogger(__name__)
+        
+        # 預編譯常用正則表達式
+        self._url_pattern = re.compile(
+            r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+        )
+        self._emoji_pattern = re.compile(
+            r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF]'
+        )
     
-    def clean_text(self, text: str, options: Optional[TextCleaningOptions] = None) -> str:
+    def clean_text(self, text: str, config: Optional[TextCleanerConfig] = None) -> str:
         """
         清理文本，移除多餘空白、換行等
         
         Args:
             text: 原始文本
-            options: 清理選項，如果不提供則使用默認配置
-            
-        Returns:
-            清理後的文本
-        """
-        return self._clean_text(text, options or self.default_options)
-    
-    @staticmethod
-    def _clean_text(text: str, options: TextCleaningOptions) -> str:
-        """
-        執行文本清理
-        
-        Args:
-            text: 原始文本
-            options: 清理選項
+            config: 清理配置，如果不提供則使用實例配置
             
         Returns:
             清理後的文本
@@ -55,36 +87,69 @@ class TextCleaner:
         if not text:
             return ""
             
+        config = config or self.config
+        text = self._clean_text(text, config)
+        
+        # 應用自定義正則表達式
+        for pattern in config.compiled_patterns.values():
+            text = pattern.sub('', text)
+        
+        # 移除 URL
+        if config.remove_urls:
+            text = self._url_pattern.sub('', text)
+        
+        # 移除表情符號
+        if config.remove_emojis:
+            text = self._emoji_pattern.sub('', text)
+        
+        # 截斷文本
+        if config.max_length > 0:
+            text = self.truncate_text(text, config.max_length, config.truncate_suffix)
+        
+        return text
+    
+    @staticmethod
+    def _clean_text(text: str, config: TextCleanerConfig) -> str:
+        """
+        執行基本文本清理
+        
+        Args:
+            text: 原始文本
+            config: 清理配置
+            
+        Returns:
+            清理後的文本
+        """
         # 移除空白和換行
-        if options.remove_whitespace:
+        if config.remove_whitespace:
             text = re.sub(r'\s+', ' ', text)
         
-        if options.remove_newlines:
+        if config.remove_newlines:
             text = text.replace('\n', ' ')
         
         # 大小寫轉換
-        if options.lowercase:
+        if config.lowercase:
             text = text.lower()
-        elif options.uppercase:
+        elif config.uppercase:
             text = text.upper()
         
         # 自定義替換
-        for old, new in options.custom_replacements.items():
+        for old, new in config.custom_replacements.items():
             text = text.replace(old, new)
         
         # 修剪頭尾空白
-        if options.trim:
+        if config.trim:
             text = text.strip()
         
         return text
     
-    def clean_html_text(self, html_text: str, options: Optional[TextCleaningOptions] = None) -> str:
+    def clean_html_text(self, html_text: str, config: Optional[TextCleanerConfig] = None) -> str:
         """
         清理HTML文本，移除HTML標籤
         
         Args:
             html_text: HTML文本
-            options: 清理選項，如果不提供則使用默認配置
+            config: 清理配置，如果不提供則使用實例配置
             
         Returns:
             清理後的純文本
@@ -96,7 +161,7 @@ class TextCleaner:
         text = re.sub(r'<[^>]+>', '', html_text)
         
         # 清理文本
-        return self.clean_text(text, options)
+        return self.clean_text(text, config)
     
     def truncate_text(self, text: str, max_length: int, suffix: str = '...') -> str:
         """
@@ -123,7 +188,7 @@ class TextCleaner:
         
         return truncated + suffix
     
-    def apply_regex(self, text: str, pattern: str, group: int = 1) -> Optional[str]:
+    def apply_regex(self, text: str, pattern: Union[str, Pattern], group: int = 1) -> Optional[str]:
         """
         應用正則表達式提取文本
         
@@ -136,7 +201,9 @@ class TextCleaner:
             提取的文本，如果沒有匹配則返回None
         """
         try:
-            match = re.search(pattern, text)
+            if isinstance(pattern, str):
+                pattern = re.compile(pattern)
+            match = pattern.search(text)
             return match.group(group) if match else None
         except Exception as e:
             self.logger.warning(f"正則提取失敗: {e}")
@@ -156,8 +223,7 @@ class TextCleaner:
         if not text:
             return ""
             
-        # 預設保留的符號
-        keep_list = keep_list or [' ']
+        keep_list = keep_list or self.config.keep_symbols
         keep_chars = ''.join(keep_list)
         
         # 構建模式，排除保留的符號
@@ -167,22 +233,22 @@ class TextCleaner:
         return re.sub(pattern, '', text)
 
 
-# 單例模式，提供一個全局實例
+# 創建默認實例
 default_cleaner = TextCleaner()
 
 
-def clean_text(text: str, options: Optional[TextCleaningOptions] = None) -> str:
+def clean_text(text: str, config: Optional[TextCleanerConfig] = None) -> str:
     """
     清理文本的便捷函數
     
     Args:
         text: 原始文本
-        options: 清理選項
+        config: 清理配置
         
     Returns:
         清理後的文本
     """
-    return default_cleaner.clean_text(text, options)
+    return default_cleaner.clean_text(text, config)
 
 
 def truncate_text(text: str, max_length: int, suffix: str = '...') -> str:

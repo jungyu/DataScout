@@ -12,7 +12,7 @@ import logging
 from typing import Optional, Dict, List, Union, Any
 
 from ..config import HtmlCleaningOptions
-from .url_normalizer import URLNormalizer, normalize_url
+from .url_normalizer import URLNormalizer, normalize_url, URLNormalizerConfig
 
 # 檢查BeautifulSoup是否可用
 try:

@@ -4,17 +4,57 @@
 """
 複合字段提取器模組
 
-負責處理複雜數據結構和嵌套字段的提取，支持遞歸提取和結構化數據解析。
+專門處理複雜數據結構和嵌套字段的提取，支持多種數據類型和提取策略。
+
+主要功能：
+- 複合字段提取
+- 嵌套數據結構處理
+- JSON數據提取
+- 表格數據提取
+- 結構化數據提取
+- 表單數據提取
+
+使用示例：
+    from src.extractors.core import CompoundExtractor
+    from src.extractors.config import ExtractionConfig
+    
+    # 創建提取器
+    extractor = CompoundExtractor(driver, base_url="https://example.com")
+    
+    # 配置提取
+    config = ExtractionConfig(
+        xpath="//div[@class='product']",
+        type="compound",
+        multiple=True,
+        nested_fields={
+            "title": ExtractionConfig(xpath=".//h2", type="text"),
+            "price": ExtractionConfig(xpath=".//span[@class='price']", type="number"),
+            "description": ExtractionConfig(xpath=".//p", type="text"),
+            "specifications": ExtractionConfig(
+                xpath=".//table",
+                type="table",
+                headers_xpath=".//th",
+                rows_xpath=".//tr[td]"
+            )
+        }
+    )
+    
+    # 提取數據
+    data = extractor.extract(element, config)
 """
 
 import json
 import logging
 import re
-from typing import Dict, List, Any, Optional, Union
+import time
+from typing import Dict, List, Any, Optional, Union, Tuple
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
 
 from src.extractors.config import ExtractionConfig
 from .base_extractor import BaseExtractor
@@ -25,6 +65,14 @@ class CompoundExtractor(BaseExtractor):
     複合字段提取器，處理嵌套數據結構和複雜字段的提取
     
     支持從HTML結構、JSON數據或表格數據中提取複雜的嵌套數據結構。
+    
+    Attributes:
+        driver: Selenium WebDriver實例
+        logger: 日誌記錄器
+        base_url: 基礎URL，用於URL標準化
+        default_timeout: 默認等待超時時間
+        extracted_fields_count: 已提取字段數
+        extraction_errors_count: 提取錯誤數
     """
     
     def __init__(
@@ -44,6 +92,8 @@ class CompoundExtractor(BaseExtractor):
             timeout: 默認等待超時時間(秒)
         """
         super().__init__(driver, base_url, logger, timeout)
+        self.extracted_fields_count = 0
+        self.extraction_errors_count = 0
     
     def extract(
         self, 
@@ -98,16 +148,22 @@ class CompoundExtractor(BaseExtractor):
                             data["_metadata"] = {}
                         data["_metadata"]["index"] = idx
                         results.append(data)
+                        self.extracted_fields_count += 1
                 except Exception as e:
                     self.logger.warning(f"提取複合字段組 #{idx} 失敗: {str(e)}")
+                    self.extraction_errors_count += 1
             
             return results
         else:
             # 單元素提取
             try:
-                return self._extract_nested_fields(element, config.nested_fields)
+                result = self._extract_nested_fields(element, config.nested_fields)
+                if result:
+                    self.extracted_fields_count += 1
+                return result
             except Exception as e:
                 self.logger.warning(f"提取單一複合字段組失敗: {str(e)}")
+                self.extraction_errors_count += 1
                 return {}
     
     def _extract_nested_fields(
@@ -191,6 +247,7 @@ class CompoundExtractor(BaseExtractor):
                 
             except Exception as e:
                 self.logger.warning(f"提取嵌套字段 '{field_name}' 失敗: {str(e)}")
+                self.extraction_errors_count += 1
                 # 使用默認值
                 if field_config.default is not None:
                     result[field_name] = field_config.default
@@ -260,9 +317,11 @@ class CompoundExtractor(BaseExtractor):
                 
         except json.JSONDecodeError as e:
             self.logger.warning(f"JSON解析失敗: {str(e)}")
+            self.extraction_errors_count += 1
             return None
         except Exception as e:
             self.logger.warning(f"提取JSON數據失敗: {str(e)}")
+            self.extraction_errors_count += 1
             return None
     
     def _extract_table(
@@ -322,11 +381,13 @@ class CompoundExtractor(BaseExtractor):
                 # 只添加非空行
                 if row_data:
                     table_data.append(row_data)
+                    self.extracted_fields_count += 1
             
             return table_data
             
         except Exception as e:
             self.logger.warning(f"提取表格數據失敗: {str(e)}")
+            self.extraction_errors_count += 1
             return []
     
     def extract_structured_data(
@@ -360,15 +421,19 @@ class CompoundExtractor(BaseExtractor):
                     if json_text:
                         data = json.loads(json_text)
                         results.append(data)
+                        self.extracted_fields_count += 1
                 except json.JSONDecodeError:
                     self.logger.debug(f"無法解析JSON: {script.get_attribute('innerHTML')[:100]}...")
+                    self.extraction_errors_count += 1
                 except Exception as e:
                     self.logger.warning(f"提取結構化數據時出錯: {str(e)}")
+                    self.extraction_errors_count += 1
             
             return results
             
         except Exception as e:
             self.logger.error(f"提取結構化數據失敗: {str(e)}")
+            self.extraction_errors_count += 1
             return []
     
     def extract_form_data(
@@ -410,6 +475,7 @@ class CompoundExtractor(BaseExtractor):
                     continue
                 
                 form_data[name] = value
+                self.extracted_fields_count += 1
             
             # 文本區域
             textareas = form_element.find_elements(By.XPATH, ".//textarea[@name]")
@@ -417,6 +483,7 @@ class CompoundExtractor(BaseExtractor):
                 name = field.get_attribute("name")
                 value = field.get_attribute("value") or field.text or ""
                 form_data[name] = value
+                self.extracted_fields_count += 1
             
             # 選擇框
             selects = form_element.find_elements(By.XPATH, ".//select[@name]")
@@ -425,6 +492,7 @@ class CompoundExtractor(BaseExtractor):
                 selected_option = select.find_elements(By.XPATH, "./option[@selected]")
                 value = selected_option[0].get_attribute("value") if selected_option else ""
                 form_data[name] = value
+                self.extracted_fields_count += 1
             
             # 單選和複選框
             radios_and_checkboxes = form_element.find_elements(
@@ -451,6 +519,8 @@ class CompoundExtractor(BaseExtractor):
                         checkbox_groups[name] = []
                     if is_checked:
                         checkbox_groups[name].append(value)
+                
+                self.extracted_fields_count += 1
             
             # 合併單選結果
             form_data.update(radio_groups)
@@ -462,4 +532,22 @@ class CompoundExtractor(BaseExtractor):
             
         except Exception as e:
             self.logger.error(f"提取表單數據失敗: {str(e)}")
+            self.extraction_errors_count += 1
             return {}
+    
+    def get_statistics(self) -> Dict[str, int]:
+        """
+        獲取提取統計信息
+        
+        Returns:
+            包含提取統計的字典
+        """
+        return {
+            "extracted_fields": self.extracted_fields_count,
+            "extraction_errors": self.extraction_errors_count
+        }
+
+    def reset_statistics(self) -> None:
+        """重置統計計數"""
+        self.extracted_fields_count = 0
+        self.extraction_errors_count = 0

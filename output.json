@@ -1,0 +1,665 @@
+[
+  {
+    "item_number": "",
+    "organization_name": "",
+    "tender_case_no": "",
+    "tender_name": "",
+    "tender_way": "",
+    "procurement_category": "",
+    "announcement_date": "",
+    "award_amount": "",
+    "award_announcement": "",
+    "detail_pk": ""
+  },
+  {
+    "item_number": "1",
+    "organization_name": "新竹縣政府警察局",
+    "tender_case_no": "1130014-1",
+    "tender_name": "",
+    "tender_way": "限制性招標(未經公開評選或公開徵求)",
+    "procurement_category": "勞務類",
+    "announcement_date": "114/04/08",
+    "award_amount": "280,000",
+    "award_announcement": "",
+    "detail_pk": "NzA4NDYyOTc=",
+    "detail_url": "https://web.pcc.gov.tw/tps/atm/AtmAwardWithoutSso/QueryAtmAwardDetail?pkAtmMain=NzA4NDYyOTc=",
+    "detail": {
+      "organization_id": "3.76.44.18",
+      "organization_name": "新竹縣政府警察局",
+      "organization_unit": "新竹縣政府警察局",
+      "organization_address": "302 新竹縣 竹北市",
+      "contact_person": "邱韵昊",
+      "contact_phone": "(03) 5513449",
+      "tender_case_id": "1130014-1",
+      "tender_method": "限制性招標(未經公開評選或公開徵求)",
+      "award_method": "最低標",
+      "tender_case_name": "應用層防火牆服務第1次後續擴充採購案",
+      "is_multiple_award": "否",
+      "subject_category": "<勞務類> 842 軟體執行服務",
+      "is_joint_procurement": "否",
+      "budget_amount": "280,000元",
+      "performance_location": "新竹縣(非原住民地區)",
+      "bidder_count": "1",
+      "winning_vendors": [
+        "敦陽科技股份有限公司 (STARK TECHNOLOGY INC.)"
+      ],
+      "winning_vendor_ids": [
+        "84218848"
+      ],
+      "is_winning": [
+        "是"
+      ],
+      "award_amounts": [
+        "280,000元"
+      ],
+      "vendor_country": [
+        "中華民國(Republic of China (Taiwan))"
+      ],
+      "is_sme": [
+        "否",
+        "預估分包予中小企業之金額： 0元"
+      ],
+      "execution_period": [
+        "114/05/16 － 115/05/15"
+      ],
+      "awarded_items": [
+        "應用層防火牆服務第1次後續擴充採購案"
+      ],
+      "award_sequence": "001",
+      "award_date": "114/04/02",
+      "award_announcement_date": "114/04/08",
+      "contract_number": "1130014-1",
+      "is_published_in_bulletin": "是",
+      "total_award_amount": "280,000元",
+      "has_price_adjustment": "否，招標文件未訂物價指數調整條款",
+      "executing_agency": "機關代碼：3.76.44.18",
+      "additional_notes": "",
+      "announcement_date": "114/04/08",
+      "award_history": [
+        {
+          "history_type": "第01次公告之決標公告",
+          "history_seq": "01",
+          "history_date": "114/04/08",
+          "history_pk": "OTQ3NzM1OTQ="
+        }
+      ]
+    }
+  },
+  {
+    "item_number": "2",
+    "organization_name": "交通部運輸研究所",
+    "tender_case_no": "IOT-114-H2D015",
+    "tender_name": "",
+    "tender_way": "限制性招標(未經公開評選或公開徵求)",
+    "procurement_category": "勞務類",
+    "announcement_date": "114/03/24",
+    "award_amount": "240,000",
+    "award_announcement": "",
+    "detail_pk": "NzA4MzUxMjI=",
+    "detail_url": "https://web.pcc.gov.tw/tps/atm/AtmAwardWithoutSso/QueryAtmAwardDetail?pkAtmMain=NzA4MzUxMjI=",
+    "detail": {
+      "organization_id": "3.15.10",
+      "organization_name": "交通部運輸研究所",
+      "organization_unit": "運輸技術研究中心",
+      "organization_address": "435 臺中市 梧棲區",
+      "contact_person": "郭小姐",
+      "contact_phone": "(04) 26587200 # 164",
+      "tender_case_id": "IOT-114-H2D015",
+      "tender_method": "限制性招標(未經公開評選或公開徵求)",
+      "award_method": "最低標",
+      "tender_case_name": "112年港區海氣象觀測系統防火牆及網路交換器設備購置及維護之114年後續擴充採購案",
+      "is_multiple_award": "否",
+      "subject_category": "<勞務類> 842 軟體執行服務",
+      "is_joint_procurement": "否",
+      "budget_amount": "245,000元",
+      "performance_location": "臺中市(非原住民地區)",
+      "bidder_count": "1",
+      "winning_vendors": [
+        "亞當斯科技有限公司"
+      ],
+      "winning_vendor_ids": [
+        "28905597"
+      ],
+      "is_winning": [
+        "是"
+      ],
+      "award_amounts": [
+        "240,000元"
+      ],
+      "vendor_country": [
+        "中華民國(Republic of China (Taiwan))"
+      ],
+      "is_sme": [
+        "是"
+      ],
+      "execution_period": [
+        "114/03/13 － 114/12/30"
+      ],
+      "awarded_items": [
+        "112年港區海氣象觀測系統防火牆及網路交換器設備購置及維護之114年後續擴充採購案"
+      ],
+      "award_sequence": "001",
+      "award_date": "114/03/13",
+      "award_announcement_date": "114/03/24",
+      "contract_number": "IOT-114-H2D015",
+      "is_published_in_bulletin": "是",
+      "base_price": "240,000元",
+      "total_award_amount": "240,000元",
+      "has_price_adjustment": "否，招標文件未訂物價指數調整條款",
+      "executing_agency": "機關代碼：3.15.10",
+      "additional_notes": "",
+      "announcement_date": "114/03/24",
+      "award_history": [
+        {
+          "history_type": "第01次公告之決標公告",
+          "history_seq": "01",
+          "history_date": "114/03/24",
+          "history_pk": "OTQ3MTQzMzg="
+        }
+      ]
+    }
+  },
+  {
+    "item_number": "3",
+    "organization_name": "國防部電訊發展室",
+    "tender_case_no": "HP14019P019",
+    "tender_name": "",
+    "tender_way": "公開招標",
+    "procurement_category": "勞務類",
+    "announcement_date": "114/03/13",
+    "award_amount": "1,780,000",
+    "award_announcement": "",
+    "detail_pk": "NzA4MjczMDU=",
+    "detail_url": "https://web.pcc.gov.tw/tps/atm/AtmAwardWithoutSso/QueryAtmAwardDetail?pkAtmMain=NzA4MjczMDU=",
+    "detail": {
+      "organization_id": "A.5.5.2",
+      "organization_name": "國防部電訊發展室",
+      "organization_unit": "國防部電訊發展室",
+      "organization_address": "244 新北市 林口區",
+      "contact_person": "林先生",
+      "contact_phone": "(02) 26031676",
+      "tender_case_id": "HP14019P019",
+      "tender_method": "公開招標",
+      "award_method": "最低標",
+      "tender_case_name": "防火牆等3項維護",
+      "is_multiple_award": "否",
+      "subject_category": "<勞務類> 845 辦公室機器及設備(包括電腦)之維修服務",
+      "is_joint_procurement": "否",
+      "budget_amount": "2,010,000元",
+      "performance_location": "其他",
+      "bidder_count": "1",
+      "winning_vendors": [
+        "環安達科技實業有限公司"
+      ],
+      "winning_vendor_ids": [
+        "53952689"
+      ],
+      "is_winning": [
+        "是"
+      ],
+      "award_amounts": [
+        "1,780,000元"
+      ],
+      "vendor_country": [
+        "中華民國(Republic of China (Taiwan))"
+      ],
+      "is_sme": [
+        "是"
+      ],
+      "execution_period": [
+        "114/03/18 － 114/12/31"
+      ],
+      "awarded_items": [
+        "防火牆等3項維護"
+      ],
+      "award_sequence": "001",
+      "award_date": "114/03/10",
+      "award_announcement_date": "114/03/13",
+      "contract_number": "HP14019P019PE",
+      "is_published_in_bulletin": "是",
+      "base_price": "1,798,547元",
+      "total_award_amount": "1,780,000元",
+      "has_price_adjustment": "否，招標文件未訂物價指數調整條款",
+      "executing_agency": "機關代碼：A.5.5.2",
+      "additional_notes": "本案依政策指導已請求先行辦理決標簽約作業，倘投標廠商符合決標原則者，即逕行簽核決標，不另召開決標會議及製作決標紀錄，以機關首長或授權人核定日期為決標日期。",
+      "announcement_date": "114/03/13",
+      "tender_history": [
+        {
+          "history_type": "第01次公告之招標公告",
+          "history_seq": "01",
+          "history_date": "113/12/27",
+          "history_pk": "OTQzMzQ3MjE="
+        },
+        {
+          "history_type": "第02次公告之招標公告",
+          "history_seq": "02",
+          "history_date": "114/01/10",
+          "history_pk": "OTQ0MDg3OTY="
+        }
+      ],
+      "award_history": [
+        {
+          "history_type": "第02次公告之決標公告",
+          "history_seq": "02",
+          "history_date": "114/03/13",
+          "history_pk": "OTQ2NjgxMTM="
+        }
+      ]
+    }
+  },
+  {
+    "item_number": "4",
+    "organization_name": "國立成功大學附屬臺南工業高級中等學校",
+    "tender_case_no": "114nk-06",
+    "tender_name": "",
+    "tender_way": "公開取得報價單或企劃書",
+    "procurement_category": "勞務類",
+    "announcement_date": "114/02/20",
+    "award_amount": "320,000",
+    "award_announcement": "",
+    "detail_pk": "NzA4MTIxMjY=",
+    "detail_url": "https://web.pcc.gov.tw/tps/atm/AtmAwardWithoutSso/QueryAtmAwardDetail?pkAtmMain=NzA4MTIxMjY=",
+    "detail": {
+      "organization_id": "A.9.54.3",
+      "organization_name": "國立成功大學附屬臺南工業高級中等學校",
+      "organization_unit": "國立成功大學附屬臺南工業高級中等學校",
+      "organization_address": "710 臺南市 永康區",
+      "contact_person": "鐘小姐",
+      "contact_phone": "(06) 2322131 # 3213",
+      "tender_case_id": "114nk-06",
+      "tender_method": "公開取得報價單或企劃書",
+      "award_method": "最低標",
+      "tender_case_name": "全校防火牆3年授權及維護",
+      "is_multiple_award": "否",
+      "subject_category": "<勞務類> 842 軟體執行服務",
+      "is_joint_procurement": "否",
+      "budget_amount": "335,610元",
+      "performance_location": "臺南市(非原住民地區)",
+      "bidder_count": "1",
+      "winning_vendors": [
+        "誠大科技有限公司"
+      ],
+      "winning_vendor_ids": [
+        "25068195"
+      ],
+      "is_winning": [
+        "是"
+      ],
+      "award_amounts": [
+        "320,000元"
+      ],
+      "vendor_country": [
+        "中華民國(Republic of China (Taiwan))"
+      ],
+      "is_sme": [
+        "是"
+      ],
+      "execution_period": [
+        "114/02/19 － 114/02/28"
+      ],
+      "awarded_items": [
+        "全校防火牆3年授權及維護"
+      ],
+      "award_sequence": "001",
+      "award_date": "114/02/19",
+      "award_announcement_date": "114/02/20",
+      "contract_number": "南工總約字第114007號",
+      "is_published_in_bulletin": "否",
+      "base_price": "320,000元",
+      "total_award_amount": "320,000元",
+      "has_price_adjustment": "否，招標文件未訂物價指數調整條款",
+      "executing_agency": "機關代碼：A.9.54.3",
+      "additional_notes": "",
+      "announcement_date": "114/02/20",
+      "tender_history": [
+        {
+          "history_type": "第01次公告之招標公告",
+          "history_seq": "01",
+          "history_date": "114/02/13",
+          "history_pk": "OTQ1Mzc3Nzc="
+        }
+      ],
+      "award_history": [
+        {
+          "history_type": "第01次公告之決標公告",
+          "history_seq": "01",
+          "history_date": "114/02/20",
+          "history_pk": "OTQ1ODA1ODQ="
+        }
+      ]
+    }
+  },
+  {
+    "item_number": "5",
+    "organization_name": "新竹縣政府消防局",
+    "tender_case_no": "114008",
+    "tender_name": "",
+    "tender_way": "限制性招標(未經公開評選或公開徵求)",
+    "procurement_category": "勞務類",
+    "announcement_date": "114/02/03",
+    "award_amount": "705,000",
+    "award_announcement": "",
+    "detail_pk": "NzA3OTY5OTc=",
+    "detail_url": "https://web.pcc.gov.tw/tps/atm/AtmAwardWithoutSso/QueryAtmAwardDetail?pkAtmMain=NzA3OTY5OTc=",
+    "detail": {
+      "organization_id": "3.76.44.19",
+      "organization_name": "新竹縣政府消防局",
+      "organization_unit": "新竹縣政府消防局",
+      "organization_address": "302 新竹縣 竹北市",
+      "contact_person": "災害搶救科董育辰/行政科洪芷楹",
+      "contact_phone": "(03) 5513522 # 511/712",
+      "tender_case_id": "114008",
+      "tender_method": "限制性招標(未經公開評選或公開徵求)",
+      "award_method": "最低標",
+      "tender_case_name": "114年災害搶救資訊系統維護（含救災安全管制系統、搶救圖資管理系統、防火牆及伺服器）採購案",
+      "is_multiple_award": "否",
+      "subject_category": "<勞務類> 849 其他電腦服務",
+      "is_joint_procurement": "否",
+      "budget_amount": "733,333元",
+      "performance_location": "新竹縣(非原住民地區)",
+      "bidder_count": "1",
+      "winning_vendors": [
+        "三商電腦股份有限公司 (MERCURIES DATA SYSTEMS LTD.)"
+      ],
+      "winning_vendor_ids": [
+        "31275691"
+      ],
+      "is_winning": [
+        "是"
+      ],
+      "award_amounts": [
+        "705,000元"
+      ],
+      "vendor_country": [
+        "中華民國(Republic of China (Taiwan))"
+      ],
+      "is_sme": [
+        "是"
+      ],
+      "execution_period": [
+        "114/02/01 － 114/12/31"
+      ],
+      "awarded_items": [
+        "114年災害搶救資訊系統維護（含救災安全管制系統、搶救圖資管理系統、防火牆及伺服器）採購案"
+      ],
+      "award_sequence": "001",
+      "award_date": "114/01/22",
+      "award_announcement_date": "114/02/03",
+      "contract_number": "竹縣消行字第1142100021號",
+      "is_published_in_bulletin": "是",
+      "base_price": "705,000元",
+      "total_award_amount": "705,000元",
+      "has_price_adjustment": "否，招標文件未訂物價指數調整條款",
+      "executing_agency": "機關代碼：3.76.44.19",
+      "additional_notes": "本案為依中央機關未達公告金額採購招標辦法第2條第1項第1款以及政府採購法第22條第1項第4款規定，因原有採購之後續維修、零配件供應、更換或擴充，因相容或互通性之需要，必須向原供應廠商採購者。",
+      "announcement_date": "114/02/03",
+      "award_history": [
+        {
+          "history_type": "第01次公告之決標公告",
+          "history_seq": "01",
+          "history_date": "114/02/03",
+          "history_pk": "OTQ0ODE2MzU="
+        }
+      ]
+    }
+  },
+  {
+    "item_number": "6",
+    "organization_name": "衛生福利部疾病管制署",
+    "tender_case_no": "LA113055",
+    "tender_name": "",
+    "tender_way": "公開招標",
+    "procurement_category": "勞務類",
+    "announcement_date": "114/01/14",
+    "award_amount": "2,600,000",
+    "award_announcement": "",
+    "detail_pk": "NzA3ODQ3NzM=",
+    "detail_url": "https://web.pcc.gov.tw/tps/atm/AtmAwardWithoutSso/QueryAtmAwardDetail?pkAtmMain=NzA3ODQ3NzM=",
+    "detail": {
+      "organization_id": "A.21.1",
+      "organization_name": "衛生福利部疾病管制署",
+      "organization_unit": "資訊室/秘書室",
+      "organization_address": "100 臺北市 中正區",
+      "contact_person": "賴小姐/劉小姐",
+      "contact_phone": "(02) 23959825 # 3627/3711",
+      "tender_case_id": "LA113055",
+      "tender_method": "公開招標",
+      "award_method": "最低標",
+      "tender_case_name": "114年儲存設備及防火牆原廠維護授權採購案",
+      "is_multiple_award": "否",
+      "subject_category": "<勞務類> 842 軟體執行服務",
+      "is_joint_procurement": "否",
+      "budget_amount": "2,660,000元",
+      "performance_location": "臺北市(非原住民地區)",
+      "bidder_count": "1",
+      "winning_vendors": [
+        "藍新資訊股份有限公司 (NEWEB INFORMATION CO., LTD)"
+      ],
+      "winning_vendor_ids": [
+        "24540267"
+      ],
+      "is_winning": [
+        "是"
+      ],
+      "award_amounts": [
+        "2,600,000元"
+      ],
+      "vendor_country": [
+        "中華民國(Republic of China (Taiwan))"
+      ],
+      "is_sme": [
+        "否",
+        "預估分包予中小企業之金額： 0元"
+      ],
+      "execution_period": [
+        "114/01/01 － 114/12/31"
+      ],
+      "awarded_items": [
+        "114年儲存設備及防火牆原廠維護授權採購案"
+      ],
+      "award_sequence": "001",
+      "award_date": "113/12/18",
+      "award_announcement_date": "114/01/14",
+      "contract_number": "LA113055",
+      "is_published_in_bulletin": "是",
+      "base_price": "2,600,000元",
+      "total_award_amount": "2,600,000元",
+      "has_price_adjustment": "否，招標文件未訂物價指數調整條款",
+      "executing_agency": "機關代碼：A.21.1",
+      "additional_notes": "",
+      "announcement_date": "114/01/14",
+      "tender_history": [
+        {
+          "history_type": "第01次公告之招標公告",
+          "history_seq": "01",
+          "history_date": "113/11/29",
+          "history_pk": "OTQxNDI3NDA="
+        },
+        {
+          "history_type": "第01次公告之招標第1次更正公告",
+          "history_seq": "01",
+          "history_date": "113/12/02",
+          "history_pk": "OTQxNDczNjg="
+        },
+        {
+          "history_type": "第02次公告之招標公告",
+          "history_seq": "02",
+          "history_date": "113/12/13",
+          "history_pk": "OTQyNDA1MjY="
+        }
+      ],
+      "award_history": [
+        {
+          "history_type": "第02次公告之決標公告",
+          "history_seq": "02",
+          "history_date": "114/01/14",
+          "history_pk": "OTQ0MjMxNDg="
+        }
+      ]
+    }
+  },
+  {
+    "item_number": "7",
+    "organization_name": "嘉義市蘭潭國民小學",
+    "tender_case_no": "113022",
+    "tender_name": "",
+    "tender_way": "經公開評選或公開徵求之限制性招標",
+    "procurement_category": "勞務類",
+    "announcement_date": "114/01/08",
+    "award_amount": "3,051,000",
+    "award_announcement": "",
+    "detail_pk": "NzA3Nzc0OTU=",
+    "detail_url": "https://web.pcc.gov.tw/tps/atm/AtmAwardWithoutSso/QueryAtmAwardDetail?pkAtmMain=NzA3Nzc0OTU=",
+    "detail": {
+      "organization_id": "3.76.60.97.8",
+      "organization_name": "嘉義市蘭潭國民小學",
+      "organization_unit": "嘉義市蘭潭國民小學",
+      "organization_address": "600 嘉義市 東區",
+      "contact_person": "蔡佳芸",
+      "contact_phone": "(05) 2763492 # 13",
+      "tender_case_id": "113022",
+      "tender_method": "經公開評選或公開徵求之限制性招標",
+      "award_method": "準用最有利標",
+      "tender_case_name": "嘉義市教育網路中心114年學術網路機房設備暨各國中小機房防火牆計畫",
+      "is_multiple_award": "否",
+      "subject_category": "<勞務類> 845 辦公室機器及設備(包括電腦)之維修服務",
+      "is_joint_procurement": "否",
+      "budget_amount": "3,051,000元",
+      "performance_location": "嘉義市(非原住民地區)",
+      "bidder_count": "1",
+      "winning_vendors": [
+        "華電聯網股份有限公司"
+      ],
+      "winning_vendor_ids": [
+        "84778623"
+      ],
+      "is_winning": [
+        "是"
+      ],
+      "award_amounts": [
+        "3,051,000元"
+      ],
+      "vendor_country": [
+        "中華民國(Republic of China (Taiwan))"
+      ],
+      "is_sme": [
+        "否",
+        "預估分包予中小企業之金額： 0元"
+      ],
+      "execution_period": [
+        "114/01/01 － 114/12/31"
+      ],
+      "awarded_items": [
+        "嘉義市教育網路中心114年學術網路機房設備暨各國中小機房防火牆計畫"
+      ],
+      "award_sequence": "001",
+      "award_date": "113/12/19",
+      "award_announcement_date": "114/01/08",
+      "contract_number": "113022",
+      "is_published_in_bulletin": "是",
+      "total_award_amount": "3,051,000元",
+      "has_price_adjustment": "否，招標文件未訂物價指數調整條款",
+      "executing_agency": "機關代碼：3.76.60.97.8",
+      "additional_notes": "",
+      "announcement_date": "114/01/08",
+      "tender_history": [
+        {
+          "history_type": "第01次公告之招標公告",
+          "history_seq": "01",
+          "history_date": "113/12/06",
+          "history_pk": "OTQxODY2OTc="
+        }
+      ],
+      "award_history": [
+        {
+          "history_type": "第01次公告之決標公告",
+          "history_seq": "01",
+          "history_date": "114/01/08",
+          "history_pk": "OTQzOTI5MzM="
+        }
+      ]
+    }
+  },
+  {
+    "item_number": "8",
+    "organization_name": "臺北市政府工務局",
+    "tender_case_no": "REAC11406",
+    "tender_name": "",
+    "tender_way": "公開取得報價單或企劃書",
+    "procurement_category": "勞務類",
+    "announcement_date": "114/01/07",
+    "award_amount": "175,000",
+    "award_announcement": "",
+    "detail_pk": "NzA3NzU4MDU=",
+    "detail_url": "https://web.pcc.gov.tw/tps/atm/AtmAwardWithoutSso/QueryAtmAwardDetail?pkAtmMain=NzA3NzU4MDU=",
+    "detail": {
+      "organization_id": "3.79.11",
+      "organization_name": "臺北市政府工務局",
+      "organization_unit": "臺北市政府工務局",
+      "organization_address": "110 臺北市 信義區",
+      "contact_person": "陳昭秀/張智凱",
+      "contact_phone": "(02) 27208889 # 6707",
+      "tender_case_id": "REAC11406",
+      "tender_method": "公開取得報價單或企劃書",
+      "award_method": "最低標",
+      "tender_case_name": "114年度臺北市政府工務局道管中心網路通訊防火牆設備租賃服務案",
+      "is_multiple_award": "否",
+      "subject_category": "<勞務類> 842 軟體執行服務",
+      "is_joint_procurement": "否",
+      "budget_amount": "180,000元",
+      "performance_location": "臺北市(非原住民地區)",
+      "bidder_count": "1",
+      "winning_vendors": [
+        "台灣智慧光網股份有限公司"
+      ],
+      "winning_vendor_ids": [
+        "53729177"
+      ],
+      "is_winning": [
+        "是"
+      ],
+      "award_amounts": [
+        "175,000元"
+      ],
+      "vendor_country": [
+        "中華民國(Republic of China (Taiwan))"
+      ],
+      "is_sme": [
+        "是"
+      ],
+      "execution_period": [
+        "114/01/01 － 114/06/30"
+      ],
+      "awarded_items": [
+        "114年度臺北市政府工務局道管中心網路通訊防火牆設備租賃服務案"
+      ],
+      "award_sequence": "001",
+      "award_date": "113/12/30",
+      "award_announcement_date": "114/01/07",
+      "contract_number": "114_REAC11406",
+      "is_published_in_bulletin": "是",
+      "base_price": "178,500元",
+      "total_award_amount": "175,000元",
+      "has_price_adjustment": "否，招標文件未訂物價指數調整條款",
+      "executing_agency": "機關代碼：3.79.11",
+      "additional_notes": "",
+      "announcement_date": "114/01/07",
+      "tender_history": [
+        {
+          "history_type": "第01次公告之招標公告",
+          "history_seq": "01",
+          "history_date": "113/12/23",
+          "history_pk": "OTQyOTY0ODc="
+        }
+      ],
+      "award_history": [
+        {
+          "history_type": "第01次公告之決標公告",
+          "history_seq": "01",
+          "history_date": "114/01/07",
+          "history_pk": "OTQzODMwNDQ="
+        }
+      ]
+    }
+  }
+]

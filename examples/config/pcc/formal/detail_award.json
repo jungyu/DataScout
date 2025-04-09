@@ -1,0 +1,112 @@
+{
+  "version": "1.0.0",
+  "name": "pcc_detail_award",
+  "description": "政府電子採購網決標公告詳細頁面配置",
+  "url_pattern": "https://web.pcc.gov.tw/tps/atm/AtmAwardWithoutSso/QueryAtmAwardDetail?pkAtmMain={pk}",
+  "container_xpath": "//div[@id='printRange']",
+  "expand_sections": [
+    {
+      "name": "tender_history",
+      "button_selector": "//div[@id='tender']",
+      "target_selector": "//tr[@id='rowTpamHistory']",
+      "wait_time": 1,
+      "description": "展開招標公告作業歷程"
+    },
+    {
+      "name": "award_history",
+      "button_selector": "//div[@id='award']",
+      "target_selector": "//tr[@id='rowAtmHistory']",
+      "wait_time": 1,
+      "description": "展開決標公告作業歷程"
+    },
+    {
+      "name": "non_award_history",
+      "button_selector": "//div[@id='nonAward']",
+      "target_selector": "//tr[@id='rowAtmNonHistory']",
+      "wait_time": 1,
+      "description": "展開無法決標公告作業歷程"
+    }
+  ],
+  "fields": {
+    "organization_id": {
+      "xpath": "//td[contains(text(), '機關代碼')]/following-sibling::td[1]//text()[normalize-space()]",
+      "type": "text",
+      "description": "機關代碼"
+    },
+    "organization_name": {
+      "xpath": "//td[contains(text(), '機關名稱')]/following-sibling::td[1]//text()[normalize-space()]",
+      "type": "text",
+      "description": "機關名稱"
+    },
+    "organization_unit": {
+      "xpath": "//td[contains(text(), '單位名稱')]/following-sibling::td[1]//text()[normalize-space()]",
+      "type": "text",
+      "description": "單位名稱"
+    },
+    "organization_address": {
+      "xpath": "//td[contains(text(), '機關地址')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+      "type": "text",
+      "description": "機關地址"
+    },
+    "contact_person": {
+      "xpath": "//td[contains(text(), '聯絡人')]/following-sibling::td[1]//span[@id='contactPerson']/text()",
+      "type": "text",
+      "description": "聯絡人"
+    },
+    "contact_phone": {
+      "xpath": "//td[contains(text(), '聯絡電話')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+      "type": "text",
+      "description": "聯絡電話"
+    },
+    "tender_case_id": {
+      "xpath": "//td[contains(text(), '標案案號')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+      "type": "text",
+      "description": "標案案號"
+    },
+    "tender_method": {
+      "xpath": "//td[contains(text(), '招標方式')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+      "type": "text",
+      "description": "招標方式"
+    },
+    "award_method": {
+      "xpath": "//td[contains(text(), '決標方式')]/following-sibling::td[1]//div[@id='spnLaw2211OriAwardWay']/text()",
+      "type": "text",
+      "description": "決標方式"
+    },
+    "tender_case_name": {
+      "xpath": "//td[contains(text(), '標案名稱')]/following-sibling::td[1]//div[@class='tbc1L']/span/text()",
+      "type": "text",
+      "description": "標案名稱"
+    },
+    "is_multiple_award": {
+      "xpath": "//td[contains(text(), '是否複數決標')]/following-sibling::td[1]//div[@class='tbc1L']/text()[1]",
+      "type": "text",
+      "description": "是否複數決標"
+    },
+    "subject_category": {
+      "xpath": "//td[contains(text(), '標的分類')]/following-sibling::td[1]//div[@class='tbc1L']/text()[normalize-space()]",
+      "type": "text",
+      "description": "標的分類"
+    },
+    "is_joint_procurement": {
+      "xpath": "//td[contains(text(), '是否共同投標')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+      "type": "text",
+      "description": "是否共同投標"
+    },
+    "budget_amount": {
+      "xpath": "//td[contains(text(), '預算金額')]/following-sibling::td[1]//div[@class='tbc1L']/text()[2]",
+      "type": "text",
+      "description": "預算金額"
+    },
+    "performance_location": {
+      "xpath": "//td[contains(text(), '履約地點')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+      "type": "text",
+      "description": "履約地點"
+    },
+    "bidder_count": {
+      "xpath": "//td[contains(text(), '投標廠商家數')]/following-sibling::td[1]//div[@class='tbc1L']/text()",
+      "type": "text",
+      "description": "投標廠商家數"
+    }
+  }
+} 

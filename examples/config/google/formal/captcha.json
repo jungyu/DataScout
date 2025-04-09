@@ -1,0 +1,60 @@
+{
+  "version": "1.0.0",
+  "name": "google_captcha_handler",
+  "description": "Google 搜尋驗證碼處理配置",
+  "detection": {
+    "recaptcha": {
+      "xpath": "//div[contains(@class, 'g-recaptcha')]",
+      "iframe_xpath": "//iframe[contains(@src, 'recaptcha')]",
+      "type": "recaptcha"
+    },
+    "image_captcha": {
+      "xpath": "//img[contains(@src, 'captcha')]",
+      "type": "image"
+    }
+  },
+  "handling": {
+    "manual_verification": {
+      "enabled": true,
+      "wait_time": 15,
+      "message": "請在15秒內完成驗證碼",
+      "timeout_action": "auto_solve",
+      "notification": {
+        "type": "console",
+        "message": "檢測到驗證碼，等待手動驗證..."
+      }
+    },
+    "auto_solve": {
+      "enabled": true,
+      "service": "2captcha",
+      "api_key": "${CAPTCHA_API_KEY}",
+      "max_retries": 3,
+      "retry_delay": 5,
+      "timeout": 120
+    }
+  },
+  "validation": {
+    "success": {
+      "xpath": "boolean(//div[@id='search'])",
+      "type": "boolean",
+      "description": "驗證成功後應出現搜尋結果"
+    },
+    "failure": {
+      "xpath": "boolean(//div[contains(@class, 'error-code')])",
+      "type": "boolean",
+      "description": "驗證失敗的錯誤訊息"
+    }
+  },
+  "error_handling": {
+    "verification_timeout": {
+      "action": "retry",
+      "max_retries": 3,
+      "retry_delay": 5,
+      "message": "手動驗證超時，嘗試自動破解"
+    },
+    "verification_failed": {
+      "action": "stop",
+      "message": "驗證失敗，請檢查網路連接或重試"
+    }
+  }
+} 

@@ -17,10 +17,13 @@
 
 本系統主要由以下幾個部分組成：
 
-1. **模板化爬蟲引擎**：核心爬蟲邏輯，使用 Selenium 實現
-2. **配置和憑證管理**：安全地載入和管理配置和敏感信息
-3. **爬蟲狀態管理**：記錄和管理爬蟲任務的狀態
-4. **數據持久化**：將爬取的數據保存到本地、MongoDB 和 Notion
+1. **核心模組**：應用程式主類、爬蟲引擎、模板化爬蟲核心類和 WebDriver 管理器
+2. **資料擷取模組**：基礎擷取器、列表頁擷取器和詳情頁擷取器
+3. **導航模組**：頁面導航管理和分頁處理
+4. **互動模組**：表單處理、搜尋處理和元素互動
+5. **反爬蟲模組**：隱身模式和行為模擬
+6. **資料持久化模組**：狀態管理、存儲管理和資料匯出器
+7. **工具模組**：文本處理、URL處理、重試機制和資料驗證
 
 ## 環境配置
 
@@ -32,7 +35,7 @@ pip install -r requirements.txt
 
 ### 2. 創建並配置憑證文件
 
-創建 `credentials.json` 文件，配置 MongoDB 和 Notion 的憑證：
+創建 `config/credentials.json` 文件，配置 MongoDB 和 Notion 的憑證：
 
 ```json
 {
@@ -55,7 +58,7 @@ pip install -r requirements.txt
 
 ### 3. 配置數據持久化
 
-創建 `persistence_config.json` 文件：
+創建 `config/persistence_config.json` 文件：
 
 ```json
 {
@@ -91,12 +94,33 @@ pip install -r requirements.txt
 確保以下目錄存在：
 
 ```
-/
-├── templates/        # 爬蟲模板文件
-├── data/             # 爬取的數據
-├── logs/             # 日誌文件
-├── states/           # 爬蟲狀態文件
-└── cookies/          # Cookie 文件
+crawler-selenium/
+│
+├── main.py                      # 爬蟲程式主入口
+├── cli.py                       # 命令行介面處理
+│
+├── config/                      # 配置文件目錄
+│   ├── _config.json            # 基礎配置範例
+│   ├── _credentials.json       # 憑證配置範例
+│   ├── _anti_detection.json    # 反檢測配置範例
+│   └── sites/                  # 各網站專用配置
+│
+├── templates/                   # 爬蟲模板目錄
+│   ├── base/                   # 基礎模板
+│   └── sites/                  # 網站專用模板
+│
+├── src/                        # 源代碼目錄
+│   ├── core/                   # 核心模塊
+│   ├── extractors/             # 資料擷取模組
+│   ├── navigation/             # 導航模組
+│   ├── interaction/            # 互動模組
+│   ├── anti_detection/         # 反爬蟲模組
+│   ├── persistence/            # 資料持久化模組
+│   └── utils/                  # 工具模組
+│
+├── examples/                   # 範例程式目錄
+├── tests/                      # 測試代碼目錄
+└── docs/                       # 文檔目錄
 ```
 
 ## 配置設定
@@ -118,6 +142,7 @@ pip install -r requirements.txt
    for file in _*.json; do
      cp "$file" "${file#_}"
    done
+   ```
 
 ## 爬蟲 JSON 範本
 
@@ -127,9 +152,18 @@ pip install -r requirements.txt
 
 ```json
 {
-  "site_name": "政府電子採購網",
-  "base_url": "https://web.pcc.gov.tw/prkms/tender/common/basic/readTenderBasic",
-  "encoding": "utf-8"
+  "site_name": "Google 搜尋",
+  "base_url": "https://www.google.com",
+  "encoding": "utf-8",
+  "description": "Google 搜尋結果爬取模板",
+  "version": "1.0.0",
+  "browser": {
+    "browser_type": "chrome",
+    "headless": false,
+    "disable_images": false,
+    "page_load_timeout": 30,
+    "implicit_wait": 10
+  }
 }
 ```
 
@@ -139,42 +173,16 @@ pip install -r requirements.txt
 {
   "request": {
     "method": "GET",
-    "params": {
-      "fixed": {
-        "firstSearch": "true",
-        "searchType": "basic"
-      },
-      "variable": {
-        "pageSize": {
-          "description": "每頁顯示數量",
-          "default": "100",
-          "type": "integer"
-        },
-        "orgId": {
-          "description": "機關代碼",
-          "default": "3.10.3",
-          "type": "string"
-        },
-        "tenderStartDate": {
-          "description": "發布日期起始",
-          "default": "",
-          "type": "date",
-          "format": "yyyy/MM/dd"
-        }
-      },
-      "pagination": {
-        "page_param": "pageIndex",
-        "base_index": 1
-      }
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
     }
+  },
+  "search": {
+    "keyword": "地震 site:news.pts.org.tw",
+    "language": "zh-TW"
   }
 }
 ```
-
-請求配置中：
-- `fixed`: 固定不變的參數
-- `variable`: 可變參數，可以在運行時指定
-- `pagination`: 分頁參數配置
 
 ### 3. 延遲配置
 
@@ -183,67 +191,54 @@ pip install -r requirements.txt
 ```json
 {
   "delays": {
-    "page_load": {"min": 3, "max": 7},
-    "between_pages": {"min": 5, "max": 10},
-    "between_items": {"min": 2, "max": 5},
-    "form_fill": {"min": 0.5, "max": 2},
-    "after_click": {"min": 1, "max": 3},
-    "scrolling": {"min": 0.3, "max": 1.5}
+    "page_load": 3,
+    "between_pages": 2,
+    "between_items": 1,
+    "scroll": 1,
+    "finish": 3
   }
 }
 ```
 
-### 4. 列表頁配置
+### 4. 搜尋頁配置
+
+```json
+{
+  "search_page": {
+    "search_box_xpath": "//textarea[@name='q']",
+    "result_container_xpath": "//div[@id='search']"
+  }
+}
+```
+
+### 5. 列表頁配置
 
 列表頁配置定義如何從列表頁提取數據：
 
 ```json
 {
   "list_page": {
-    "container_xpath": "//table[@id='tpam']/tbody",
-    "item_xpath": "./tr",
+    "container_xpath": "//div[@id='search']",
+    "item_xpath": "//div[contains(@class, 'N54PNb')]",
     "fields": {
-      "tender_case_no": {"xpath": "./td[3]", "type": "text"},
-      "org_name": {"xpath": "./td[2]", "type": "text"},
-      "tender_name": {"xpath": "./td[3]/a/span", "type": "text"},
-      "detail_link": {"xpath": "./td[3]/a", "type": "attribute", "attribute_name": "href"}
-    },
-    "wait_for": {"xpath": "//table[@id='tpam']/tbody/tr", "timeout": 15}
-  }
-}
-```
-
-其中：
-- `container_xpath`: 列表容器的 XPath
-- `item_xpath`: 列表項的 XPath（相對於容器）
-- `fields`: 每個字段的提取規則
-- `wait_for`: 等待元素出現的配置
-
-### 5. 分頁配置
-
-分頁配置定義如何處理多頁數據：
-
-```json
-{
-  "pagination": {
-    "type": "link_click",
-    "next_button_xpath": "//span[@id='pagelinks']/a[contains(text(), '下一頁')]",
-    "has_next_page_check": "//span[@id='pagelinks']/a[contains(text(), '下一頁')]",
-    "current_page_xpath": "//span[@id='pagelinks']/span[@class='current']",
-    "total_pages_xpath": "//span[@id='pagelinks']/a[last()-1]",
-    "wait_after_pagination": {"min": 4, "max": 8},
-    "alternative": {
-      "type": "parameter",
-      "param_name": "pageIndex",
-      "base_index": 1
+      "title": {
+        "xpath": ".//h3",
+        "type": "text"
+      },
+      "link": {
+        "xpath": ".//a[h3]/@href",
+        "fallback_xpath": ".//a/@href",
+        "type": "attribute"
+      },
+      "description": {
+        "xpath": ".//div[contains(@class, 'VwiC3b')]",
+        "type": "text",
+        "max_length": 300
+      }
     }
   }
 }
 ```
-
-支援兩種分頁方式：
-1. `link_click`: 點擊下一頁按鈕
-2. `parameter`: 通過更改 URL 參數
 
 ### 6. 詳情頁配置
 
@@ -252,59 +247,90 @@ pip install -r requirements.txt
 ```json
 {
   "detail_page": {
-    "container_xpath": "//div[@id='printRange']",
-    "tables_xpath": "//div[@id='printRange']/table",
-    "table_caption_xpath": "./caption",
-    "table_row_xpath": ".//tr",
-    "table_cell_label_xpath": ".//td[1]",
-    "table_cell_value_xpath": ".//td[2]",
-    "wait_for": {"xpath": "//div[@id='printRange']", "timeout": 20},
-    "secondary_wait": {"xpath": "//div[@id='printRange']/table", "timeout": 10},
-    "scroll_to_bottom": true,
-    "custom_fields": {
-      "tender_publication_date": "//td[contains(text(), '公告日期')]/following-sibling::td[1]"
-    }
-  }
-}
-```
-
-### 7. 數據轉換配置
-
-定義如何轉換提取到的原始數據：
-
-```json
-{
-  "data_extraction": {
-    "skip_duplicate": true,
-    "duplicate_check_field": "tender_case_no",
-    "data_transformations": {
-      "budget": {
-        "type": "number",
-        "regex": "(\\d+(?:\\.\\d+)?)",
-        "remove_commas": true,
-        "default_value": 0
+    "enabled": true,
+    "max_details_per_page": 3,
+    "page_load_delay": 3,
+    "between_details_delay": 2,
+    "check_captcha": true,
+    "container_xpath": "//body",
+    "fields": {
+      "title": {
+        "xpath": "//h1",
+        "type": "text",
+        "fallback_xpath": "//title"
       },
-      "announce_date": {
+      "content": {
+        "xpath": "//article | //div[contains(@class, 'article')] | //div[@role='main']",
+        "type": "text",
+        "fallback_xpath": "//div[contains(@class, 'content')]"
+      },
+      "published_date": {
+        "xpath": "//time | //span[contains(@class, 'date')] | //meta[@property='article:published_time']/@content",
         "type": "date",
-        "format": "yyyy/MM/dd",
-        "timezone": "Asia/Taipei"
+        "fallback_xpath": "//div[contains(@class, 'date')] | //p[contains(@class, 'date')]"
+      },
+      "category": {
+        "xpath": "//div[contains(@class, 'category')] | //a[contains(@href, 'category')]",
+        "type": "text",
+        "fallback_xpath": "//meta[@property='article:section']/@content"
+      },
+      "author": {
+        "xpath": "//div[contains(@class, 'author')] | //span[contains(@class, 'author')] | //meta[@name='author']/@content",
+        "type": "text"
+      },
+      "tags": {
+        "xpath": "//a[contains(@href, 'tag')] | //div[contains(@class, 'tag')]//a",
+        "type": "text",
+        "multiple": true
       }
-    }
+    },
+    "expand_sections": [
+      {
+        "name": "閱讀更多",
+        "button_selector": "//button[contains(text(), '閱讀更多') or contains(@class, 'more')]",
+        "target_selector": "//div[contains(@class, 'expanded')]",
+        "wait_time": 1
+      }
+    ],
+    "extract_tables": {
+      "xpath": "//table",
+      "title_xpath": ".//caption | .//th[1]"
+    },
+    "extract_images": true,
+    "images_container_xpath": "//article | //div[contains(@class, 'article')]"
   }
 }
 ```
 
-### 8. 人類行為模擬
+### 7. 分頁配置
 
-為了降低被檢測為機器人的風險，可以配置人類行為模擬：
+分頁配置定義如何處理多頁數據：
 
 ```json
 {
-  "human_simulation": {
-    "random_scrolling": true,
-    "scroll_count": {"min": 1, "max": 3},
-    "mouse_movement": false,
-    "variable_typing_speed": true
+  "pagination": {
+    "next_button_xpath": "//a[@id='pnnext']",
+    "has_next_page_check": "boolean(//a[@id='pnnext'])",
+    "page_number_xpath": "//td[contains(@class,'YyVfkd')]/text()",
+    "max_pages": 2
+  }
+}
+```
+
+### 8. 進階設定
+
+```json
+{
+  "advanced_settings": {
+    "detect_captcha": true,
+    "captcha_detection_xpath": "//div[contains(@class, 'g-recaptcha')]",
+    "save_error_page": true,
+    "error_page_dir": "../debug",
+    "max_results_per_page": 10,
+    "text_cleaning": {
+      "remove_extra_whitespace": true,
+      "trim_strings": true
+    }
   }
 }
 ```
@@ -314,7 +340,7 @@ pip install -r requirements.txt
 ### 基本用法
 
 ```bash
-python main.py --template templates/gov_procurement.json --config config.json
+python main.py --template templates/sites/gov_procurement.json --config config/config.json
 ```
 
 ### 參數說明
@@ -331,7 +357,7 @@ python main.py --template templates/gov_procurement.json --config config.json
 
 ```json
 {
-  "template_path": "templates/gov_procurement.json",
+  "template_path": "templates/sites/gov_procurement.json",
   "headless": true,
   "max_pages": 10,
   "max_items": 200,
@@ -350,10 +376,10 @@ python main.py --template templates/gov_procurement.json --config config.json
 使用爬蟲任務管理器來查看和管理任務：
 
 ```python
-from crawler_task_manager import CrawlerTaskManager
+from src.persistence.data_manager import DataManager
 
 # 初始化任務管理器
-task_manager = CrawlerTaskManager()
+task_manager = DataManager()
 
 # 獲取任務列表
 tasks = task_manager.list_tasks(crawler_name="gov_procurement")
@@ -434,6 +460,45 @@ if resumable_task:
 ```
 
 字段映射定義了爬蟲數據字段如何映射到 Notion 屬性。
+
+## 設計原則
+
+### 模板驅動設計
+- 所有爬蟲邏輯通過 JSON 模板配置
+- 模板繼承和覆蓋機制
+- 模板驗證和錯誤檢查
+
+### 擴展性設計
+- 插件式架構
+- 自定義擷取器支援
+- 自定義存儲後端
+
+### 錯誤處理
+- 分層錯誤處理
+- 自動重試機制
+- 詳細錯誤日誌
+
+### 效能考慮
+- 併發爬取支援
+- 資源使用優化
+- 快取機制
+
+## 使用建議
+
+1. 新增網站爬蟲時：
+   - 在 `templates/sites/` 建立新模板
+   - 在 `config/sites/` 加入配置
+   - 在 `examples/` 提供範例
+
+2. 開發新功能時：
+   - 遵循模組化設計
+   - 編寫單元測試
+   - 更新文檔
+
+3. 維護建議：
+   - 定期更新依賴
+   - 監控錯誤日誌
+   - 更新反檢測機制
 
 ## 常見問題處理
 

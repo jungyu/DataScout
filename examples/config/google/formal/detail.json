@@ -1,0 +1,58 @@
+{
+  "version": "1.0.0",
+  "name": "google_detail_page",
+  "description": "Google 搜尋詳細頁面配置",
+  "detail_page": {
+    "enabled": true,
+    "max_details_per_page": 3,
+    "page_load_delay": 3,
+    "between_details_delay": 2,
+    "check_captcha": true,
+    "container_xpath": "//body",
+    "fields": {
+      "title": {
+        "xpath": "//h1",
+        "type": "text",
+        "fallback_xpath": "//title"
+      },
+      "content": {
+        "xpath": "//article | //div[contains(@class, 'article')] | //div[@role='main']",
+        "type": "text",
+        "fallback_xpath": "//div[contains(@class, 'content')]"
+      },
+      "published_date": {
+        "xpath": "//time | //span[contains(@class, 'date')] | //meta[@property='article:published_time']/@content",
+        "type": "date",
+        "fallback_xpath": "//div[contains(@class, 'date')] | //p[contains(@class, 'date')]"
+      },
+      "category": {
+        "xpath": "//div[contains(@class, 'category')] | //a[contains(@href, 'category')]",
+        "type": "text",
+        "fallback_xpath": "//meta[@property='article:section']/@content"
+      },
+      "author": {
+        "xpath": "//div[contains(@class, 'author')] | //span[contains(@class, 'author')] | //meta[@name='author']/@content",
+        "type": "text"
+      },
+      "tags": {
+        "xpath": "//a[contains(@href, 'tag')] | //div[contains(@class, 'tag')]//a",
+        "type": "text",
+        "multiple": true
+      }
+    },
+    "expand_sections": [
+      {
+        "name": "閱讀更多",
+        "button_selector": "//button[contains(text(), '閱讀更多') or contains(@class, 'more')]",
+        "target_selector": "//div[contains(@class, 'expanded')]",
+        "wait_time": 1
+      }
+    ],
+    "extract_tables": {
+      "xpath": "//table",
+      "title_xpath": ".//caption | .//th[1]"
+    },
+    "extract_images": true,
+    "images_container_xpath": "//article | //div[contains(@class, 'article')]"
+  }
+} 

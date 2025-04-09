@@ -1,0 +1,61 @@
+{
+  "version": "1.0.0",
+  "name": "pcc_list_tender",
+  "description": "政府電子採購網招標公告列表配置",
+  "container_xpath": "//table[@class='tb_01']",
+  "item_xpath": "//tr[contains(@class,'tb_b')]",
+  "total_count_xpath": "//span[@id='pagebanner']/span[@class='red']/text()",
+  "fields": {
+    "item_number": {
+      "xpath": "./td[1]/text()",
+      "type": "text",
+      "description": "項次"
+    },
+    "organization_name": {
+      "xpath": "./td[2]/text()",
+      "type": "text",
+      "description": "機關名稱"
+    },
+    "tender_case_no": {
+      "xpath": "./td[3]/text()[1]",
+      "type": "text",
+      "description": "標案案號"
+    },
+    "tender_name": {
+      "xpath": "./td[4]//a/text()",
+      "type": "text",
+      "description": "標案名稱"
+    },
+    "tender_type": {
+      "xpath": "./td[5]/text()",
+      "type": "text",
+      "description": "招標方式"
+    },
+    "procurement_category": {
+      "xpath": "./td[6]/text()",
+      "type": "text",
+      "description": "標的分類"
+    },
+    "announcement_date": {
+      "xpath": "./td[7]/text()",
+      "type": "text",
+      "description": "公告日期"
+    },
+    "bid_deadline": {
+      "xpath": "./td[8]/text()",
+      "type": "text",
+      "description": "截止投標日期"
+    },
+    "budget_amount": {
+      "xpath": "./td[9]//text()[normalize-space()]",
+      "type": "text",
+      "description": "預算金額"
+    },
+    "detail_pk": {
+      "xpath": "./td[4]//a/@href",
+      "type": "attribute",
+      "regex": "pk=([A-Za-z0-9=]+)",
+      "description": "詳情連結參數"
+    }
+  }
+} 

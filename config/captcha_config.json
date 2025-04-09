@@ -264,5 +264,40 @@
             "interval": 86400,
             "include_metrics": ["success_rate", "solve_time", "cost"]
         }
-    }
+    },
+    "timeout": 30,
+    "third_party_service": {
+        "type": "2captcha",
+        "api_key": "your_api_key_here",
+        "site_key": "your_site_key_here",
+        "url": "https://your-target-site.com",
+        "options": {
+            "max_retries": 3,
+            "retry_delay": 5,
+            "timeout": 120
+        }
+    },
+    "detection_patterns": [
+        {
+            "type": "recaptcha",
+            "xpath": "//iframe[contains(@src, 'recaptcha')]",
+            "text_pattern": "recaptcha|reCAPTCHA|我不是機器人"
+        },
+        {
+            "type": "hcaptcha",
+            "xpath": "//iframe[contains(@src, 'hcaptcha')]",
+            "text_pattern": "hcaptcha|hCaptcha|人機驗證"
+        },
+        {
+            "type": "image_captcha",
+            "xpath": "//img[contains(@src, 'captcha') or contains(@alt, 'captcha')]",
+            "text_pattern": "captcha|驗證碼|請輸入|看不清|換一張"
+        }
+    ],
+    "custom_handlers": [
+        {
+            "type": "custom",
+            "path": "src.extractors.handlers.custom_handlers.solve_custom_captcha"
+        }
+    ]
 }

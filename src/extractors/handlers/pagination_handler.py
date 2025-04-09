@@ -2,14 +2,24 @@
 # -*- coding: utf-8 -*-
 
 """
-分頁處理模組
+分頁處理模組 (pagination_handler.py)
 
 提供多種分頁處理策略，支持按鈕點擊、URL參數、表單提交和無限滾動等分頁方式。
+支持從JSON配置文件加載配置，提供靈活的分頁處理方案。
+
+主要功能：
+- 支持多種分頁類型（按鈕點擊、URL參數、頁碼點擊、無限滾動等）
+- 自動檢測頁面分頁信息
+- 提供分頁狀態追蹤和統計
+- 支持從JSON配置文件加載配置
+- 提供便捷的分頁處理函數
 """
 
 import time
 import logging
 import re
+import json
+import importlib
 from enum import Enum
 from typing import Dict, List, Any, Optional, Callable, Union, Tuple
 from dataclasses import dataclass, field
@@ -120,11 +130,139 @@ class PaginationHandler:
         self.last_page_content_hash = None  # 用於檢測頁面變化
         
         # 統計數據
-        self.navigation_attempts = 0
-        self.navigation_errors = 0
-        self.ajax_wait_count = 0
+        self.stats = {
+            "navigation_attempts": 0,
+            "navigation_errors": 0,
+            "ajax_wait_count": 0,
+            "pages_visited": 0,
+            "successful_navigations": 0,
+            "failed_navigations": 0,
+            "scroll_attempts": 0,
+            "scroll_successes": 0
+        }
         
         self.logger.debug(f"分頁處理器初始化完成，分頁類型: {self.config.pagination_type.value}")
+    
+    def load_config_from_json(self, config_path: str) -> None:
+        """
+        從JSON文件加載配置
+        
+        Args:
+            config_path: JSON配置文件路徑
+        """
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+            
+            # 加載基本配置
+            if "pagination" in config_data:
+                pagination_config = config_data["pagination"]
+                
+                # 更新分頁類型
+                if "type" in pagination_config:
+                    self.config.pagination_type = PaginationType(pagination_config["type"])
+                
+                # 更新最大頁數
+                if "max_pages" in pagination_config:
+                    self.config.max_pages = pagination_config["max_pages"]
+                
+                # 更新起始頁碼
+                if "start_page" in pagination_config:
+                    self.config.start_page = pagination_config["start_page"]
+                    self.current_page = self.config.start_page
+                
+                # 更新元素選擇器
+                if "selectors" in pagination_config:
+                    selectors = pagination_config["selectors"]
+                    if "next_button" in selectors:
+                        self.config.next_button_xpath = selectors["next_button"]
+                    if "page_number" in selectors:
+                        self.config.page_number_xpath = selectors["page_number"]
+                    if "page_input" in selectors:
+                        self.config.page_input_xpath = selectors["page_input"]
+                    if "go_button" in selectors:
+                        self.config.go_button_xpath = selectors["go_button"]
+                    if "has_next" in selectors:
+                        self.config.has_next_xpath = selectors["has_next"]
+                
+                # 更新URL參數配置
+                if "url" in pagination_config:
+                    url_config = pagination_config["url"]
+                    if "template" in url_config:
+                        self.config.url_template = url_config["template"]
+                    if "parameter_name" in url_config:
+                        self.config.parameter_name = url_config["parameter_name"]
+                
+                # 更新滾動加載配置
+                if "scroll" in pagination_config:
+                    scroll_config = pagination_config["scroll"]
+                    if "element" in scroll_config:
+                        self.config.scroll_element_xpath = scroll_config["element"]
+                    if "threshold" in scroll_config:
+                        self.config.scroll_threshold = scroll_config["threshold"]
+                    if "new_content" in scroll_config:
+                        self.config.new_content_xpath = scroll_config["new_content"]
+                    if "max_attempts" in scroll_config:
+                        self.config.max_scroll_attempts = scroll_config["max_attempts"]
+                
+                # 更新表單提交配置
+                if "form" in pagination_config:
+                    form_config = pagination_config["form"]
+                    if "xpath" in form_config:
+                        self.config.form_xpath = form_config["xpath"]
+                    if "data" in form_config:
+                        self.config.form_data = form_config["data"]
+                
+                # 更新延遲和等待配置
+                if "delays" in pagination_config:
+                    delays = pagination_config["delays"]
+                    if "page_load" in delays:
+                        self.config.page_load_delay = delays["page_load"]
+                    if "between_pages" in delays:
+                        self.config.between_pages_delay = delays["between_pages"]
+                    if "element_timeout" in delays:
+                        self.config.wait_for_element_timeout = delays["element_timeout"]
+                
+                # 更新進階選項
+                if "advanced" in pagination_config:
+                    advanced = pagination_config["advanced"]
+                    if "retry_count" in advanced:
+                        self.config.retry_count = advanced["retry_count"]
+                    if "javascript_click" in advanced:
+                        self.config.javascript_click = advanced["javascript_click"]
+                    if "wait_for_staleness" in advanced:
+                        self.config.wait_for_staleness = advanced["wait_for_staleness"]
+                    if "use_ajax_detection" in advanced:
+                        self.config.use_ajax_detection = advanced["use_ajax_detection"]
+                    if "ajax_complete_check" in advanced:
+                        self.config.ajax_complete_check = advanced["ajax_complete_check"]
+                
+                # 更新檢測和跟蹤配置
+                if "detection" in pagination_config:
+                    detection = pagination_config["detection"]
+                    if "method" in detection:
+                        self.config.page_change_detection = detection["method"]
+                    if "element_to_track" in detection:
+                        self.config.element_to_track_xpath = detection["element_to_track"]
+                
+                # 加載自定義處理器
+                if "custom_handlers" in pagination_config:
+                    for handler in pagination_config["custom_handlers"]:
+                        handler_type = handler.get("type", "custom")
+                        handler_path = handler.get("path")
+                        
+                        if handler_path:
+                            try:
+                                module_path, func_name = handler_path.rsplit('.', 1)
+                                module = importlib.import_module(module_path)
+                                handler_func = getattr(module, func_name)
+                                self.register_custom_handler(PaginationType(handler_type), handler_func)
+                            except Exception as e:
+                                self.logger.error(f"加載自定義處理器失敗: {str(e)}")
+            
+            self.logger.info(f"已從 {config_path} 加載分頁配置")
+        except Exception as e:
+            self.logger.error(f"加載配置文件失敗: {str(e)}")
     
     def navigate_to_next_page(self) -> bool:
         """
@@ -138,7 +276,7 @@ class PaginationHandler:
             return False
             
         # 增加嘗試次數計數
-        self.navigation_attempts += 1
+        self.stats["navigation_attempts"] += 1
         
         # 獲取當前頁面快照
         current_url = self.driver.current_url
@@ -173,8 +311,9 @@ class PaginationHandler:
                 return False
                 
             if not success:
-                self.navigation_errors += 1
-                self.logger.warning(f"導航到下一頁失敗，嘗試次數: {self.navigation_attempts}，失敗次數: {self.navigation_errors}")
+                self.stats["navigation_errors"] += 1
+                self.stats["failed_navigations"] += 1
+                self.logger.warning(f"導航到下一頁失敗，嘗試次數: {self.stats['navigation_attempts']}，失敗次數: {self.stats['navigation_errors']}")
                 return False
                 
             # 等待頁面加載
@@ -183,12 +322,15 @@ class PaginationHandler:
             # 檢查頁面是否真的變化了
             if not self._verify_page_changed(current_url):
                 self.logger.warning("頁面可能未成功變化")
-                self.navigation_errors += 1
+                self.stats["navigation_errors"] += 1
+                self.stats["failed_navigations"] += 1
                 return False
                 
             # 更新頁面狀態
             self.current_page += 1
             self.page_history.append(self.driver.current_url)
+            self.stats["pages_visited"] += 1
+            self.stats["successful_navigations"] += 1
             
             # 額外延遲
             if self.config.between_pages_delay > 0:
@@ -198,7 +340,8 @@ class PaginationHandler:
             return True
             
         except Exception as e:
-            self.navigation_errors += 1
+            self.stats["navigation_errors"] += 1
+            self.stats["failed_navigations"] += 1
             self.logger.error(f"導航到下一頁時出錯: {str(e)}")
             return False
     
@@ -490,9 +633,9 @@ class PaginationHandler:
         self.current_page = self.config.start_page
         self.page_history = []
         self.last_page_content_hash = None
-        self.navigation_attempts = 0
-        self.navigation_errors = 0
-        self.ajax_wait_count = 0
+        self.stats["navigation_attempts"] = 0
+        self.stats["navigation_errors"] = 0
+        self.stats["ajax_wait_count"] = 0
         self.logger.debug("分頁狀態已重置")
     
     def get_status(self) -> Dict[str, Any]:
@@ -505,10 +648,14 @@ class PaginationHandler:
         return {
             "current_page": self.current_page,
             "total_pages": self.total_pages,
-            "pages_visited": len(self.page_history),
+            "pages_visited": self.stats["pages_visited"],
             "has_next": self.has_next_page(),
-            "navigation_attempts": self.navigation_attempts,
-            "navigation_errors": self.navigation_errors,
+            "navigation_attempts": self.stats["navigation_attempts"],
+            "navigation_errors": self.stats["navigation_errors"],
+            "successful_navigations": self.stats["successful_navigations"],
+            "failed_navigations": self.stats["failed_navigations"],
+            "scroll_attempts": self.stats["scroll_attempts"],
+            "scroll_successes": self.stats["scroll_successes"],
             "pagination_type": self.config.pagination_type.value
         }
     
@@ -716,6 +863,8 @@ class PaginationHandler:
         
         # 檢查是否有新內容加載
         attempts = 0
+        self.stats["scroll_attempts"] += 1
+        
         while attempts < self.config.max_scroll_attempts:
             attempts += 1
             
@@ -730,6 +879,7 @@ class PaginationHandler:
                 
                 if new_count > current_count:
                     self.logger.info(f"成功加載新內容，項目數從 {current_count} 增加到 {new_count}")
+                    self.stats["scroll_successes"] += 1
                     return True
                     
             # 使用頁面高度檢查  
@@ -737,6 +887,7 @@ class PaginationHandler:
                 new_height = self.driver.execute_script("return document.body.scrollHeight")
                 if new_height > current_height:
                     self.logger.info(f"成功加載新內容，頁面高度從 {current_height} 增加到 {new_height}")
+                    self.stats["scroll_successes"] += 1
                     return True
             
             # 如果沒有新內容，繼續滾動
@@ -917,7 +1068,7 @@ class PaginationHandler:
     
     def _wait_for_ajax_complete(self) -> None:
         """等待AJAX請求完成"""
-        self.ajax_wait_count += 1
+        self.stats["ajax_wait_count"] += 1
         
         try:
             WebDriverWait(self.driver, self.config.wait_for_element_timeout / 2).until(
@@ -1023,7 +1174,8 @@ def create_pagination_handler(
     driver: webdriver.Remote, 
     pagination_type: str = "button_click",
     next_button_xpath: str = None,
-    max_pages: int = 10
+    max_pages: int = 10,
+    config_path: str = None
 ) -> PaginationHandler:
     """
     創建分頁處理器的便捷函數
@@ -1033,6 +1185,7 @@ def create_pagination_handler(
         pagination_type: 分頁類型
         next_button_xpath: 下一頁按鈕XPath
         max_pages: 最大頁數
+        config_path: 配置文件路徑
         
     Returns:
         配置好的分頁處理器
@@ -1045,14 +1198,21 @@ def create_pagination_handler(
     if next_button_xpath:
         config.next_button_xpath = next_button_xpath
         
-    return PaginationHandler(driver, config)
+    handler = PaginationHandler(driver, config)
+    
+    # 如果提供了配置文件路徑，則加載配置
+    if config_path:
+        handler.load_config_from_json(config_path)
+        
+    return handler
 
 
 def handle_pagination(
     driver: webdriver.Remote, 
     action: callable, 
     max_pages: int = 5,
-    pagination_config: Dict[str, Any] = None
+    pagination_config: Dict[str, Any] = None,
+    config_path: str = None
 ) -> List[Any]:
     """
     處理分頁並對每頁執行操作的便捷函數
@@ -1062,6 +1222,7 @@ def handle_pagination(
         action: 每頁執行的操作函數，接受driver參數
         max_pages: 最大頁數
         pagination_config: 分頁配置字典
+        config_path: 配置文件路徑
         
     Returns:
         每頁操作結果的列表
@@ -1080,6 +1241,10 @@ def handle_pagination(
     
     # 創建分頁處理器
     paginator = PaginationHandler(driver, config)
+    
+    # 如果提供了配置文件路徑，則加載配置
+    if config_path:
+        paginator.load_config_from_json(config_path)
     
     results = []
     current_page = 1

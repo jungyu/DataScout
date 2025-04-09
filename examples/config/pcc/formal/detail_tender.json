@@ -1,0 +1,84 @@
+{
+  "version": "1.0.0",
+  "name": "pcc_detail_tender",
+  "description": "政府電子採購網招標公告詳細頁面配置",
+  "url_pattern": "https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain={pk}",
+  "container_xpath": "//div[@id='printRange']",
+  "fields": {
+    "organization_id": {
+      "xpath": "//td[contains(text(), '機關代碼')]/following-sibling::td[1]//text()[normalize-space()]",
+      "type": "text",
+      "description": "機關代碼"
+    },
+    "organization_name": {
+      "xpath": "//td[contains(text(), '機關名稱')]/following-sibling::td[1]//text()[normalize-space()]",
+      "type": "text",
+      "description": "機關名稱"
+    },
+    "organization_unit": {
+      "xpath": "//td[contains(text(), '單位名稱')]/following-sibling::td[1]//text()[normalize-space()]",
+      "type": "text",
+      "description": "單位名稱"
+    },
+    "organization_address": {
+      "xpath": "//td[contains(text(), '機關地址')]/following-sibling::td[1]//text()[normalize-space()]",
+      "type": "text",
+      "description": "機關地址"
+    },
+    "contact_person": {
+      "xpath": "//td[contains(text(), '聯絡人')]/following-sibling::td[1]//text()[normalize-space()]",
+      "type": "text",
+      "description": "聯絡人"
+    },
+    "contact_phone": {
+      "xpath": "//td[contains(text(), '聯絡電話')]/following-sibling::td[1]/text()[normalize-space()]",
+      "type": "text",
+      "description": "聯絡電話"
+    },
+    "tender_case_id": {
+      "xpath": "//td[contains(text(), '標案案號')]/following-sibling::td[1]/text()[normalize-space()]",
+      "type": "text",
+      "description": "標案案號"
+    },
+    "tender_case_name": {
+      "xpath": "//td[@id='tenderNameText']/text()",
+      "type": "text",
+      "description": "標案名稱"
+    },
+    "subject_category": {
+      "xpath": "//td[contains(text(), '標的分類')]/following-sibling::td[1]//text()[normalize-space()]",
+      "type": "text",
+      "description": "標的分類"
+    },
+    "budget_amount": {
+      "xpath": "//td[contains(text(), '預算金額')]/following-sibling::td[1]/div/text()",
+      "type": "text",
+      "description": "預算金額"
+    },
+    "tender_publication_date": {
+      "xpath": "//span[@id='targetDate']/text()",
+      "type": "text",
+      "description": "公告日期"
+    },
+    "bid_deadline_date": {
+      "xpath": "//span[@id='spdt']/text()",
+      "type": "text",
+      "description": "截止投標日期時間"
+    },
+    "bid_opening_date": {
+      "xpath": "//td[contains(text(), '開標時間')]/following-sibling::td[1]/text()[normalize-space()]",
+      "type": "text",
+      "description": "開標時間"
+    },
+    "bid_opening_location": {
+      "xpath": "//td[contains(text(), '開標地點')]/following-sibling::td[1]//span[@class='hardword']/text()",
+      "type": "text",
+      "description": "開標地點"
+    },
+    "contract_term": {
+      "xpath": "//td[contains(text(), '履約期限')]/following-sibling::td[1]/text()[normalize-space()]",
+      "type": "text",
+      "description": "履約期限"
+    }
+  }
+} 

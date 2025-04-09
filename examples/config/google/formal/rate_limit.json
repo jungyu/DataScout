@@ -1,0 +1,41 @@
+{
+  "version": "1.0.0",
+  "name": "google_search_rate_limit",
+  "description": "Google 搜尋速率限制配置",
+  "requests_per_minute": 30,
+  "delay_between_requests": 2,
+  "concurrent_requests": 1,
+  "burst_limit": {
+    "enabled": true,
+    "max_requests": 5,
+    "time_window": 10
+  },
+  "backoff": {
+    "enabled": true,
+    "initial_delay": 5,
+    "max_delay": 300,
+    "factor": 2
+  },
+  "session_limits": {
+    "max_requests_per_session": 100,
+    "session_timeout": 3600
+  },
+  "ip_limits": {
+    "max_requests_per_ip": 1000,
+    "time_window": 86400
+  },
+  "error_handling": {
+    "max_retries": 3,
+    "retry_delay": 5,
+    "error_codes": {
+      "429": {
+        "action": "wait",
+        "delay": 60
+      },
+      "403": {
+        "action": "rotate_proxy",
+        "delay": 30
+      }
+    }
+  }
+} 

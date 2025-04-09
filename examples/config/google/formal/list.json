@@ -1,0 +1,61 @@
+{
+  "version": "1.0.0",
+  "name": "google_search_list",
+  "description": "Google 搜尋結果列表配置",
+  "container_xpath": "//div[@id='search']",
+  "item_xpath": "//div[@class='g']",
+  "total_count_xpath": "//div[@id='result-stats']/text()",
+  "fields": {
+    "title": {
+      "xpath": ".//h3/text()",
+      "type": "text",
+      "description": "搜尋結果標題"
+    },
+    "url": {
+      "xpath": ".//a/@href",
+      "type": "attribute",
+      "description": "搜尋結果連結"
+    },
+    "snippet": {
+      "xpath": ".//div[@class='VwiC3b yXK7lf MUxGbd yDYNvb lyLwlc lEBKkf']/text()",
+      "type": "text",
+      "description": "搜尋結果摘要"
+    },
+    "date": {
+      "xpath": ".//span[@class='MUxGbd wuQ4Ob WZ8Tjf']/text()",
+      "type": "text",
+      "description": "搜尋結果日期"
+    },
+    "source": {
+      "xpath": ".//cite/text()",
+      "type": "text",
+      "description": "搜尋結果來源"
+    }
+  },
+  "pagination": {
+    "items_per_page": 10,
+    "total_count_xpath": "//div[@id='result-stats']/text()",
+    "next_button_xpath": "//a[@id='pnnext']",
+    "has_next_page_check": "boolean(//a[@id='pnnext'])",
+    "url_pattern": "{base_url}?q={query}&hl={language}&tbs={time_range}&tbm={search_type}&start={start}",
+    "max_pages": 10
+  },
+  "validation": {
+    "success": {
+      "xpath": "//div[@id='search']",
+      "description": "搜尋結果容器存在"
+    },
+    "error": {
+      "xpath": "//div[@class='error-code']",
+      "description": "錯誤訊息"
+    },
+    "no_results": {
+      "xpath": "//div[@class='card-section']",
+      "description": "無搜尋結果"
+    },
+    "captcha": {
+      "xpath": "//form[@id='captcha-form']",
+      "description": "驗證碼表單"
+    }
+  }
+} 

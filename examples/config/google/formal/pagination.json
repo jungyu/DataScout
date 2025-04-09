@@ -1,0 +1,68 @@
+{
+  "version": "1.0.0",
+  "name": "google_search_pagination",
+  "description": "Google 搜尋分頁配置",
+  "pagination": {
+    "next_button_xpath": "//a[@id='pnnext']",
+    "has_next_page_check": "boolean(//a[@id='pnnext'])",
+    "page_number_xpath": "//td[contains(@class,'YyVfkd')]/text()",
+    "max_pages": 2
+  },
+  "items_per_page": 10,
+  "total_count": {
+    "xpath": "//div[@id='result-stats']/text()",
+    "pattern": "約有 (\\d+(?:,\\d+)*) 項結果",
+    "type": "regex",
+    "description": "搜尋結果總數"
+  },
+  "navigation": {
+    "prev_button": {
+      "xpath": "//a[@id='pnprev']",
+      "type": "link",
+      "description": "上一頁按鈕"
+    },
+    "page_numbers": {
+      "xpath": "//td[@class='YyVfkd']",
+      "type": "text",
+      "description": "頁碼"
+    }
+  },
+  "url_pattern": {
+    "next_page": "{base_url}?q={query}&hl={language}&tbs={time_range}&tbm={search_type}&start={start}",
+    "prev_page": "{base_url}?q={query}&hl={language}&tbs={time_range}&tbm={search_type}&start={start}",
+    "parameter_mapping": {
+      "start": "start",
+      "query": "q",
+      "language": "hl",
+      "time_range": "tbs",
+      "search_type": "tbm"
+    }
+  },
+  "validation": {
+    "has_prev_page": {
+      "xpath": "boolean(//a[@id='pnprev'])",
+      "type": "boolean",
+      "description": "是否有上一頁"
+    },
+    "current_page": {
+      "xpath": "//td[@class='YyVfkd']/text()",
+      "type": "text",
+      "description": "當前頁碼"
+    }
+  },
+  "limits": {
+    "max_items": 100,
+    "delay_between_pages": 2
+  },
+  "error_handling": {
+    "no_next_page": {
+      "action": "stop",
+      "message": "已到達最後一頁"
+    },
+    "invalid_page": {
+      "action": "retry",
+      "max_retries": 3,
+      "retry_delay": 5
+    }
+  }
+} 

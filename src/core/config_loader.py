@@ -3,37 +3,57 @@
 
 """
 ConfigLoader 模組
-負責載入、合併和驗證配置文件
+負責載入、合併和驗證配置文件，支援模板繼承和覆蓋機制
 """
 
 import os
 import json
 import logging
-from typing import Dict, Any, Optional, List, Union
+import copy
+from typing import Dict, Any, Optional, List, Union, Tuple
 from jsonschema import validate, ValidationError
 
 class ConfigLoader:
     """
     配置載入器類，處理配置文件的載入、驗證和合併
+    支援模板繼承和覆蓋機制，提供配置驗證和快取功能
     """
     
-    def __init__(self, logger=None):
+    def __init__(self, logger=None, config_dir: str = None):
         """
         初始化配置載入器
         
         Args:
             logger: 日誌記錄器，如果為None則創建新的
+            config_dir: 配置目錄路徑，用於解析相對路徑
         """
         self.logger = logger or logging.getLogger(__name__)
         self.schema_cache = {}  # 用於緩存已加載的schema
+        self.config_cache = {}  # 用於緩存已加載的配置
+        self.config_dir = config_dir or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.logger.info(f"配置載入器初始化完成，配置目錄: {self.config_dir}")
+    
+    def _resolve_path(self, path: str) -> str:
+        """
+        解析配置路徑，支援相對路徑和絕對路徑
         
-    @staticmethod
-    def load_config(config_path: str) -> Dict[str, Any]:
+        Args:
+            path: 配置路徑
+            
+        Returns:
+            解析後的絕對路徑
+        """
+        if os.path.isabs(path):
+            return path
+        return os.path.join(self.config_dir, path)
+    
+    def load_config(self, config_path: str, use_cache: bool = True) -> Dict[str, Any]:
         """
         載入配置文件
         
         Args:
             config_path: 配置文件路徑
+            use_cache: 是否使用快取
             
         Returns:
             配置字典
@@ -42,22 +62,37 @@ class ConfigLoader:
             FileNotFoundError: 配置文件不存在
             json.JSONDecodeError: 配置文件格式不正確
         """
+        resolved_path = self._resolve_path(config_path)
+        
+        # 檢查快取
+        if use_cache and resolved_path in self.config_cache:
+            self.logger.debug(f"從快取載入配置: {resolved_path}")
+            return copy.deepcopy(self.config_cache[resolved_path])
+        
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
+            self.logger.info(f"載入配置文件: {resolved_path}")
+            with open(resolved_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
+            
+            # 更新快取
+            if use_cache:
+                self.config_cache[resolved_path] = copy.deepcopy(config)
+                
             return config
         except FileNotFoundError:
-            raise FileNotFoundError(f"配置文件不存在: {config_path}")
+            self.logger.error(f"配置文件不存在: {resolved_path}")
+            raise FileNotFoundError(f"配置文件不存在: {resolved_path}")
         except json.JSONDecodeError as e:
+            self.logger.error(f"配置文件格式不正確: {resolved_path}, 錯誤: {str(e)}")
             raise json.JSONDecodeError(f"配置文件格式不正確: {str(e)}", e.doc, e.pos)
     
-    @staticmethod
-    def load_template(template_path: str) -> Dict[str, Any]:
+    def load_template(self, template_path: str, use_cache: bool = True) -> Dict[str, Any]:
         """
-        載入爬蟲模板文件
+        載入爬蟲模板文件，支援模板繼承
         
         Args:
             template_path: 模板文件路徑
+            use_cache: 是否使用快取
             
         Returns:
             模板字典
@@ -66,16 +101,42 @@ class ConfigLoader:
             FileNotFoundError: 模板文件不存在
             json.JSONDecodeError: 模板文件格式不正確
         """
+        resolved_path = self._resolve_path(template_path)
+        
+        # 檢查快取
+        if use_cache and resolved_path in self.config_cache:
+            self.logger.debug(f"從快取載入模板: {resolved_path}")
+            return copy.deepcopy(self.config_cache[resolved_path])
+        
         try:
-            with open(template_path, 'r', encoding='utf-8') as f:
+            self.logger.info(f"載入模板文件: {resolved_path}")
+            with open(resolved_path, 'r', encoding='utf-8') as f:
                 template = json.load(f)
+            
+            # 處理模板繼承
+            if "extends" in template:
+                base_template_path = template["extends"]
+                self.logger.info(f"模板 {resolved_path} 繼承自 {base_template_path}")
+                
+                # 載入基礎模板
+                base_template = self.load_template(base_template_path, use_cache)
+                
+                # 合併模板
+                template = self.merge_configs(base_template, template)
+            
+            # 更新快取
+            if use_cache:
+                self.config_cache[resolved_path] = copy.deepcopy(template)
+                
             return template
         except FileNotFoundError:
-            raise FileNotFoundError(f"模板文件不存在: {template_path}")
+            self.logger.error(f"模板文件不存在: {resolved_path}")
+            raise FileNotFoundError(f"模板文件不存在: {resolved_path}")
         except json.JSONDecodeError as e:
+            self.logger.error(f"模板文件格式不正確: {resolved_path}, 錯誤: {str(e)}")
             raise json.JSONDecodeError(f"模板文件格式不正確: {str(e)}", e.doc, e.pos)
     
-    def validate_config(self, config: Dict[str, Any], schema_path: str) -> bool:
+    def validate_config(self, config: Dict[str, Any], schema_path: str) -> Tuple[bool, Optional[str]]:
         """
         驗證配置是否符合schema
         
@@ -84,27 +145,32 @@ class ConfigLoader:
             schema_path: schema文件路徑
             
         Returns:
-            驗證是否通過
+            (驗證是否通過, 錯誤訊息)
         """
+        resolved_path = self._resolve_path(schema_path)
+        
         # 從緩存加載或讀取schema
-        if schema_path in self.schema_cache:
-            schema = self.schema_cache[schema_path]
+        if resolved_path in self.schema_cache:
+            schema = self.schema_cache[resolved_path]
         else:
             try:
-                with open(schema_path, 'r', encoding='utf-8') as f:
+                self.logger.info(f"載入schema文件: {resolved_path}")
+                with open(resolved_path, 'r', encoding='utf-8') as f:
                     schema = json.load(f)
-                self.schema_cache[schema_path] = schema
+                self.schema_cache[resolved_path] = schema
             except (FileNotFoundError, json.JSONDecodeError) as e:
-                self.logger.error(f"加載schema失敗: {str(e)}")
-                return False
+                error_msg = f"加載schema失敗: {str(e)}"
+                self.logger.error(error_msg)
+                return False, error_msg
         
         # 驗證配置
         try:
             validate(instance=config, schema=schema)
-            return True
+            return True, None
         except ValidationError as e:
-            self.logger.error(f"配置驗證失敗: {str(e)}")
-            return False
+            error_msg = f"配置驗證失敗: {str(e)}"
+            self.logger.error(error_msg)
+            return False, error_msg
     
     def merge_configs(self, base_config: Dict[str, Any], override_config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -117,7 +183,7 @@ class ConfigLoader:
         Returns:
             合併後的配置
         """
-        merged = base_config.copy()
+        merged = copy.deepcopy(base_config)
         
         # 遞迴合併字典
         def _merge_dict(d1, d2):
@@ -125,7 +191,7 @@ class ConfigLoader:
                 if k in d1 and isinstance(d1[k], dict) and isinstance(v2, dict):
                     _merge_dict(d1[k], v2)
                 else:
-                    d1[k] = v2
+                    d1[k] = copy.deepcopy(v2)
         
         _merge_dict(merged, override_config)
         return merged
@@ -150,8 +216,10 @@ class ConfigLoader:
         config = self.load_config(config_path)
         
         # 驗證配置
-        if schema_path and not self.validate_config(config, schema_path):
-            self.logger.warning(f"配置 {config_path} 不符合schema，但仍然繼續")
+        if schema_path:
+            is_valid, error_msg = self.validate_config(config, schema_path)
+            if not is_valid:
+                self.logger.warning(f"配置 {config_path} 不符合schema: {error_msg}，但仍然繼續")
         
         return config
     
@@ -171,18 +239,56 @@ class ConfigLoader:
         base_config = self.load_config(base_path)
         
         # 如果提供覆蓋配置，則載入並合併
-        if override_path and os.path.exists(override_path):
+        if override_path:
             try:
                 override_config = self.load_config(override_path)
                 base_config = self.merge_configs(base_config, override_config)
+                self.logger.info(f"已合併覆蓋配置: {override_path}")
             except Exception as e:
                 self.logger.error(f"合併覆蓋配置 {override_path} 失敗: {str(e)}")
         
         # 驗證最終配置
-        if schema_path and not self.validate_config(base_config, schema_path):
-            self.logger.warning(f"最終配置不符合schema，但仍然繼續")
+        if schema_path:
+            is_valid, error_msg = self.validate_config(base_config, schema_path)
+            if not is_valid:
+                self.logger.warning(f"最終配置不符合schema: {error_msg}，但仍然繼續")
         
         return base_config
+    
+    def load_template_with_config(self, template_path: str, config_path: str = None, schema_path: str = None) -> Dict[str, Any]:
+        """
+        載入模板並合併配置
+        
+        Args:
+            template_path: 模板文件路徑
+            config_path: 配置文件路徑，如果不提供則僅使用模板
+            schema_path: schema文件路徑，如果不提供則跳過驗證
+            
+        Returns:
+            最終配置
+        """
+        # 載入模板
+        template = self.load_template(template_path)
+        
+        # 如果提供配置，則載入並合併
+        if config_path:
+            try:
+                config = self.load_config(config_path)
+                final_config = self.merge_configs(template, config)
+                self.logger.info(f"已合併模板 {template_path} 和配置 {config_path}")
+            except Exception as e:
+                self.logger.error(f"合併模板和配置失敗: {str(e)}")
+                final_config = template
+        else:
+            final_config = template
+        
+        # 驗證最終配置
+        if schema_path:
+            is_valid, error_msg = self.validate_config(final_config, schema_path)
+            if not is_valid:
+                self.logger.warning(f"最終配置不符合schema: {error_msg}，但仍然繼續")
+        
+        return final_config
     
     def save_config(self, config: Dict[str, Any], config_path: str) -> bool:
         """
@@ -195,15 +301,29 @@ class ConfigLoader:
         Returns:
             是否保存成功
         """
+        resolved_path = self._resolve_path(config_path)
+        
         try:
             # 確保目錄存在
-            os.makedirs(os.path.dirname(os.path.abspath(config_path)), exist_ok=True)
+            os.makedirs(os.path.dirname(os.path.abspath(resolved_path)), exist_ok=True)
             
             # 保存配置
-            with open(config_path, 'w', encoding='utf-8') as f:
+            self.logger.info(f"保存配置到: {resolved_path}")
+            with open(resolved_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, ensure_ascii=False, indent=2)
+            
+            # 更新快取
+            self.config_cache[resolved_path] = copy.deepcopy(config)
             
             return True
         except Exception as e:
             self.logger.error(f"保存配置失敗: {str(e)}")
             return False
+    
+    def clear_cache(self) -> None:
+        """
+        清除配置和schema快取
+        """
+        self.config_cache.clear()
+        self.schema_cache.clear()
+        self.logger.info("已清除配置和schema快取")
