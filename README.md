@@ -1,12 +1,10 @@
-# Crawler-Selenium 爬蟲系統使用指南
-
-這個爬蟲系統使用模板化設計，讓您可以通過簡單的 JSON 配置來爬取不同的網站，而無需修改核心代碼。本指南將介紹如何設置環境、編輯爬蟲 JSON 範本，以及執行和管理爬蟲任務。
+# Selenium 爬蟲使用指南
 
 ## 目錄
 - [系統架構](#系統架構)
 - [環境配置](#環境配置)
 - [配置設定](#配置設定)
-- [爬蟲 JSON 範本](#爬蟲-json-範本)
+- [爬蟲模板](#爬蟲模板)
 - [執行爬蟲任務](#執行爬蟲任務)
 - [管理爬蟲任務](#管理爬蟲任務)
 - [斷點續爬功能](#斷點續爬功能)
@@ -15,15 +13,41 @@
 
 ## 系統架構
 
-本系統主要由以下幾個部分組成：
+本系統採用模組化設計，主要由以下幾個部分組成：
 
-1. **核心模組**：應用程式主類、爬蟲引擎、模板化爬蟲核心類和 WebDriver 管理器
-2. **資料擷取模組**：基礎擷取器、列表頁擷取器和詳情頁擷取器
-3. **導航模組**：頁面導航管理和分頁處理
-4. **互動模組**：表單處理、搜尋處理和元素互動
-5. **反爬蟲模組**：隱身模式和行為模擬
-6. **資料持久化模組**：狀態管理、存儲管理和資料匯出器
-7. **工具模組**：文本處理、URL處理、重試機制和資料驗證
+### 1. 核心模組
+- **TemplateCrawler**：基於模板的爬蟲核心類，提供通用的爬蟲功能
+- **WebDriverManager**：瀏覽器實例管理和設定，支援多種瀏覽器
+- **ConfigLoader**：配置文件的載入、合併和驗證
+- **CrawlerStateManager**：爬蟲狀態管理，支援斷點續爬
+
+### 2. 資料擷取模組
+- **DataExtractor**：負責從頁面提取數據
+- **ListExtractor**：列表頁數據提取
+- **DetailExtractor**：詳情頁數據提取
+- **CaptchaHandler**：驗證碼處理
+
+### 3. 導航模組
+- **PageNavigator**：頁面導航和 URL 構建
+- **PaginationHandler**：分頁處理
+
+### 4. 互動模組
+- **FormHandler**：表單處理和搜尋參數處理
+
+### 5. 反爬蟲模組
+- **AntiDetection**：防止被網站偵測為爬蟲的設定
+- **BrowserFingerprint**：瀏覽器指紋偽裝
+- **HumanBehavior**：模擬人類行為
+
+### 6. 資料持久化模組
+- **StorageHandler**：數據存儲管理
+- **OutputFormatter**：輸出格式處理
+
+### 7. 工具模組
+- **TextProcessor**：文本處理
+- **URLProcessor**：URL 處理
+- **RetryMechanism**：重試機制
+- **DataValidator**：數據驗證
 
 ## 環境配置
 
@@ -33,63 +57,55 @@
 pip install -r requirements.txt
 ```
 
-### 2. 創建並配置憑證文件
+主要依賴套件包括：
+- selenium：瀏覽器自動化
+- requests：HTTP 請求
+- lxml：XML/HTML 處理
+- beautifulsoup4：HTML 解析
+- jsonschema：JSON 驗證
+- webdriver-manager：WebDriver 管理
+- fake-useragent：隨機用戶代理
+- retry：重試機制
+- python-dotenv：環境變數管理
 
-創建 `config/credentials.json` 文件，配置 MongoDB 和 Notion 的憑證：
+### 2. 瀏覽器驅動程式
 
-```json
-{
-  "mongodb": {
-    "username": "your_mongodb_username",
-    "password": "your_mongodb_password",
-    "host": "mongodb.example.com",
-    "port": 27017,
-    "auth_source": "admin",
-    "ssl": true
-  },
-  "notion": {
-    "api_key": "your_notion_api_key",
-    "database_id": "your_notion_database_id"
-  }
-}
-```
+系統支援多種瀏覽器，包括 Chrome、Firefox 和 Edge。您需要安裝相應的瀏覽器和驅動程式：
 
-> **安全提示**: 不要將此文件加入版本控制系統，建議添加到 `.gitignore` 中。更安全的做法是使用環境變數。
+#### Chrome
+1. 安裝 Chrome 瀏覽器
+2. 使用 webdriver-manager 自動下載驅動程式：
+   ```python
+   from webdriver_manager.chrome import ChromeDriverManager
+   from selenium.webdriver.chrome.service import Service
+   
+   service = Service(ChromeDriverManager().install())
+   driver = webdriver.Chrome(service=service)
+   ```
 
-### 3. 配置數據持久化
+#### Firefox
+1. 安裝 Firefox 瀏覽器
+2. 使用 webdriver-manager 自動下載驅動程式：
+   ```python
+   from webdriver_manager.firefox import GeckoDriverManager
+   from selenium.webdriver.firefox.service import Service
+   
+   service = Service(GeckoDriverManager().install())
+   driver = webdriver.Firefox(service=service)
+   ```
 
-創建 `config/persistence_config.json` 文件：
+#### Edge
+1. 安裝 Edge 瀏覽器
+2. 使用 webdriver-manager 自動下載驅動程式：
+   ```python
+   from webdriver_manager.microsoft import EdgeChromiumDriverManager
+   from selenium.webdriver.edge.service import Service
+   
+   service = Service(EdgeChromiumDriverManager().install())
+   driver = webdriver.Edge(service=service)
+   ```
 
-```json
-{
-  "local_storage": {
-    "enabled": true,
-    "base_path": "data",
-    "format": "json"
-  },
-  "mongodb": {
-    "enabled": true,
-    "database": "web_crawler",
-    "collection_prefix": "procurement_",
-    "batch_size": 100
-  },
-  "notion": {
-    "enabled": true,
-    "field_mappings": {
-      "tender_case_no": {
-        "field": "案號",
-        "type": "title"
-      },
-      "org_name": {
-        "field": "機關名稱",
-        "type": "rich_text"
-      }
-    }
-  }
-}
-```
-
-### 4. 建立目錄結構
+### 3. 建立目錄結構
 
 確保以下目錄存在：
 
@@ -97,431 +113,744 @@ pip install -r requirements.txt
 crawler-selenium/
 │
 ├── main.py                      # 爬蟲程式主入口
-├── cli.py                       # 命令行介面處理
-│
+├── requirements.txt             # 依賴套件列表
 ├── config/                      # 配置文件目錄
-│   ├── _config.json            # 基礎配置範例
-│   ├── _credentials.json       # 憑證配置範例
-│   ├── _anti_detection.json    # 反檢測配置範例
-│   └── sites/                  # 各網站專用配置
+│   ├── credentials.json         # 憑證文件
+│   └── persistence_config.json  # 持久化配置
 │
-├── templates/                   # 爬蟲模板目錄
-│   ├── base/                   # 基礎模板
-│   └── sites/                  # 網站專用模板
+├── src/                         # 源代碼目錄
+│   ├── core/                    # 核心模組
+│   ├── extractors/              # 資料擷取模組
+│   ├── anti_detection/          # 反爬蟲模組
+│   ├── captcha/                 # 驗證碼處理模組
+│   ├── persistence/             # 資料持久化模組
+│   └── utils/                   # 工具模組
 │
-├── src/                        # 源代碼目錄
-│   ├── core/                   # 核心模塊
-│   ├── extractors/             # 資料擷取模組
-│   ├── navigation/             # 導航模組
-│   ├── interaction/            # 互動模組
-│   ├── anti_detection/         # 反爬蟲模組
-│   ├── persistence/            # 資料持久化模組
-│   └── utils/                  # 工具模組
+├── examples/                    # 範例目錄
+│   ├── src/                     # 範例源代碼
+│   ├── config/                  # 範例配置
+│   └── data/                    # 範例數據
 │
-├── examples/                   # 範例程式目錄
-├── tests/                      # 測試代碼目錄
-└── docs/                       # 文檔目錄
+├── docs/                        # 文檔目錄
+│   ├── templates.md             # 模板格式說明
+│   └── guide.md                 # 使用指南
+│
+└── data/                        # 數據目錄
+    ├── output/                  # 輸出結果
+    ├── debug/                   # 調試信息
+    └── state/                   # 狀態文件
 ```
 
 ## 配置設定
 
-本專案使用 JSON 格式的配置檔案來管理各種設定。在 `/config` 目錄下，您可以找到以下範例配置檔案：
-
-- `_config.json` - 主配置範例
-- `_anti_detection_config.json` - 反檢測配置範例
-- `_captcha_config.json` - 驗證碼處理配置範例
-- `_credentials.json` - 憑證範例
-- `_persistence_config.json` - 資料持久化配置範例
-- `_field_mappings.json` - 欄位映射配置範例
-
-### 首次設定
-
-1. 複製每個範例配置檔案，移除檔名開頭的底線字符：
-   ```bash
-   cd config
-   for file in _*.json; do
-     cp "$file" "${file#_}"
-   done
-   ```
-
-## 爬蟲 JSON 範本
-
-爬蟲 JSON 範本是系統的核心配置，它定義了如何爬取特定網站。下面詳細介紹各個部分如何配置：
-
 ### 1. 基本配置
 
+基本配置包含網站的基本信息和請求設定：
+
 ```json
 {
-  "site_name": "Google 搜尋",
-  "base_url": "https://www.google.com",
+  "site_name": "網站名稱",
+  "base_url": "https://example.com",
   "encoding": "utf-8",
-  "description": "Google 搜尋結果爬取模板",
+  "description": "模板描述",
   "version": "1.0.0",
-  "browser": {
-    "browser_type": "chrome",
-    "headless": false,
-    "disable_images": false,
-    "page_load_timeout": 30,
-    "implicit_wait": 10
-  }
-}
-```
-
-### 2. 請求配置
-
-```json
-{
   "request": {
     "method": "GET",
     "headers": {
       "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
     }
+  }
+}
+```
+
+### 2. 瀏覽器配置
+
+瀏覽器配置用於設定 WebDriver 的行為：
+
+```json
+{
+  "browser_type": "chrome",
+  "headless": false,
+  "disable_images": false,
+  "disable_javascript": false,
+  "window_size": {
+    "width": 1920,
+    "height": 1080
   },
-  "search": {
-    "keyword": "地震 site:news.pts.org.tw",
-    "language": "zh-TW"
+  "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+  "proxy": {
+    "enabled": false,
+    "type": "http",
+    "host": "proxy.example.com",
+    "port": 8080,
+    "username": "username",
+    "password": "password"
   }
 }
 ```
 
-### 3. 延遲配置
+### 3. 反爬蟲配置
 
-為了避免過快訪問而被網站識別為機器人，需要配置各階段的延遲時間：
-
-```json
-{
-  "delays": {
-    "page_load": 3,
-    "between_pages": 2,
-    "between_items": 1,
-    "scroll": 1,
-    "finish": 3
-  }
-}
-```
-
-### 4. 搜尋頁配置
+反爬蟲配置用於防止被網站偵測為爬蟲：
 
 ```json
 {
-  "search_page": {
-    "search_box_xpath": "//textarea[@name='q']",
-    "result_container_xpath": "//div[@id='search']"
-  }
-}
-```
-
-### 5. 列表頁配置
-
-列表頁配置定義如何從列表頁提取數據：
-
-```json
-{
-  "list_page": {
-    "container_xpath": "//div[@id='search']",
-    "item_xpath": "//div[contains(@class, 'N54PNb')]",
-    "fields": {
-      "title": {
-        "xpath": ".//h3",
-        "type": "text"
-      },
-      "link": {
-        "xpath": ".//a[h3]/@href",
-        "fallback_xpath": ".//a/@href",
-        "type": "attribute"
-      },
-      "description": {
-        "xpath": ".//div[contains(@class, 'VwiC3b')]",
-        "type": "text",
-        "max_length": 300
+  "browser_fingerprint": {
+    "user_agent": {
+      "enabled": true,
+      "rotation": {
+        "enabled": true,
+        "interval": 300,
+        "max_uses": 10
       }
+    },
+    "webgl": {
+      "enabled": true,
+      "noise": 0.1
+    },
+    "canvas": {
+      "enabled": true,
+      "noise": 0.1
     }
-  }
-}
-```
-
-### 6. 詳情頁配置
-
-詳情頁配置定義如何從詳情頁提取數據：
-
-```json
-{
-  "detail_page": {
+  },
+  "human_behavior": {
     "enabled": true,
-    "max_details_per_page": 3,
-    "page_load_delay": 3,
-    "between_details_delay": 2,
-    "check_captcha": true,
-    "container_xpath": "//body",
-    "fields": {
-      "title": {
-        "xpath": "//h1",
-        "type": "text",
-        "fallback_xpath": "//title"
-      },
-      "content": {
-        "xpath": "//article | //div[contains(@class, 'article')] | //div[@role='main']",
-        "type": "text",
-        "fallback_xpath": "//div[contains(@class, 'content')]"
-      },
-      "published_date": {
-        "xpath": "//time | //span[contains(@class, 'date')] | //meta[@property='article:published_time']/@content",
-        "type": "date",
-        "fallback_xpath": "//div[contains(@class, 'date')] | //p[contains(@class, 'date')]"
-      },
-      "category": {
-        "xpath": "//div[contains(@class, 'category')] | //a[contains(@href, 'category')]",
-        "type": "text",
-        "fallback_xpath": "//meta[@property='article:section']/@content"
-      },
-      "author": {
-        "xpath": "//div[contains(@class, 'author')] | //span[contains(@class, 'author')] | //meta[@name='author']/@content",
-        "type": "text"
-      },
-      "tags": {
-        "xpath": "//a[contains(@href, 'tag')] | //div[contains(@class, 'tag')]//a",
-        "type": "text",
-        "multiple": true
-      }
+    "mouse_movement": {
+      "enabled": true,
+      "speed": "natural",
+      "pattern": "random"
     },
-    "expand_sections": [
-      {
-        "name": "閱讀更多",
-        "button_selector": "//button[contains(text(), '閱讀更多') or contains(@class, 'more')]",
-        "target_selector": "//div[contains(@class, 'expanded')]",
-        "wait_time": 1
-      }
-    ],
-    "extract_tables": {
-      "xpath": "//table",
-      "title_xpath": ".//caption | .//th[1]"
+    "typing": {
+      "enabled": true,
+      "speed": "natural",
+      "mistakes": true
     },
-    "extract_images": true,
-    "images_container_xpath": "//article | //div[contains(@class, 'article')]"
-  }
-}
-```
-
-### 7. 分頁配置
-
-分頁配置定義如何處理多頁數據：
-
-```json
-{
-  "pagination": {
-    "next_button_xpath": "//a[@id='pnnext']",
-    "has_next_page_check": "boolean(//a[@id='pnnext'])",
-    "page_number_xpath": "//td[contains(@class,'YyVfkd')]/text()",
-    "max_pages": 2
-  }
-}
-```
-
-### 8. 進階設定
-
-```json
-{
-  "advanced_settings": {
-    "detect_captcha": true,
-    "captcha_detection_xpath": "//div[contains(@class, 'g-recaptcha')]",
-    "save_error_page": true,
-    "error_page_dir": "../debug",
-    "max_results_per_page": 10,
-    "text_cleaning": {
-      "remove_extra_whitespace": true,
-      "trim_strings": true
+    "scrolling": {
+      "enabled": true,
+      "speed": "natural",
+      "pattern": "random"
     }
   }
 }
 ```
+
+### 4. 錯誤處理配置
+
+錯誤處理配置用於處理爬取過程中可能出現的錯誤：
+
+```json
+{
+  "error_types": {
+    "network": {
+      "retry": true,
+      "max_retries": 3,
+      "retry_delay": 5,
+      "error_codes": [500, 502, 503, 504]
+    },
+    "timeout": {
+      "retry": true,
+      "max_retries": 3,
+      "retry_delay": 5
+    },
+    "captcha": {
+      "retry": true,
+      "max_retries": 3,
+      "retry_delay": 5
+    },
+    "blocked": {
+      "retry": true,
+      "max_retries": 3,
+      "retry_delay": 30,
+      "actions": ["rotate_proxy", "rotate_user_agent"]
+    }
+  },
+  "recovery": {
+    "save_state": {
+      "enabled": true,
+      "interval": 10,
+      "path": "state/crawler_state.json"
+    },
+    "resume": {
+      "enabled": true,
+      "max_attempts": 3
+    }
+  }
+}
+```
+
+### 5. 輸出配置
+
+輸出配置用於設定爬取結果的輸出格式和儲存方式：
+
+```json
+{
+  "formats": {
+    "json": {
+      "enabled": true,
+      "structure": {
+        "query": {
+          "type": "string",
+          "description": "搜尋關鍵字"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "搜尋結果標題"
+              },
+              "url": {
+                "type": "string",
+                "description": "搜尋結果連結"
+              },
+              "snippet": {
+                "type": "string",
+                "description": "搜尋結果摘要"
+              }
+            }
+          }
+        }
+      }
+    },
+    "csv": {
+      "enabled": true,
+      "columns": [
+        "title",
+        "url",
+        "snippet"
+      ],
+      "delimiter": ",",
+      "encoding": "utf-8"
+    }
+  },
+  "output_settings": {
+    "base_directory": "data/output",
+    "file_naming": {
+      "pattern": "{query}_{timestamp}",
+      "timestamp_format": "%Y%m%d_%H%M%S"
+    },
+    "compression": {
+      "enabled": true,
+      "format": "zip"
+    }
+  }
+}
+```
+
+## 爬蟲模板
+
+爬蟲模板採用 JSON 格式，用於定義如何爬取特定網站的結構化數據。模板有兩種組織方式：
+
+### 1. 基本配置（Basic）
+
+所有配置集中在單一 JSON 檔案中：
+
+```json
+{
+  "site_name": "網站名稱",
+  "base_url": "https://example.com",
+  "encoding": "utf-8",
+  "description": "模板描述",
+  "version": "1.0.0",
+  "request": {},
+  "search": {},
+  "delays": {},
+  "search_page": {},
+  "list_page": {},
+  "detail_page": {},
+  "pagination": {},
+  "advanced_settings": {}
+}
+```
+
+### 2. 正規化配置（Formal）
+
+根據功能將配置分拆到多個 JSON 檔案中：
+
+- `config.json`：基本配置和共用設定
+- `detail.json`：詳情頁面設定
+- `pagination.json`：分頁設定
+- `anti_detection.json`：反偵測設定
+- `error_handling.json`：錯誤處理設定
+- `output.json`：輸出格式設定
+- `rate_limit.json`：速率限制設定
+- `captcha.json`：驗證碼處理設定
+- `list.json`：列表頁面設定
+
+詳細的模板格式說明請參考 [templates.md](templates.md)。
 
 ## 執行爬蟲任務
 
-### 基本用法
+### 1. 使用範例程式
+
+系統提供了多個範例程式，展示如何使用爬蟲系統：
+
+#### 基本範例
 
 ```bash
-python main.py --template templates/sites/gov_procurement.json --config config/config.json
+# 執行 Google 搜尋基本爬蟲
+python examples/src/google/basic/search.py
 ```
 
-### 參數說明
+#### 正規化範例
 
-- `--template`: 爬蟲模板文件路徑
-- `--config`: 爬蟲配置文件路徑
-- `--resume`: 是否恢復上次中斷的任務
-- `--max-pages`: 最大爬取頁數
-- `--max-items`: 最大處理詳情項目數
+```bash
+# 執行 Google 搜尋正規化爬蟲
+python examples/src/google/formal/search.py
+```
 
-### 配置參數
+### 2. 使用主程式
 
-除了在命令行中指定參數外，也可以在配置文件中設置：
+您也可以使用主程式執行爬蟲任務：
 
-```json
-{
-  "template_path": "templates/sites/gov_procurement.json",
-  "headless": true,
-  "max_pages": 10,
-  "max_items": 200,
-  "query_params": {
-    "tenderStartDate": "2023/10/01",
-    "tenderEndDate": "2023/10/31",
-    "orgId": "3.10.3"
-  }
-}
+```bash
+python main.py -c examples/config/google/basic/search.json -o data/output/google_search.json
+```
+
+參數說明：
+- `-c, --config`：配置文件路徑
+- `-o, --output`：輸出文件路徑
+- `-v, --verbose`：顯示詳細日誌
+- `-d, --debug`：啟用調試模式
+
+### 3. 自定義爬蟲
+
+您可以繼承 `TemplateCrawler` 類來創建自定義爬蟲：
+
+```python
+from src.core.template_crawler import TemplateCrawler
+from src.core.webdriver_manager import WebDriverManager
+from src.core.config_loader import ConfigLoader
+
+class CustomCrawler(TemplateCrawler):
+    def __init__(self, config_path):
+        # 設置日誌記錄器
+        self.logger = self._setup_logger()
+        
+        # 載入配置
+        self.config_loader = ConfigLoader(logger=self.logger)
+        self.config = self.config_loader.load_config(config_path)
+        
+        # 初始化 WebDriver 管理器
+        self.webdriver_manager = WebDriverManager(self.config, logger=self.logger)
+        
+        # 調用父類初始化
+        super().__init__(config_path, self.webdriver_manager, self.logger)
+    
+    def _setup_logger(self):
+        # 設置日誌記錄器
+        pass
+    
+    def setup(self):
+        # 設置爬蟲環境
+        pass
+    
+    def run(self):
+        # 執行爬蟲任務
+        pass
+    
+    def cleanup(self):
+        # 清理資源
+        pass
+
+# 使用自定義爬蟲
+crawler = CustomCrawler("config/custom_crawler.json")
+crawler.setup()
+crawler.run()
+crawler.cleanup()
 ```
 
 ## 管理爬蟲任務
 
-### 查看任務狀態
+### 1. 爬蟲狀態管理
 
-使用爬蟲任務管理器來查看和管理任務：
+系統提供了 `CrawlerStateManager` 類來管理爬蟲狀態：
 
 ```python
-from src.persistence.data_manager import DataManager
+from src.core.crawler_state_manager import CrawlerStateManager
 
-# 初始化任務管理器
-task_manager = DataManager()
+# 初始化狀態管理器
+state_manager = CrawlerStateManager(
+    crawler_id="custom_crawler",
+    config=config,
+    state_dir="data/state",
+    log_level=logging.INFO
+)
 
-# 獲取任務列表
-tasks = task_manager.list_tasks(crawler_name="gov_procurement")
+# 保存狀態
+state_manager.save_state({
+    "current_page": 5,
+    "processed_items": 100,
+    "last_item_id": "item_123"
+})
 
-# 獲取統計信息
-stats = task_manager.get_statistics(crawler_name="gov_procurement", days=30)
+# 載入狀態
+state = state_manager.load_state()
 ```
 
-### 清理舊任務
+### 2. 錯誤處理
+
+系統提供了多種錯誤處理機制：
 
 ```python
-# 清理 30 天前的任務記錄
-task_manager.clean_old_tasks(days=30)
+# 處理網路錯誤
+try:
+    # 爬蟲操作
+except Exception as e:
+    # 記錄錯誤
+    logger.error(f"爬蟲操作失敗: {str(e)}")
+    
+    # 保存錯誤頁面
+    if config.get("debug", {}).get("save_error_page", False):
+        webdriver_manager.take_screenshot(f"data/debug/error_{timestamp}.png")
+        with open(f"data/debug/error_{timestamp}.html", "w", encoding="utf-8") as f:
+            f.write(webdriver_manager.get_page_source())
+    
+    # 重試
+    if config.get("error_types", {}).get("network", {}).get("retry", False):
+        max_retries = config.get("error_types", {}).get("network", {}).get("max_retries", 3)
+        retry_delay = config.get("error_types", {}).get("network", {}).get("retry_delay", 5)
+        
+        for i in range(max_retries):
+            logger.info(f"重試第 {i+1} 次...")
+            time.sleep(retry_delay)
+            # 重試爬蟲操作
+```
+
+### 3. 驗證碼處理
+
+系統提供了 `CaptchaHandler` 類來處理驗證碼：
+
+```python
+from src.captcha import CaptchaHandler
+
+# 初始化驗證碼處理器
+captcha_handler = CaptchaHandler(webdriver_manager, logger)
+
+# 檢測驗證碼
+if captcha_handler.detect_captcha(["//div[contains(@class, 'g-recaptcha')]"]):
+    # 處理驗證碼
+    if captcha_handler.handle_captcha("//div[contains(@class, 'g-recaptcha')]"):
+        logger.info("驗證碼處理成功")
+    else:
+        logger.error("驗證碼處理失敗")
 ```
 
 ## 斷點續爬功能
 
-本系統支援斷點續爬功能，當爬蟲中斷時（無論是手動中斷還是出錯），系統會記錄當前狀態，下次可以從中斷點繼續爬取。
+系統提供了斷點續爬功能，可以在爬蟲中斷後從上次的位置繼續爬取：
 
-### 恢復中斷任務
-
-```bash
-python main.py --resume
-```
-
-或者在程式中：
+### 1. 保存爬蟲狀態
 
 ```python
-# 獲取可恢復的任務
-resumable_task = task_manager.get_resumable_task("gov_procurement")
+# 保存爬蟲狀態
+state_manager.save_state({
+    "current_page": current_page,
+    "processed_items": processed_items,
+    "last_item_id": last_item_id,
+    "timestamp": datetime.now().isoformat()
+})
+```
 
-if resumable_task:
-    # 獲取檢查點
-    checkpoint = task_manager.get_checkpoint(resumable_task['task_id'])
-    
-    # 從檢查點恢復爬取
-    # ...
+### 2. 載入爬蟲狀態
+
+```python
+# 載入爬蟲狀態
+state = state_manager.load_state()
+if state:
+    current_page = state.get("current_page", 1)
+    processed_items = state.get("processed_items", 0)
+    last_item_id = state.get("last_item_id", None)
+    logger.info(f"從第 {current_page} 頁繼續爬取，已處理 {processed_items} 個項目")
+else:
+    current_page = 1
+    processed_items = 0
+    last_item_id = None
+    logger.info("開始新的爬蟲任務")
+```
+
+### 3. 定期保存狀態
+
+```python
+# 定期保存狀態
+save_interval = config.get("recovery", {}).get("save_state", {}).get("interval", 10)
+if processed_items % save_interval == 0:
+    state_manager.save_state({
+        "current_page": current_page,
+        "processed_items": processed_items,
+        "last_item_id": last_item_id,
+        "timestamp": datetime.now().isoformat()
+    })
+    logger.info(f"已保存爬蟲狀態，當前頁: {current_page}，已處理項目: {processed_items}")
 ```
 
 ## 數據持久化
 
-系統支援將數據保存到多個位置：
+系統提供了多種數據持久化方式：
 
-### 1. 本地文件
+### 1. 本地文件存儲
 
-爬取的數據默認保存為 JSON 文件，位於 `data` 目錄下。
-
-### 2. MongoDB
-
-如果配置了 MongoDB，數據會自動保存到指定的集合中。
-
-```json
-{
-  "mongodb": {
-    "enabled": true,
-    "database": "web_crawler",
-    "collection_prefix": "procurement_"
-  }
-}
+```python
+# 保存為 JSON 文件
+def save_results(results, output_path=None):
+    if not output_path:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = os.path.join("data/output", f"results_{timestamp}.json")
+    
+    output_dir = os.path.dirname(output_path)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+    
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(results, f, ensure_ascii=False, indent=2)
+    
+    logger.info(f"數據已保存到: {output_path}")
+    return output_path
 ```
 
-### 3. Notion
+### 2. 資料庫存儲
 
-如果配置了 Notion，數據會保存到指定的 Notion 數據庫中。
+系統支援 MongoDB 存儲：
 
-```json
-{
-  "notion": {
-    "enabled": true,
-    "field_mappings": {
-      "tender_case_no": {
-        "field": "案號",
-        "type": "title"
-      }
-    }
-  }
-}
+```python
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
+
+# 連接 MongoDB
+client = MongoClient(
+    host=config.get("mongodb", {}).get("host", "localhost"),
+    port=config.get("mongodb", {}).get("port", 27017),
+    username=config.get("mongodb", {}).get("username"),
+    password=config.get("mongodb", {}).get("password"),
+    authSource=config.get("mongodb", {}).get("auth_source", "admin")
+)
+
+# 選擇資料庫和集合
+db = client[config.get("mongodb", {}).get("database", "web_crawler")]
+collection = db[config.get("mongodb", {}).get("collection_prefix", "") + "results"]
+
+# 插入數據
+try:
+    result = collection.insert_many(results)
+    logger.info(f"已將 {len(result.inserted_ids)} 條數據插入到 MongoDB")
+except ConnectionFailure as e:
+    logger.error(f"MongoDB 連接失敗: {str(e)}")
 ```
 
-字段映射定義了爬蟲數據字段如何映射到 Notion 屬性。
+### 3. 雲端存儲
 
-## 設計原則
+系統支援 Notion 存儲：
 
-### 模板驅動設計
-- 所有爬蟲邏輯通過 JSON 模板配置
-- 模板繼承和覆蓋機制
-- 模板驗證和錯誤檢查
+```python
+from notion_client import Client
 
-### 擴展性設計
-- 插件式架構
-- 自定義擷取器支援
-- 自定義存儲後端
+# 初始化 Notion 客戶端
+notion = Client(auth=config.get("notion", {}).get("api_key"))
 
-### 錯誤處理
-- 分層錯誤處理
-- 自動重試機制
-- 詳細錯誤日誌
+# 插入數據
+database_id = config.get("notion", {}).get("database_id")
+field_mappings = config.get("notion", {}).get("field_mappings", {})
 
-### 效能考慮
-- 併發爬取支援
-- 資源使用優化
-- 快取機制
-
-## 使用建議
-
-1. 新增網站爬蟲時：
-   - 在 `templates/sites/` 建立新模板
-   - 在 `config/sites/` 加入配置
-   - 在 `examples/` 提供範例
-
-2. 開發新功能時：
-   - 遵循模組化設計
-   - 編寫單元測試
-   - 更新文檔
-
-3. 維護建議：
-   - 定期更新依賴
-   - 監控錯誤日誌
-   - 更新反檢測機制
+for item in results:
+    properties = {}
+    for field, mapping in field_mappings.items():
+        if field in item:
+            properties[mapping["field"]] = {
+                mapping["type"]: item[field]
+            }
+    
+    try:
+        notion.pages.create(
+            parent={"database_id": database_id},
+            properties=properties
+        )
+        logger.info(f"已將數據插入到 Notion")
+    except Exception as e:
+        logger.error(f"Notion 插入失敗: {str(e)}")
+```
 
 ## 常見問題處理
 
-### 1. 爬蟲被網站阻擋
+### 1. 瀏覽器驅動程式問題
 
-- 增加延遲時間
-- 配置代理伺服器
-- 啟用人類行為模擬
+**問題**：無法找到瀏覽器驅動程式。
 
-### 2. 數據提取錯誤
+**解決方案**：
+- 使用 webdriver-manager 自動下載驅動程式：
+  ```python
+  from webdriver_manager.chrome import ChromeDriverManager
+  from selenium.webdriver.chrome.service import Service
+  
+  service = Service(ChromeDriverManager().install())
+  driver = webdriver.Chrome(service=service)
+  ```
+- 手動下載驅動程式並指定路徑：
+  ```python
+  from selenium.webdriver.chrome.service import Service
+  
+  service = Service("/path/to/chromedriver")
+  driver = webdriver.Chrome(service=service)
+  ```
 
-- 檢查 XPath 是否正確
-- 確認網站結構是否變更
-- 查看日誌文件獲取詳細錯誤信息
+### 2. 元素定位問題
 
-### 3. 資料庫連接失敗
+**問題**：無法找到頁面元素。
 
-- 確認憑證是否正確
-- 檢查網絡連接
-- 查看防火牆設置
+**解決方案**：
+- 使用多種定位方式：
+  ```python
+  # 使用 XPath
+  element = driver.find_element(By.XPATH, "//div[@id='search']")
+  
+  # 使用 CSS 選擇器
+  element = driver.find_element(By.CSS_SELECTOR, "#search")
+  
+  # 使用 ID
+  element = driver.find_element(By.ID, "search")
+  ```
+- 等待元素出現：
+  ```python
+  from selenium.webdriver.support.ui import WebDriverWait
+  from selenium.webdriver.support import expected_conditions as EC
+  
+  wait = WebDriverWait(driver, 10)
+  element = wait.until(EC.presence_of_element_located((By.XPATH, "//div[@id='search']")))
+  ```
 
-### 4. 任務管理問題
+### 3. 驗證碼問題
 
-- 使用 `task_manager.get_task_summary(task_id)` 查看任務詳情
-- 檢查 `states` 目錄下的狀態文件
-- 如果有需要，可以手動刪除狀態文件重新開始
+**問題**：遇到驗證碼無法繼續爬取。
+
+**解決方案**：
+- 使用驗證碼處理器：
+  ```python
+  from src.captcha import CaptchaHandler
+  
+  captcha_handler = CaptchaHandler(webdriver_manager, logger)
+  if captcha_handler.detect_captcha(["//div[contains(@class, 'g-recaptcha')]"]):
+      captcha_handler.handle_captcha("//div[contains(@class, 'g-recaptcha')]")
+  ```
+- 增加延遲時間：
+  ```python
+  # 增加頁面載入延遲
+  delays = config.get("delays", {})
+  page_load_delay = delays.get("page_load", 3)
+  time.sleep(page_load_delay)
+  ```
+
+### 4. 反爬蟲問題
+
+**問題**：被網站偵測為爬蟲。
+
+**解決方案**：
+- 使用反爬蟲設定：
+  ```python
+  # 啟用反爬蟲設定
+  anti_detection = config.get("anti_detection", {})
+  if anti_detection.get("enabled", False):
+      # 應用反爬蟲設定
+      webdriver_manager._apply_stealth_techniques()
+  ```
+- 使用代理伺服器：
+  ```python
+  # 使用代理伺服器
+  proxy = config.get("proxy", {})
+  if proxy.get("enabled", False):
+      chrome_options.add_argument(f"--proxy-server={proxy.get('type', 'http')}://{proxy.get('host')}:{proxy.get('port')}")
+  ```
+- 模擬人類行為：
+  ```python
+  # 模擬人類行為
+  human_behavior = config.get("human_behavior", {})
+  if human_behavior.get("enabled", False):
+      # 模擬滑鼠移動
+      if human_behavior.get("mouse_movement", {}).get("enabled", False):
+          webdriver_manager.simulate_mouse_movement()
+      
+      # 模擬滾動
+      if human_behavior.get("scrolling", {}).get("enabled", False):
+          webdriver_manager.scroll_page()
+  ```
+
+### 5. 斷點續爬問題
+
+**問題**：爬蟲中斷後無法從上次的位置繼續爬取。
+
+**解決方案**：
+- 使用狀態管理器：
+  ```python
+  from src.core.crawler_state_manager import CrawlerStateManager
+  
+  state_manager = CrawlerStateManager(
+      crawler_id="custom_crawler",
+      config=config,
+      state_dir="data/state",
+      log_level=logging.INFO
+  )
+  
+  # 保存狀態
+  state_manager.save_state({
+      "current_page": current_page,
+      "processed_items": processed_items,
+      "last_item_id": last_item_id
+  })
+  
+  # 載入狀態
+  state = state_manager.load_state()
+  if state:
+      current_page = state.get("current_page", 1)
+      processed_items = state.get("processed_items", 0)
+      last_item_id = state.get("last_item_id", None)
+  ```
+- 定期保存狀態：
+  ```python
+  # 定期保存狀態
+  save_interval = config.get("recovery", {}).get("save_state", {}).get("interval", 10)
+  if processed_items % save_interval == 0:
+      state_manager.save_state({
+          "current_page": current_page,
+          "processed_items": processed_items,
+          "last_item_id": last_item_id
+      })
+  ```
+
+### 6. 數據持久化問題
+
+**問題**：無法將爬取的數據保存到本地或資料庫。
+
+**解決方案**：
+- 使用本地文件存儲：
+  ```python
+  # 保存為 JSON 文件
+  def save_results(results, output_path=None):
+      if not output_path:
+          timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+          output_path = os.path.join("data/output", f"results_{timestamp}.json")
+      
+      output_dir = os.path.dirname(output_path)
+      if output_dir and not os.path.exists(output_dir):
+          os.makedirs(output_dir, exist_ok=True)
+      
+      with open(output_path, 'w', encoding='utf-8') as f:
+          json.dump(results, f, ensure_ascii=False, indent=2)
+  ```
+- 使用資料庫存儲：
+  ```python
+  # 使用 MongoDB 存儲
+  from pymongo import MongoClient
+  
+  client = MongoClient(
+      host=config.get("mongodb", {}).get("host", "localhost"),
+      port=config.get("mongodb", {}).get("port", 27017),
+      username=config.get("mongodb", {}).get("username"),
+      password=config.get("mongodb", {}).get("password"),
+      authSource=config.get("mongodb", {}).get("auth_source", "admin")
+  )
+  
+  db = client[config.get("mongodb", {}).get("database", "web_crawler")]
+  collection = db[config.get("mongodb", {}).get("collection_prefix", "") + "results"]
+  
+  collection.insert_many(results)
+  ```

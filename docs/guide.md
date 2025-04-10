@@ -1,450 +1,653 @@
-# Selenium 模板化爬蟲框架使用指南
+# Selenium 爬蟲使用指南
 
-## 簡介
+## 目錄
+- [系統概述](#系統概述)
+- [環境配置](#環境配置)
+- [執行範例程式](#執行範例程式)
+  - [基本範例 (Basic)](#基本範例-basic)
+  - [正規化範例 (Formal)](#正規化範例-formal)
+- [自定義爬蟲](#自定義爬蟲)
+- [常見問題處理](#常見問題處理)
 
-Selenium 模板化爬蟲框架是一套高效、靈活且強大的網頁數據擷取工具，專為需要處理複雜網站結構、動態加載內容和嚴格反爬蟲機制的情境設計。此框架採用模板驅動方式，讓非技術人員也能輕鬆配置和使用網頁爬蟲，無需深入理解程式碼結構。
+## 系統概述
 
-核心特色包括：
-- **模板驅動**：通過 JSON 格式的模板文件定義爬取邏輯，無需修改核心代碼
-- **強大的反偵測**：內建多種反爬蟲機制，如隱身模式、代理伺服器、人類行為模擬
-- **高度模組化**：所有功能都以模組化方式設計，易於擴展和維護
-- **驗證碼處理**：集成多種驗證碼解決方案，包括圖形驗證碼和 reCAPTCHA
-- **斷點續爬**：支援從中斷點恢復爬取，確保長時間爬取任務的穩定性
-- **多格式輸出**：支援多種數據輸出格式，如 JSON、CSV、Excel 等
-- **完善的錯誤處理**：全面的錯誤處理和日誌記錄機制
+本系統提供兩種爬蟲實現方式：
 
-本框架特別適合具有認證機制、動態內容和複雜表單的網站，讓數據採集工作變得簡單高效。
+1. **基本範例 (Basic)**：獨立執行的爬蟲程式，不依賴核心模組，適合簡單的爬蟲任務。
+2. **正規化範例 (Formal)**：依賴核心模組的爬蟲程式，提供更多功能和更好的可維護性，適合複雜的爬蟲任務。
 
-## 快速入門
+## 環境配置
 
-### 安裝
+### 1. 安裝依賴套件
 
 ```bash
-# 克隆專案
-git clone https://github.com/aaron-yu/crawler-selenium.git
-cd crawler-selenium
-
-# 創建虛擬環境
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-venv\Scripts\activate     # Windows
-
-# 安裝依賴
 pip install -r requirements.txt
 ```
 
-### 基本使用
+主要依賴套件包括：
+- selenium：瀏覽器自動化
+- requests：HTTP 請求
+- lxml：XML/HTML 處理
+- beautifulsoup4：HTML 解析
+- jsonschema：JSON 驗證
+- webdriver-manager：WebDriver 管理
+- fake-useragent：隨機用戶代理
+- retry：重試機制
+- python-dotenv：環境變數管理
 
-1. **建立配置文件**
+### 2. 瀏覽器驅動程式
 
-在 `config/config.json` 中設置基本參數：
+系統支援多種瀏覽器，包括 Chrome、Firefox 和 Edge。您需要安裝相應的瀏覽器和驅動程式：
 
-```json
-{
-  "webdriver": {
-    "browser": "chrome",
-    "headless": false
-  },
-  "logging": {
-    "level": "info"
-  }
-}
+#### Chrome
+1. 安裝 Chrome 瀏覽器
+2. 使用 webdriver-manager 自動下載驅動程式：
+   ```python
+   from webdriver_manager.chrome import ChromeDriverManager
+   from selenium.webdriver.chrome.service import Service
+   
+   service = Service(ChromeDriverManager().install())
+   driver = webdriver.Chrome(service=service)
+   ```
+
+#### Firefox
+1. 安裝 Firefox 瀏覽器
+2. 使用 webdriver-manager 自動下載驅動程式：
+   ```python
+   from webdriver_manager.firefox import GeckoDriverManager
+   from selenium.webdriver.firefox.service import Service
+   
+   service = Service(GeckoDriverManager().install())
+   driver = webdriver.Firefox(service=service)
+   ```
+
+#### Edge
+1. 安裝 Edge 瀏覽器
+2. 使用 webdriver-manager 自動下載驅動程式：
+   ```python
+   from webdriver_manager.microsoft import EdgeChromiumDriverManager
+   from selenium.webdriver.edge.service import Service
+   
+   service = Service(EdgeChromiumDriverManager().install())
+   driver = webdriver.Edge(service=service)
+   ```
+
+### 3. 建立目錄結構
+
+確保以下目錄存在：
+
+```
+crawler-selenium/
+│
+├── main.py                      # 爬蟲程式主入口
+├── requirements.txt             # 依賴套件列表
+├── config/                      # 配置文件目錄
+│   ├── credentials.json         # 憑證文件
+│   └── persistence_config.json  # 持久化配置
+│
+├── src/                         # 源代碼目錄
+│   ├── core/                    # 核心模組
+│   ├── extractors/              # 資料擷取模組
+│   ├── anti_detection/          # 反爬蟲模組
+│   ├── captcha/                 # 驗證碼處理模組
+│   ├── persistence/             # 資料持久化模組
+│   └── utils/                   # 工具模組
+│
+├── examples/                    # 範例目錄
+│   ├── src/                     # 範例源代碼
+│   ├── config/                  # 範例配置
+│   └── data/                    # 範例數據
+│
+├── docs/                        # 文檔目錄
+│   ├── templates.md             # 模板格式說明
+│   └── guide.md                 # 使用指南
+│
+└── data/                        # 數據目錄
+    ├── output/                  # 輸出結果
+    ├── debug/                   # 調試信息
+    └── state/                   # 狀態文件
 ```
 
-2. **建立網站模板**
+## 執行範例程式
 
-在 `templates/` 目錄下創建網站模板，例如 `example.json`：
+系統提供了多個範例程式，展示如何使用爬蟲系統。這些範例分為兩種類型：基本範例 (Basic) 和正規化範例 (Formal)。
 
-```json
-{
-  "site_name": "範例網站",
-  "base_url": "https://example.com",
-  "list_page": {
-    "url": "https://example.com/items?page={page}",
-    "item_selector": ".item"
-  },
-  "detail_page": {
-    "link_selector": ".item-link",
-    "data": {
-      "title": {
-        "selector": ".title",
-        "attribute": "text"
-      }
-    }
-  }
-}
-```
+### 基本範例 (Basic)
 
-3. **執行爬蟲**
+基本範例是獨立執行的爬蟲程式，不依賴核心模組，適合簡單的爬蟲任務。
+
+#### Google 搜尋爬蟲
 
 ```bash
-python main.py -t templates/example.json
+# 執行 Google 搜尋基本爬蟲
+python examples/src/google/basic/search.py
 ```
 
-### 命令行參數
+這個範例會使用 `examples/config/google/basic/search.json` 配置文件，爬取 Google 搜尋結果。
+
+#### Google 搜尋點數爬蟲
 
 ```bash
-# 設定最大爬取頁數和項目數
-python main.py -t templates/example.json -p 5 -i 100
-
-# 啟用詳細日誌和調試模式
-python main.py -t templates/example.json -v -d
-
-# 使用代理和隱身模式
-python main.py -t templates/example.json --stealth --proxy http://proxy_ip:port
-
-# 從中斷點恢復爬取
-python main.py -t templates/example.json -r
-
-# 指定輸出位置
-python main.py -t templates/example.json -o data/results.json
+# 執行 Google 搜尋點數基本爬蟲
+python examples/src/google/basic/search_pts.py
 ```
 
-## 詳細特性介紹
+這個範例會使用 `examples/config/google/basic/search_pts.json` 配置文件，爬取 Google 搜尋結果並計算點數。
 
-### 1. 核心模組功能
+#### 公視新聞爬蟲
 
-- **WebDriver 管理器** (`src/core/webdriver_manager.py`)
-  - 自動下載和配置 WebDriver
-  - 支援 Chrome、Firefox、Edge 等主流瀏覽器
-  - 提供彈性的瀏覽器選項配置
-
-- **模板爬蟲引擎** (`src/core/template_crawler.py`)
-  - 解析 JSON 模板並轉換成爬蟲指令
-  - 處理頁面導航和元素交互
-  - 實現數據提取和處理
-
-### 2. 反爬蟲機制
-
-- **WebDriver 隱身模式**
-  - 消除 navigator.webdriver 特徵
-  - 修改 User-Agent
-  - 隱藏自動化特徵
-
-- **代理伺服器**
-  - 支援 HTTP、SOCKS 代理
-  - 代理伺服器輪替機制
-  - 代理有效性檢測
-
-- **人類行為模擬**
-  - 隨機等待和延遲
-  - 自然鼠標移動軌跡
-  - 逼真頁面滾動行為
-  - 輸入速度隨機化
-
-### 3. 驗證碼處理
-
-- **圖形驗證碼**
-  - 整合 OCR 技術
-  - 支援第三方驗證碼識別服務
-
-- **reCAPTCHA 處理**
-  - 支援 reCAPTCHA v2/v3
-  - 提供音頻驗證碼解決方案
-
-### 4. 數據持久化
-
-- **文件存儲**
-  - JSON、CSV、Excel 格式
-  - 增量更新
-  - 數據清洗和驗證
-
-- **數據庫存儲**
-  - 關聯式數據庫 (SQLite、MySQL)
-  - NoSQL 解決方案 (MongoDB)
-
-### 5. 狀態管理與錯誤處理
-
-- **斷點恢復**
-  - 爬取進度保存
-  - 從上次中斷點恢復
-
-- **錯誤處理**
-  - 網絡異常重試
-  - 元素定位失敗處理
-  - 詳細的錯誤日誌
-
-## 配置文件詳解
-
-### 1. 主配置文件 (`config/config.json`)
-
-```json
-{
-  "webdriver": {
-    "browser": "chrome",        // 瀏覽器類型: chrome, firefox, edge
-    "headless": false,          // 是否使用無頭模式
-    "executable_path": null,    // WebDriver 路徑，null 表示自動下載
-    "implicit_wait": 10         // 元素等待時間 (秒)
-  },
-  
-  "anti_detection": {
-    "stealth_mode": true,       // 啟用隱身模式
-    "user_agent": null,         // 自定義 User-Agent，null 表示使用隨機值
-    "proxy": null,              // 代理伺服器，格式: http://ip:port
-    "human_like": true,         // 啟用人類行為模擬
-    "random_delay": [2, 5]      // 隨機延遲範圍 (秒)
-  },
-  
-  "persistence": {
-    "type": "file",             // 存儲類型: file, database
-    "format": "json",           // 文件格式: json, csv, excel
-    "path": "data/"             // 存儲路徑
-  },
-  
-  "captcha": {
-    "service": "2captcha",      // 驗證碼服務: 2captcha, anticaptcha
-    "api_key": "YOUR_API_KEY",  // API 密鑰
-    "timeout": 120              // 等待超時 (秒)
-  },
-  
-  "logging": {
-    "level": "info",            // 日誌級別: debug, info, warning, error
-    "file": "logs/crawler.log"  // 日誌文件路徑
-  }
-}
+```bash
+# 執行公視新聞基本爬蟲
+python examples/src/pts/basic/news.py
 ```
 
-### 2. 爬蟲模板 (`templates/example.json`)
+這個範例會使用 `examples/config/pts/basic/news.json` 配置文件，爬取公視新聞網站的內容。
 
-```json
-{
-  "site_name": "範例網站",            // 網站名稱
-  "base_url": "https://example.com", // 網站基礎 URL
-  "encoding": "utf-8",               // 網站編碼
-  
-  "login": {                         // 登入設定 (可選)
-    "url": "https://example.com/login",
-    "username_selector": "#username",
-    "password_selector": "#password",
-    "submit_selector": "button[type='submit']",
-    "username": "YOUR_USERNAME",      // 可放在 credentials.json
-    "password": "YOUR_PASSWORD",      // 可放在 credentials.json
-    "success_check": {                // 登入成功檢查
-      "selector": ".user-info",
-      "attribute": "text",
-      "pattern": ".*歡迎.*"
-    }
-  },
-  
-  "list_page": {                     // 列表頁設定
-    "url": "https://example.com/items?page={page}",
-    "item_selector": ".item",        // 項目選擇器
-    "next_page_selector": ".pagination .next",
-    "max_pages": 10                  // 最大頁數
-  },
-  
-  "detail_page": {                   // 詳情頁設定
-    "link_selector": ".item-link",   // 詳情頁連結選擇器
-    "data": {                        // 需要擷取的數據
-      "title": {
-        "selector": ".title",
-        "attribute": "text"
-      },
-      "price": {
-        "selector": ".price",
-        "attribute": "text",
-        "processor": "extract_number" // 數據處理函數
-      },
-      "image": {
-        "selector": ".image img",
-        "attribute": "src"
-      },
-      "description": {
-        "selector": ".description",
-        "attribute": "text"
-      }
-    }
-  }
-}
+#### 公視新聞列表爬蟲
+
+```bash
+# 執行公視新聞列表基本爬蟲
+python examples/src/pts/basic/news_list.py
 ```
 
-### 3. 憑證配置 (`config/credentials.json`)
+這個範例會使用 `examples/config/pts/basic/news_list.json` 配置文件，爬取公視新聞網站的列表頁面。
 
-```json
-{
-  "example.com": {
-    "username": "your_username",
-    "password": "your_password"
-  },
-  "another-site.com": {
-    "username": "another_username",
-    "password": "another_password"
-  }
-}
+#### 公視新聞詳情爬蟲
+
+```bash
+# 執行公視新聞詳情基本爬蟲
+python examples/src/pts/basic/news_detail.py
 ```
 
-## 進階使用
+這個範例會使用 `examples/config/pts/basic/news_detail.json` 配置文件，爬取公視新聞網站的詳情頁面。
 
-### 1. 程式碼調用
+### 正規化範例 (Formal)
 
-將爬蟲整合到其他應用程式中：
+正規化範例是依賴核心模組的爬蟲程式，提供更多功能和更好的可維護性，適合複雜的爬蟲任務。
+
+#### Google 搜尋爬蟲
+
+```bash
+# 執行 Google 搜尋正規化爬蟲
+python examples/src/google/formal/search.py
+```
+
+這個範例會使用 `examples/config/google/formal/search/` 目錄下的配置文件，爬取 Google 搜尋結果。
+
+#### 公視新聞爬蟲
+
+```bash
+# 執行公視新聞正規化爬蟲
+python examples/src/pts/formal/news.py
+```
+
+這個範例會使用 `examples/config/pts/formal/news/` 目錄下的配置文件，爬取公視新聞網站的內容。
+
+#### 公視新聞列表爬蟲
+
+```bash
+# 執行公視新聞列表正規化爬蟲
+python examples/src/pts/formal/news_list.py
+```
+
+這個範例會使用 `examples/config/pts/formal/news_list/` 目錄下的配置文件，爬取公視新聞網站的列表頁面。
+
+#### 公視新聞詳情爬蟲
+
+```bash
+# 執行公視新聞詳情正規化爬蟲
+python examples/src/pts/formal/news_detail.py
+```
+
+這個範例會使用 `examples/config/pts/formal/news_detail/` 目錄下的配置文件，爬取公視新聞網站的詳情頁面。
+
+## 自定義爬蟲
+
+您可以根據自己的需求，創建自定義的爬蟲程式。以下是兩種方式：
+
+### 1. 基本爬蟲 (Basic)
+
+基本爬蟲是獨立執行的爬蟲程式，不依賴核心模組，適合簡單的爬蟲任務。
 
 ```python
-from src.core.template_crawler import TemplateCrawler
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+import json
+import time
+import os
 
-# 初始化爬蟲
-crawler = TemplateCrawler(
-    template_file="templates/example.json",
-    config_file="config/config.json",
-    log_level="debug"
-)
-
-# 執行爬蟲
-data = crawler.crawl(max_pages=5, max_items=100)
-
-# 資料處理
-processed_data = [item for item in data if float(item.get("price", 0)) > 100]
-
-# 保存資料
-crawler.data_manager.save_data(processed_data, "filtered_results")
-```
-
-### 2. 自定義驗證碼處理
-
-```python
-from src.captcha.captcha_manager import CaptchaManager
-
-class CustomCaptchaManager(CaptchaManager):
-    def solve_captcha(self, element, captcha_type="image"):
-        # 自定義驗證碼處理邏輯
-        if captcha_type == "image":
-            img_src = element.get_attribute("src")
-            # 使用自定義OCR處理
-            return my_ocr_solution(img_src)
-        return None
-
-# 使用自定義驗證碼處理
-crawler.set_captcha_manager(CustomCaptchaManager())
-```
-
-### 3. 自定義資料處理器
-
-```python
-def clean_price(item_data):
-    # 清理價格數據
-    if "price" in item_data:
-        price_text = item_data["price"]
-        # 移除貨幣符號和千位分隔符
-        price_text = price_text.replace("$", "").replace(",", "")
-        item_data["price"] = float(price_text)
-    return item_data
-
-def add_timestamp(item_data):
-    # 添加處理時間戳
-    from datetime import datetime
-    item_data["processed_at"] = datetime.now().isoformat()
-    return item_data
-
-# 將處理器添加到爬蟲
-crawler.add_data_processor(clean_price)
-crawler.add_data_processor(add_timestamp)
-```
-
-### 4. 多步驟交互操作
-
-處理需要複雜交互的頁面：
-
-```json
-{
-  "interactions": [
-    {
-      "name": "選擇下拉選單",
-      "selector": "select#category",
-      "action": "select",
-      "value": "electronics",
-      "wait_time": 2
-    },
-    {
-      "name": "點擊篩選按鈕",
-      "selector": "button.filter",
-      "action": "click",
-      "wait_time": 3,
-      "wait_for": ".results-container"
-    },
-    {
-      "name": "滾動到頁面底部",
-      "action": "scroll_to",
-      "position": "bottom",
-      "wait_time": 1
-    },
-    {
-      "name": "輸入搜索詞",
-      "selector": "input#search",
-      "action": "input",
-      "value": "智能手機",
-      "human_typing": true
-    }
-  ]
-}
-```
-
-### 5. 使用代理伺服器輪換
-
-建立代理伺服器池，提高爬蟲的穩定性和隱蔽性：
-
-```json
-{
-  "anti_detection": {
-    "proxy_rotation": true,
-    "proxy_list": [
-      "http://proxy1:port",
-      "http://proxy2:port",
-      "http://proxy3:port"
-    ],
-    "proxy_change_interval": 10
-  }
-}
-```
-
-程式碼實現：
-
-```python
-from src.anti_detection.proxy_manager import ProxyManager
-
-# 初始化代理管理器
-proxy_manager = ProxyManager(
-    proxy_list=["http://proxy1:port", "http://proxy2:port"],
-    rotation_interval=10
-)
-
-# 設置到爬蟲
-crawler.set_proxy_manager(proxy_manager)
-```
-
-### 6. 分布式爬取
-
-對於大規模爬取，可以實現分布式處理：
-
-```python
-# worker.py
-from src.core.template_crawler import TemplateCrawler
-
-def crawl_chunk(template_file, start_page, end_page):
-    crawler = TemplateCrawler(template_file=template_file)
-    return crawler.crawl(start_page=start_page, end_page=end_page)
-
-# 主控程序
-if __name__ == "__main__":
-    import concurrent.futures
+def setup_driver():
+    """設置 WebDriver"""
+    chrome_options = Options()
+    chrome_options.add_argument("--start-maximized")
+    chrome_options.add_argument("--disable-notifications")
     
-    template_file = "templates/large_site.json"
-    total_pages = 100
-    workers = 5
-    pages_per_worker = total_pages // workers
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    return driver
+
+def search_google(driver, query):
+    """搜尋 Google"""
+    driver.get("https://www.google.com")
     
+    # 等待搜尋框出現
+    search_box = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.NAME, "q"))
+    )
+    
+    # 輸入搜尋關鍵字
+    search_box.send_keys(query)
+    search_box.submit()
+    
+    # 等待搜尋結果出現
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.ID, "search"))
+    )
+    
+    # 提取搜尋結果
     results = []
-    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
-        futures = []
-        for i in range(workers):
-            start = i * pages_per_worker + 1
-            end = start + pages_per_worker - 1
-            futures.append(
-                executor.submit(crawl_chunk, template_file, start, end)
-            )
-        
-        for future in concurrent.futures.as_completed(futures):
-            results.extend(future.result())
+    search_results = driver.find_elements(By.CSS_SELECTOR, "div.g")
     
-    # 合併結果
-    print(f"總共爬取了 {len(results)} 條數據")
+    for result in search_results:
+        try:
+            title_element = result.find_element(By.CSS_SELECTOR, "h3")
+            link_element = result.find_element(By.CSS_SELECTOR, "a")
+            snippet_element = result.find_element(By.CSS_SELECTOR, "div.VwiC3b")
+            
+            title = title_element.text
+            link = link_element.get_attribute("href")
+            snippet = snippet_element.text
+            
+            results.append({
+                "title": title,
+                "url": link,
+                "snippet": snippet
+            })
+        except Exception as e:
+            print(f"提取搜尋結果時出錯: {str(e)}")
+    
+    return results
+
+def save_results(results, output_path=None):
+    """保存搜尋結果"""
+    if not output_path:
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        output_path = os.path.join("data/output", f"google_search_{timestamp}.json")
+    
+    output_dir = os.path.dirname(output_path)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+    
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(results, f, ensure_ascii=False, indent=2)
+    
+    print(f"搜尋結果已保存到: {output_path}")
+    return output_path
+
+def main():
+    """主函數"""
+    # 設置 WebDriver
+    driver = setup_driver()
+    
+    try:
+        # 搜尋 Google
+        query = "Python Selenium 爬蟲"
+        results = search_google(driver, query)
+        
+        # 保存搜尋結果
+        save_results(results)
+    finally:
+        # 關閉 WebDriver
+        driver.quit()
+
+if __name__ == "__main__":
+    main()
+```
+
+### 2. 正規化爬蟲 (Formal)
+
+正規化爬蟲是依賴核心模組的爬蟲程式，提供更多功能和更好的可維護性，適合複雜的爬蟲任務。
+
+```python
+import sys
+import os
+import json
+import logging
+from datetime import datetime
+
+# 添加 src 目錄到 Python 路徑
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
+
+from src.core.template_crawler import TemplateCrawler
+from src.core.webdriver_manager import WebDriverManager
+from src.core.config_loader import ConfigLoader
+
+# 設置日誌記錄器
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(f"logs/crawler_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+    ]
+)
+logger = logging.getLogger(__name__)
+
+class GoogleSearchCrawler(TemplateCrawler):
+    """Google 搜尋爬蟲"""
+    
+    def __init__(self, config_path):
+        """初始化爬蟲"""
+        # 設置日誌記錄器
+        self.logger = logger
+        
+        # 載入配置
+        self.config_loader = ConfigLoader(logger=self.logger)
+        self.config = self.config_loader.load_config(config_path)
+        
+        # 初始化 WebDriver 管理器
+        self.webdriver_manager = WebDriverManager(self.config, logger=self.logger)
+        
+        # 調用父類初始化
+        super().__init__(config_path, self.webdriver_manager, self.logger)
+    
+    def setup(self):
+        """設置爬蟲環境"""
+        self.logger.info("設置爬蟲環境")
+        self.webdriver_manager.setup()
+    
+    def run(self):
+        """執行爬蟲任務"""
+        self.logger.info("執行爬蟲任務")
+        
+        # 獲取搜尋關鍵字
+        query = self.config.get("search", {}).get("query", "Python Selenium 爬蟲")
+        self.logger.info(f"搜尋關鍵字: {query}")
+        
+        # 搜尋 Google
+        results = self.search_google(query)
+        
+        # 保存搜尋結果
+        output_path = self.save_results(results)
+        
+        self.logger.info(f"爬蟲任務完成，結果已保存到: {output_path}")
+        return output_path
+    
+    def search_google(self, query):
+        """搜尋 Google"""
+        self.logger.info(f"搜尋 Google: {query}")
+        
+        # 構建搜尋 URL
+        search_url = f"https://www.google.com/search?q={query}"
+        self.logger.info(f"搜尋 URL: {search_url}")
+        
+        # 訪問搜尋頁面
+        self.webdriver_manager.driver.get(search_url)
+        
+        # 等待搜尋結果出現
+        self.webdriver_manager.wait_for_element(By.ID, "search")
+        
+        # 提取搜尋結果
+        results = []
+        search_results = self.webdriver_manager.driver.find_elements(By.CSS_SELECTOR, "div.g")
+        
+        for result in search_results:
+            try:
+                title_element = result.find_element(By.CSS_SELECTOR, "h3")
+                link_element = result.find_element(By.CSS_SELECTOR, "a")
+                snippet_element = result.find_element(By.CSS_SELECTOR, "div.VwiC3b")
+                
+                title = title_element.text
+                link = link_element.get_attribute("href")
+                snippet = snippet_element.text
+                
+                results.append({
+                    "title": title,
+                    "url": link,
+                    "snippet": snippet
+                })
+            except Exception as e:
+                self.logger.error(f"提取搜尋結果時出錯: {str(e)}")
+        
+        self.logger.info(f"提取到 {len(results)} 條搜尋結果")
+        return results
+    
+    def save_results(self, results):
+        """保存搜尋結果"""
+        self.logger.info("保存搜尋結果")
+        
+        # 獲取輸出路徑
+        output_path = self.config.get("output", {}).get("path")
+        if not output_path:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = os.path.join("data/output", f"google_search_{timestamp}.json")
+        
+        # 確保輸出目錄存在
+        output_dir = os.path.dirname(output_path)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+        
+        # 保存搜尋結果
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(results, f, ensure_ascii=False, indent=2)
+        
+        self.logger.info(f"搜尋結果已保存到: {output_path}")
+        return output_path
+    
+    def cleanup(self):
+        """清理資源"""
+        self.logger.info("清理資源")
+        self.webdriver_manager.cleanup()
+
+def main():
+    """主函數"""
+    # 配置文件路徑
+    config_path = "examples/config/google/formal/search/config.json"
+    
+    # 創建爬蟲實例
+    crawler = GoogleSearchCrawler(config_path)
+    
+    try:
+        # 設置爬蟲環境
+        crawler.setup()
+        
+        # 執行爬蟲任務
+        output_path = crawler.run()
+        
+        print(f"爬蟲任務完成，結果已保存到: {output_path}")
+    finally:
+        # 清理資源
+        crawler.cleanup()
+
+if __name__ == "__main__":
+    main()
+```
+
+## 常見問題處理
+
+### 1. 瀏覽器驅動程式問題
+
+**問題**：無法找到瀏覽器驅動程式。
+
+**解決方案**：
+- 使用 webdriver-manager 自動下載驅動程式：
+```python
+  from webdriver_manager.chrome import ChromeDriverManager
+  from selenium.webdriver.chrome.service import Service
+  
+  service = Service(ChromeDriverManager().install())
+  driver = webdriver.Chrome(service=service)
+  ```
+- 手動下載驅動程式並指定路徑：
+  ```python
+  from selenium.webdriver.chrome.service import Service
+  
+  service = Service("/path/to/chromedriver")
+  driver = webdriver.Chrome(service=service)
+  ```
+
+### 2. 元素定位問題
+
+**問題**：無法找到頁面元素。
+
+**解決方案**：
+- 使用多種定位方式：
+```python
+  # 使用 XPath
+  element = driver.find_element(By.XPATH, "//div[@id='search']")
+  
+  # 使用 CSS 選擇器
+  element = driver.find_element(By.CSS_SELECTOR, "#search")
+  
+  # 使用 ID
+  element = driver.find_element(By.ID, "search")
+  ```
+- 等待元素出現：
+  ```python
+  from selenium.webdriver.support.ui import WebDriverWait
+  from selenium.webdriver.support import expected_conditions as EC
+  
+  wait = WebDriverWait(driver, 10)
+  element = wait.until(EC.presence_of_element_located((By.XPATH, "//div[@id='search']")))
+  ```
+
+### 3. 驗證碼問題
+
+**問題**：遇到驗證碼無法繼續爬取。
+
+**解決方案**：
+- 使用驗證碼處理器：
+  ```python
+  from src.captcha import CaptchaHandler
+  
+  captcha_handler = CaptchaHandler(webdriver_manager, logger)
+  if captcha_handler.detect_captcha(["//div[contains(@class, 'g-recaptcha')]"]):
+      captcha_handler.handle_captcha("//div[contains(@class, 'g-recaptcha')]")
+  ```
+- 增加延遲時間：
+  ```python
+  # 增加頁面載入延遲
+  delays = config.get("delays", {})
+  page_load_delay = delays.get("page_load", 3)
+  time.sleep(page_load_delay)
+  ```
+
+### 4. 反爬蟲問題
+
+**問題**：被網站偵測為爬蟲。
+
+**解決方案**：
+- 使用反爬蟲設定：
+  ```python
+  # 啟用反爬蟲設定
+  anti_detection = config.get("anti_detection", {})
+  if anti_detection.get("enabled", False):
+      # 應用反爬蟲設定
+      webdriver_manager._apply_stealth_techniques()
+  ```
+- 使用代理伺服器：
+  ```python
+  # 使用代理伺服器
+  proxy = config.get("proxy", {})
+  if proxy.get("enabled", False):
+      chrome_options.add_argument(f"--proxy-server={proxy.get('type', 'http')}://{proxy.get('host')}:{proxy.get('port')}")
+  ```
+- 模擬人類行為：
+  ```python
+  # 模擬人類行為
+  human_behavior = config.get("human_behavior", {})
+  if human_behavior.get("enabled", False):
+      # 模擬滑鼠移動
+      if human_behavior.get("mouse_movement", {}).get("enabled", False):
+          webdriver_manager.simulate_mouse_movement()
+      
+      # 模擬滾動
+      if human_behavior.get("scrolling", {}).get("enabled", False):
+          webdriver_manager.scroll_page()
+  ```
+
+### 5. 斷點續爬問題
+
+**問題**：爬蟲中斷後無法從上次的位置繼續爬取。
+
+**解決方案**：
+- 使用狀態管理器：
+```python
+  from src.core.crawler_state_manager import CrawlerStateManager
+  
+  state_manager = CrawlerStateManager(
+      crawler_id="custom_crawler",
+      config=config,
+      state_dir="data/state",
+      log_level=logging.INFO
+  )
+  
+  # 保存狀態
+  state_manager.save_state({
+      "current_page": current_page,
+      "processed_items": processed_items,
+      "last_item_id": last_item_id
+  })
+  
+  # 載入狀態
+  state = state_manager.load_state()
+  if state:
+      current_page = state.get("current_page", 1)
+      processed_items = state.get("processed_items", 0)
+      last_item_id = state.get("last_item_id", None)
+  ```
+- 定期保存狀態：
+  ```python
+  # 定期保存狀態
+  save_interval = config.get("recovery", {}).get("save_state", {}).get("interval", 10)
+  if processed_items % save_interval == 0:
+      state_manager.save_state({
+          "current_page": current_page,
+          "processed_items": processed_items,
+          "last_item_id": last_item_id
+      })
+  ```
+
+### 6. 數據持久化問題
+
+**問題**：無法將爬取的數據保存到本地或資料庫。
+
+**解決方案**：
+- 使用本地文件存儲：
+```python
+  # 保存為 JSON 文件
+  def save_results(results, output_path=None):
+      if not output_path:
+          timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+          output_path = os.path.join("data/output", f"results_{timestamp}.json")
+      
+      output_dir = os.path.dirname(output_path)
+      if output_dir and not os.path.exists(output_dir):
+          os.makedirs(output_dir, exist_ok=True)
+      
+      with open(output_path, 'w', encoding='utf-8') as f:
+          json.dump(results, f, ensure_ascii=False, indent=2)
+  ```
+- 使用資料庫存儲：
+  ```python
+  # 使用 MongoDB 存儲
+  from pymongo import MongoClient
+  
+  client = MongoClient(
+      host=config.get("mongodb", {}).get("host", "localhost"),
+      port=config.get("mongodb", {}).get("port", 27017),
+      username=config.get("mongodb", {}).get("username"),
+      password=config.get("mongodb", {}).get("password"),
+      authSource=config.get("mongodb", {}).get("auth_source", "admin")
+  )
+  
+  db = client[config.get("mongodb", {}).get("database", "web_crawler")]
+  collection = db[config.get("mongodb", {}).get("collection_prefix", "") + "results"]
+  
+  collection.insert_many(results)
 ```
