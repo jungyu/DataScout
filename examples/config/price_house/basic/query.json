@@ -1,230 +1,233 @@
 {
-    "site_name": "實價登錄",
-    "base_url": "https://price.houseprice.tw/list",
-    "encoding": "utf-8",
-    "description": "實價登錄爬蟲程式",
-    "version": "1.0.0",
-    "request": {
-      "method": "GET",
-      "headers": {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
-      }
+  "site_name": "實價登錄",
+  "base_url": "https://price.houseprice.tw/list",
+  "encoding": "utf-8",
+  "description": "實價登錄爬蟲程式",
+  "version": "1.0.0",
+  "request": {
+    "method": "GET",
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+    }
+  },
+  "delays": {
+    "page_load": 3,
+    "between_pages": 2,
+    "between_items": 0.5,
+    "scroll": 1,
+    "finish": 3
+  },
+  "search_parameters": {
+    "city": {
+      "default": "台北市",
+      "container_selector": "//div[contains(@class,'area_search')]//div[contains(@class,'custom_select_2')][1]",
+      "option_selector": "//section[contains(@class,'level_1')]//label[contains(@class,'custom-radio')]//span[text()='{value}']"
     },
-    "delays": {
-      "page_load": 3,
-      "between_pages": 2,
-      "between_items": 0.5,
-      "scroll": 1,
-      "finish": 3
+    "district": {
+      "default": "大安區",
+      "container_selector": "//div[contains(@class,'area_search')]//div[contains(@class,'custom_select_2')][2]",
+      "option_selector": "//section[contains(@class,'level_2')]//label[contains(@class,'custom-radio')]//span[text()='{value}']"
     },
-    "search_parameters": {
-      "city": {
-        "default": "屏東縣",
-        "container_selector": "//div[contains(@class,'search_box')]//div[contains(@class,'area_search')]",
-        "open_selector": "//div[contains(@class,'search_box')]//div[contains(@class,'area_search')]//div[@class='custom_select_2']",
-        "option_selector": "//div[contains(@class,'search_box')]//section[contains(@class,'level_1')]//label[span[text()='{value}']]",
-        "description": "縣市選擇"
+    "building_type": {
+      "default": "住宅大樓",
+      "container_selector": "//div[contains(@class,'rp_use')]//div[contains(@class,'custom_select_2')]",
+      "option_selector": "//div[contains(@class,'rp_use')]//ul//li//label//span[contains(text(),'{value}')]"
+    },
+    "search_button": {
+      "selector": "//a[@class='search_btn']"
+    }
+  },
+  "list_page": {
+    "container_xpath": "//div[contains(@class, 'lay_980')]",
+    "item_xpath": "//tr[@class='group'][@data-sid]",
+    "total_count_xpath": "//ul[contains(@class,'page_tab_detail')]/li[contains(text(), '共')]",
+    "fields": {
+      "transaction_date": {
+        "xpath": "./td[1]/text()",
+        "type": "text",
+        "description": "交易日期"
       },
-      "district": {
-        "default": "內埔鄉",
-        "container_selector": "//div[contains(@class,'search_box')]//section[contains(@class,'level_2')]",
-        "option_selector": "//div[contains(@class,'search_box')]//section[contains(@class,'level_2')]//label[span[text()='{value}']]",
-        "wait_after_city": true,
-        "description": "鄉鎮區選擇"
+      "address": {
+        "xpath": "./td[contains(@class,'addr')]/div/p/text()",
+        "fallback_xpath": "./td[2]/div/p/text()",
+        "type": "text",
+        "description": "地址"
+      },
+      "transaction_type": {
+        "xpath": "./td[3]/text()",
+        "type": "text",
+        "description": "交易類型"
+      },
+      "total_price": {
+        "xpath": "./td[4]/p/span[contains(@class,'txt_color_price')]/text()",
+        "fallback_xpath": "./td[4]/p/span/text()",
+        "type": "text",
+        "description": "總價"
+      },
+      "unit_price": {
+        "xpath": "./td[5]//span[contains(@class,'txt_color_price')]/text()",
+        "fallback_xpath": "./td[5]/div/p/span/text()",
+        "type": "text",
+        "description": "單價"
+      },
+      "building_area": {
+        "xpath": "./td[6]/p/span/text()",
+        "fallback_xpath": "./td[6]/p/text()",
+        "type": "text",
+        "description": "建物坪數"
+      },
+      "land_area": {
+        "xpath": "./td[7]/text()",
+        "type": "text",
+        "description": "土地坪數"
+      },
+      "floor": {
+        "xpath": "./td[8]/text()",
+        "type": "text",
+        "description": "樓層"
+      },
+      "building_age": {
+        "xpath": "./td[9]/text()",
+        "type": "text",
+        "description": "屋齡"
+      },
+      "detail_link": {
+        "xpath": "./@data-sid",
+        "type": "attribute",
+        "description": "詳情連結ID"
+      },
+      "has_parking": {
+        "xpath": "./td[4]/p[@class='txt_color_g'][contains(text(), '含車位')]/text()",
+        "type": "text",
+        "description": "是否含車位"
+      },
+      "community_name": {
+        "xpath": "./td[contains(@class,'addr')]//ul/li//a[contains(@title, '社區比價')]/text()",
+        "type": "text",
+        "description": "社區名稱"
+      }
+    }
+  },
+  "detail_page": {
+    "url_pattern": "https://price.houseprice.tw/dealcase/{sid}",
+    "container_xpath": "//div[@class='realprice-list-detail-content']",
+    "fields": {
+      "full_address": {
+        "xpath": ".//span[@class='address']/text()",
+        "type": "text",
+        "description": "完整地址"
       },
       "building_type": {
-        "default": "建物型態不限",
-        "container_selector": "//div[contains(@class,'search_box')]//div[@class='select_area advanced_search rp_use']",
-        "open_selector": "//div[contains(@class,'search_box')]//div[@class='select_area advanced_search rp_use']//div[@class='custom_select_2']",
-        "option_selector": "//div[contains(@class,'search_box')]//div[@class='select_area advanced_search rp_use']//label[span[text()='{value}']]",
-        "options": [
-          "建物型態不限", "住宅大樓/華廈", "無電梯公寓", "套房", 
-          "透天厝/別墅", "店面", "辦公", "廠辦/工廠", "土地", "車位"
-        ],
-        "description": "建物型態選擇"
+        "xpath": ".//div[@class='basic-info-content']//ul[@class='profile-lists']/li[1]/text()",
+        "type": "text",
+        "description": "建築類型"
       },
-      "search_button": {
-        "selector": "//a[@class='search_btn']",
-        "description": "搜尋按鈕",
-        "wait_after_click": 5
-      }
-    },
-    "list_page": {
-      "container_xpath": "//div[contains(@class, 'table-responsive')]",
-      "item_xpath": "//tr[@class='group'][@data-sid]",
-      "total_count_xpath": "//ul[contains(@class,'page_tab_detail')]/text()",
-      "fields": {
-        "transaction_date": {
-          "xpath": "./td[1]/text()",
-          "type": "text",
-          "description": "交易日期"
-        },
-        "address": {
-          "xpath": "./td[@class='addr']/div/p/text()",
-          "fallback_xpath": "./td[2]/div/p/text()",
-          "type": "text",
-          "description": "地址"
-        },
-        "transaction_type": {
-          "xpath": "./td[3]/text()",
-          "type": "text",
-          "description": "交易類型"
-        },
-        "total": {
-          "xpath": "./td[4]/p/span[@class='txt_color_price']/text()",
-          "fallback_xpath": "./td[4]/p/span/text()",
-          "type": "text",
-          "description": "總價"
-        },
-        "price": {
-          "xpath": "./td[5]//span[@class='txt_color_price']/text()",
-          "fallback_xpath": "./td[5]/div/p/span/text()",
-          "type": "text",
-          "description": "單價"
-        },
-        "building_area": {
-          "xpath": "./td[6]/p/span/text()",
-          "fallback_xpath": "./td[6]/p/text()",
-          "type": "text",
-          "description": "建物坪數"
-        },
-        "land_area": {
-          "xpath": "./td[7]/text()",
-          "type": "text",
-          "description": "土地坪數"
-        },
-        "floor": {
-          "xpath": "./td[8]/text()",
-          "type": "text",
-          "description": "樓層"
-        },
-        "building_age": {
-          "xpath": "./td[9]/text()",
-          "type": "text",
-          "description": "屋齡"
-        },
-        "detail_link": {
-          "xpath": "./@data-sid",
-          "type": "attribute",
-          "description": "詳情連結ID"
-        }
-      }
-    },
-    "detail_page": {
-      "url_pattern": "https://price.houseprice.tw/dealcase/{sid}",
-      "container_xpath": "//div[@class='realprice-list-detail-content']",
-      "fields": {
-        "full_address": {
-          "xpath": ".//span[@class='address']/text()",
-          "type": "text",
-          "description": "完整地址"
-        },
-        "building_type": {
-          "xpath": ".//div[@class='basic-info-content']//ul[@class='profile-lists']/li[1]/text()",
-          "type": "text",
-          "description": "建築類型"
-        },
-        "room_layout": {
-          "xpath": ".//div[@class='basic-info-content']//ul[@class='profile-lists']/li[2]",
-          "type": "html",
-          "description": "房間格局"
-        },
-        "building_age": {
-          "xpath": ".//div[@class='basic-info-content']//ul[@class='profile-lists']/li[3]/text()",
-          "type": "text",
-          "description": "屋齡"
-        },
-        "floor_info": {
-          "xpath": ".//div[@class='basic-info-content']//ul[@class='profile-lists']/li[4]/text()",
-          "type": "text",
-          "description": "詳細樓層"
-        },
-        "building_area_total": {
-          "xpath": ".//div[@class='building']//div[@class='building-ping']/span[@class='font-bold']/text()",
-          "type": "text",
-          "description": "總建物坪數"
-        },
-        "building_area_inside": {
-          "xpath": ".//div[@class='building-detail']//li[1]//span[@class='price-number']/text()",
-          "type": "text",
-          "description": "室內使用坪數"
-        },
-        "building_area_common": {
-          "xpath": ".//div[@class='building-detail']//li[2]//span[@class='price-number']/text()",
-          "type": "text",
-          "description": "共有部分坪數"
-        },
-        "land_area_total": {
-          "xpath": ".//div[@class='land']//div[@class='land-ping']/span[@class='font-bold']/text()",
-          "type": "text",
-          "description": "總土地坪數"
-        },
-        "land_usage": {
-          "xpath": ".//div[@class='land-detail']/ul/li/text()",
-          "type": "text",
-          "description": "土地使用分區"
-        },
-        "transaction_date_detail": {
-          "xpath": ".//div[@class='trade-record']//div[@class='date']/text()",
-          "type": "text",
-          "description": "詳細交易日期"
-        },
-        "price_total": {
-          "xpath": ".//div[@class='total-price-number-content']/span[@class='mark']/text()",
-          "type": "text",
-          "description": "交易總價(詳細)"
-        },
-        "price_per_ping": {
-          "xpath": ".//div[@class='pingsPrice']//span[@class='mark']/text()",
-          "type": "text",
-          "description": "每坪單價(詳細)"
-        },
-        "building_count": {
-          "xpath": ".//div[@class='building-count']/text()",
-          "type": "text",
-          "description": "建物筆數"
-        },
-        "land_count": {
-          "xpath": ".//div[@class='land-count']/text()",
-          "type": "text",
-          "description": "土地筆數"
-        },
-        "parking_count": {
-          "xpath": ".//div[@class='profile-content']/div[2]/text()",
-          "type": "text",
-          "description": "車位數量"
-        }
-      }
-    },
-    "pagination": {
-      "items_per_page": 20,
-      "total_count_xpath": "//ul[contains(@class,'page_tab_detail')]/li",
-      "url_pattern": "{current_url}?p={page_number}",
-      "max_pages": 2
-    },
-    "advanced_settings": {
-      "save_error_page": true,
-      "error_page_dir": "../debug",
-      "max_results_per_page": 100,
-      "text_cleaning": {
-        "remove_extra_whitespace": true,
-        "trim_strings": true
+      "room_layout": {
+        "xpath": ".//div[@class='basic-info-content']//ul[@class='profile-lists']/li[2]",
+        "type": "html",
+        "description": "房間格局"
       },
-      "url_format": {
-        "pattern": "{base_url}/{city}_city/{district}_zip/{building_type_param}",
-        "encode_parameters": true,
-        "building_type_mapping": {
-          "建物型態不限": "",
-          "住宅大樓/華廈": "住宅大樓華廈_use",
-          "無電梯公寓": "無電梯公寓_use",
-          "套房": "套房_use",
-          "透天厝/別墅": "透天厝別墅_use",
-          "店面": "店面_use",
-          "辦公": "辦公_use",
-          "廠辦/工廠": "廠辦工廠_use",
-          "土地": "土地_use",
-          "車位": "車位_use"
-        }
+      "building_age": {
+        "xpath": ".//div[@class='basic-info-content']//ul[@class='profile-lists']/li[3]/text()",
+        "type": "text",
+        "description": "屋齡"
+      },
+      "floor_info": {
+        "xpath": ".//div[@class='basic-info-content']//ul[@class='profile-lists']/li[4]/text()",
+        "type": "text",
+        "description": "詳細樓層"
+      },
+      "building_area_total": {
+        "xpath": ".//div[@class='building']//div[@class='building-ping']/span[@class='font-bold']/text()",
+        "type": "text",
+        "description": "總建物坪數"
+      },
+      "building_area_inside": {
+        "xpath": ".//div[@class='building-detail']//li[1]//span[@class='price-number']/text()",
+        "type": "text",
+        "description": "室內使用坪數"
+      },
+      "building_area_common": {
+        "xpath": ".//div[@class='building-detail']//li[2]//span[@class='price-number']/text()",
+        "type": "text",
+        "description": "共有部分坪數"
+      },
+      "land_area_total": {
+        "xpath": ".//div[@class='land']//div[@class='land-ping']/span[@class='font-bold']/text()",
+        "type": "text",
+        "description": "總土地坪數"
+      },
+      "land_usage": {
+        "xpath": ".//div[@class='land-detail']/ul/li/text()",
+        "type": "text",
+        "description": "土地使用分區"
+      },
+      "transaction_date_detail": {
+        "xpath": ".//div[@class='trade-record']//div[@class='date']/text()",
+        "type": "text",
+        "description": "詳細交易日期"
+      },
+      "price_total": {
+        "xpath": ".//div[@class='total-price-number-content']/span[@class='mark']/text()",
+        "type": "text",
+        "description": "交易總價(詳細)"
+      },
+      "price_per_ping": {
+        "xpath": ".//div[@class='pingsPrice']//span[@class='mark']/text()",
+        "type": "text",
+        "description": "每坪單價(詳細)"
+      },
+      "building_count": {
+        "xpath": ".//div[@class='building-count']/text()",
+        "type": "text",
+        "description": "建物筆數"
+      },
+      "land_count": {
+        "xpath": ".//div[@class='land-count']/text()",
+        "type": "text",
+        "description": "土地筆數"
+      },
+      "parking_count": {
+        "xpath": ".//div[@class='profile-content']/div[2]/text()",
+        "type": "text",
+        "description": "車位數量"
+      },
+      "remarks": {
+        "xpath": ".//div[contains(@tooltip,'備註:')]//@tooltip",
+        "type": "text",
+        "description": "備註說明"
+      }
+    }
+  },
+  "pagination": {
+    "items_per_page": 20,
+    "total_count_xpath": "//ul[contains(@class,'page_tab_detail')]/li[contains(text(), '共')]",
+    "url_pattern": "{current_url}?p={page_number}",
+    "max_pages": 2
+  },
+  "advanced_settings": {
+    "save_error_page": true,
+    "error_page_dir": "debug",
+    "max_results_per_page": 100,
+    "text_cleaning": {
+      "remove_extra_whitespace": true,
+      "trim_strings": true
+    },
+    "url_format": {
+      "pattern": "{base_url}/{city}_city/{district}_zip/{building_type_param}",
+      "encode_parameters": true,
+      "building_type_mapping": {
+        "建物型態不限": "",
+        "住宅大樓/華廈": "住宅大樓華廈_use",
+        "無電梯公寓": "無電梯公寓_use",
+        "套房": "套房_use",
+        "透天厝/別墅": "透天厝別墅_use",
+        "店面": "店面_use",
+        "辦公": "辦公_use",
+        "廠辦/工廠": "廠辦工廠_use",
+        "土地": "土地_use",
+        "車位": "車位_use"
       }
     }
   }
+}
