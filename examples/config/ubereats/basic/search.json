@@ -1,54 +1,71 @@
 {
     "site_name": "UberEats",
-    "base_url": "https://www.ubereats.com",
+    "base_url": "https://www.ubereats.com/tw",
     "encoding": "utf-8",
     "description": "UberEats爬蟲程式",
     "version": "1.0.0",
     "request": {
       "method": "GET",
       "headers": {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       }
     },
     "delays": {
-      "page_load": 5,
-      "between_pages": 3,
-      "between_items": 1,
-      "scroll": 1.5,
-      "finish": 3
+      "page_load": 10,
+      "between_pages": 5,
+      "between_items": 2,
+      "scroll": 2,
+      "finish": 5
     },
     "search_parameters": {
       "address": {
         "default": "屏東縣內埔鄉學府路1號",
-        "input_selector": "//input[@data-test='address-field-input']",
-        "submit_selector": "//button[@data-test='address-field-submit']",
-        "wait_after_submit": 5,
-        "description": "送餐地址"
+        "input_selector": "//input[@id='location-typeahead-home-input']",
+        "submit_selector": "//button[text()='尋找食物']",
+        "submit_js": "document.querySelector('button.e9').click()",
+        "wait_after_submit": 10
+      },
+      "keyword": {
+        "default": "咖啡",
+        "input_selector": "//input[@data-test='search-suggestions-input' or @placeholder='搜尋餐廳或美食' or @placeholder='Search for restaurants or items']",
+        "submit_selector": "//button[@data-test='search-suggestions-button' or @type='submit' or @aria-label='搜尋' or contains(., '搜尋')]",
+        "wait_after_submit": 5
       },
       "want": {
         "default": "咖啡",
-        "input_selector": "//input[@data-test='search-input']",
-        "submit_selector": "//button[@data-test='search-submit']",
-        "wait_after_submit": 5,
+        "input_selector": "//input[@placeholder='搜尋餐廳或美食' or @placeholder='Search for restaurants or items']",
+        "submit_selector": "//button[@type='submit' or @aria-label='搜尋' or contains(., '搜尋')]",
+        "backup_selectors": [
+          "//button[contains(@class, 'search-button')]",
+          "//button[contains(@class, 'submit-button')]",
+          "//button[contains(., 'Search')]"
+        ],
+        "wait_after_submit": 10,
         "description": "搜尋關鍵字"
       },
       "wantStore": {
         "default": "巨森早午餐",
         "selector": "//a[contains(@href, '/store/') and contains(., '{value}')]",
-        "wait_after_click": 5,
+        "backup_selectors": [
+          "//div[contains(@class, 'store-card')]//a[contains(., '{value}')]",
+          "//div[contains(@class, 'restaurant-card')]//a[contains(., '{value}')]",
+          "//*[contains(text(), '{value}')]/ancestor::a"
+        ],
+        "wait_after_click": 10,
         "description": "目標餐廳"
       },
       "wantCategory": {
         "default": "人氣精選",
-        "selector": "//button[@data-baseweb='tab']//span[contains(text(), '{value}')]/parent::button",
+        "selector": "//button[contains(., '{value}')]",
         "backup_selectors": [
+          "//button[@data-baseweb='tab']//span[contains(text(), '{value}')]/parent::button",
           "//button[@data-baseweb='tab']//span[text()='{value}']/parent::button",
           "//div[@data-baseweb='tab-list']//button//span[contains(text(), '{value}')]/parent::button",
           "//button/div[text()='{value}']/parent::button",
-          "//button[contains(., '{value}')]"
+          "//*[contains(text(), '{value}')]/ancestor::button"
         ],
         "tab_list_selector": "//div[@data-baseweb='tab-list']",
-        "wait_after_click": 3,
+        "wait_after_click": 5,
         "description": "餐點類別"
       },
       "wantItem": {
@@ -57,45 +74,57 @@
         "selector": "//span[contains(text(), '{value}')]/ancestor::a",
         "backup_selectors": [
           "//li[@data-testid='store-item']//span[contains(text(), '{value}')]/ancestor::li",
-          "//span[text()='{value}']/ancestor::a"
+          "//span[text()='{value}']/ancestor::a",
+          "//*[contains(text(), '{value}')]/ancestor::a",
+          "//*[contains(text(), '{value}')]/ancestor::div[contains(@class, 'menu-item')]"
         ],
-        "wait_after_click": 3,
+        "wait_after_click": 5,
         "description": "目標餐點"
       },
       "wantOption": {
         "default": "原味",
         "selector": "//label[contains(., '{value}')]",
-        "wait_after_click": 1,
+        "backup_selectors": [
+          "//input[@type='radio']/following-sibling::label[contains(., '{value}')]",
+          "//*[contains(text(), '{value}')]/ancestor::label"
+        ],
+        "wait_after_click": 2,
         "description": "餐點選項"
       },
       "addToCart": {
-        "selector": "//button[@data-test='add-to-cart-button']",
+        "selector": "//button[contains(., '加入購物車') or contains(., 'Add to cart')]",
+        "backup_selectors": [
+          "//button[contains(@class, 'add-to-cart')]",
+          "//button[contains(@class, 'cart-button')]",
+          "//button[contains(., '加入')]",
+          "//button[contains(., 'Add')]"
+        ],
         "description": "加入購物車按鈕",
-        "wait_after_click": 2
+        "wait_after_click": 3
       }
     },
     "list_page": {
-      "container_xpath": "//div[@data-test='restaurant-list']",
-      "item_xpath": "//a[@data-test='store-link']",
-      "total_count_xpath": "//div[@data-test='store-count']/text()",
+      "container_xpath": "//div[@data-testid='store-list']",
+      "item_xpath": ".//a[contains(@href, '/store/')]",
+      "total_count_xpath": "//div[@data-testid='store-count']/text()",
       "fields": {
         "restaurant_name": {
-          "xpath": ".//h3[@data-test='store-name']/text()",
+          "xpath": ".//h3[@data-testid='store-name' or contains(@class, 'store-name')]/text()",
           "type": "text",
           "description": "餐廳名稱"
         },
         "restaurant_rating": {
-          "xpath": ".//div[@data-test='rating']/text()",
+          "xpath": ".//div[@data-testid='rating' or contains(@class, 'rating')]/text()",
           "type": "text",
           "description": "餐廳評分"
         },
         "delivery_time": {
-          "xpath": ".//div[@data-test='delivery-time']/text()",
+          "xpath": ".//div[@data-testid='delivery-time' or contains(@class, 'delivery-time')]/text()",
           "type": "text",
           "description": "送達時間"
         },
         "delivery_fee": {
-          "xpath": ".//div[@data-test='delivery-fee']/text()",
+          "xpath": ".//div[@data-testid='delivery-fee' or contains(@class, 'delivery-fee')]/text()",
           "type": "text",
           "description": "外送費"
         },
@@ -109,43 +138,44 @@
           "type": "attribute",
           "description": "詳情連結"
         }
-      }
+      },
+      "next_page_xpath": "//button[contains(@aria-label, '下一頁')]"
     },
     "detail_page": {
       "url_pattern": "{base_url}{detail_link}",
-      "container_xpath": "//div[@data-test='menu-container']",
+      "container_xpath": "//div[@data-testid='menu-container' or contains(@class, 'menu-container')]",
       "fields": {
         "restaurant_name": {
-          "xpath": "//h1[@data-test='store-name']/text()",
+          "xpath": "//h1[@data-testid='store-name' or contains(@class, 'store-name')]/text()",
           "type": "text",
           "description": "餐廳名稱"
         },
         "restaurant_rating": {
-          "xpath": "//div[@data-test='ratings-and-reviews']/text()",
+          "xpath": "//div[@data-testid='ratings-and-reviews' or contains(@class, 'ratings')]/text()",
           "type": "text",
           "description": "餐廳評分"
         },
         "categories": {
-          "xpath": "//div[@data-test='category-list']//button/text()",
+          "xpath": "//div[@data-testid='category-list' or contains(@class, 'category-list')]//button/text()",
           "type": "list",
           "description": "菜單類別"
         },
         "menu_items": {
-          "container_xpath": "//div[@data-test='menu-item-list']",
-          "item_xpath": ".//div[@data-test='menu-item']",
+          "container_xpath": "//div[@data-testid='menu-item-list' or contains(@class, 'menu-item-list')]",
+          "item_xpath": ".//div[@data-testid='menu-item' or contains(@class, 'menu-item')]",
           "fields": {
             "item_name": {
-              "xpath": ".//h4[@data-test='item-name']/text()",
+              "xpath": ".//h4[@data-testid='item-name' or contains(@class, 'item-name')]/text()",
               "type": "text",
               "description": "餐點名稱"
             },
             "item_price": {
-              "xpath": ".//span[@data-test='item-price']/text()",
+              "xpath": ".//span[@data-testid='item-price' or contains(@class, 'item-price')]/text()",
               "type": "text",
               "description": "餐點價格"
             },
             "item_description": {
-              "xpath": ".//p[@data-test='item-description']/text()",
+              "xpath": ".//p[@data-testid='item-description' or contains(@class, 'item-description')]/text()",
               "type": "text",
               "description": "餐點描述"
             },
@@ -160,7 +190,7 @@
     },
     "pagination": {
       "items_per_page": 20,
-      "load_more_selector": "//button[@data-test='load-more']",
+      "load_more_selector": "//button[@data-testid='load-more' or contains(@class, 'load-more')]",
       "max_pages": 3
     },
     "advanced_settings": {
@@ -172,7 +202,7 @@
         "trim_strings": true
       },
       "url_format": {
-        "pattern": "{base_url}/tw/feed?pl={encoded_address}&q={encoded_search}",
+        "pattern": "{base_url}/feed?pl={encoded_address}&q={encoded_search}",
         "encode_parameters": true
       },
       "login_required": false,
@@ -183,7 +213,7 @@
       },
       "scroll_behavior": {
         "enable_lazy_loading": true,
-        "scroll_pause": 1.5,
+        "scroll_pause": 2,
         "max_scroll_attempts": 5
       }
     }
