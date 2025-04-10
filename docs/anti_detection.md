@@ -33,6 +33,15 @@ src/anti_detection/
 └── stealth_scripts/             # 隱藏腳本目錄
     ├── browser_fp.js            # 瀏覽器指紋隱藏腳本
     └── config.js                # 隱藏腳本配置
+└── captcha/                     # 驗證碼處理模組
+    ├── __init__.py              # 驗證碼模組初始化文件
+    ├── handlers/                # 驗證碼處理器目錄
+    │   ├── __init__.py          # 處理器初始化文件
+    │   ├── poker_captcha.py     # 撲克牌驗證碼處理器
+    │   └── advanced_poker_captcha.py # 高級撲克牌驗證碼處理器
+    └── utils/                   # 驗證碼工具目錄
+        ├── __init__.py          # 工具初始化文件
+        └── image_utils.py       # 圖像處理工具
 ```
 
 ## 核心模組
@@ -231,6 +240,30 @@ Cookie 配置，包含 Cookie 管理器的各種參數和設置。
 - Cookie 輪換設置
 - 加密設置
 
+## 驗證碼處理模組
+
+驗證碼處理模組提供了一系列功能來處理各種類型的驗證碼。
+
+### 撲克牌驗證碼處理器 (PokerCaptchaSolver)
+
+撲克牌驗證碼處理器負責處理撲克牌類型的驗證碼，包括識別和匹配卡牌。
+
+主要功能：
+- 提取卡牌圖片
+- 識別卡牌顏色
+- 匹配卡牌
+- 自動點擊匹配的卡牌
+
+### 高級撲克牌驗證碼處理器 (AdvancedPokerCaptchaSolver)
+
+高級撲克牌驗證碼處理器提供更進階的撲克牌驗證碼處理功能。
+
+主要功能：
+- 識別卡牌花色
+- 更精確的卡牌匹配
+- 支援模板匹配
+- 更強大的圖像處理
+
 ## 使用方式
 
 ### 基本使用
@@ -265,8 +298,8 @@ driver.quit()
 
 ```python
 from src.anti_detection import AntiDetectionManager
-from src.anti_detection.browser_fingerprint import BrowserFingerprint
-from src.anti_detection.human_behavior import HumanBehaviorSimulator
+from src.anti_detection.utils.browser_fingerprint import BrowserFingerprint
+from src.anti_detection.utils.human_behavior import HumanBehaviorSimulator
 from src.anti_detection.proxy_manager import ProxyManager
 from src.anti_detection.user_agent_manager import UserAgentManager
 

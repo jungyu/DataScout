@@ -214,55 +214,79 @@ def load_config(config_path: str) -> Dict:
 # ===== 瀏覽器控制區 =====
 
 def setup_webdriver(config: Dict) -> webdriver.Chrome:
-    """設置並初始化 WebDriver"""
+    """設置並初始化 WebDriver，包含自動下載機制"""
     print("正在設置 Chrome WebDriver...")
-    chrome_options = webdriver.ChromeOptions()
     
-    # 從配置文件獲取 User-Agent
-    user_agent = config.get("request", {}).get("headers", {}).get("User-Agent")
-    if user_agent:
-        chrome_options.add_argument(f'user-agent={user_agent}')
-    
-    # 基本設置
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--disable-notifications')  # 禁用通知
-    chrome_options.add_argument('--disable-popup-blocking')  # 禁用彈窗阻止
-    
-    # 啟用JavaScript
-    chrome_options.add_argument('--enable-javascript')
-    
-    # 添加cookie支持
-    chrome_options.add_argument('--enable-cookies')
-    
-    # 禁用CORS以減少潛在的API請求問題
-    chrome_options.add_argument('--disable-web-security')
-    chrome_options.add_argument('--allow-running-insecure-content')
-    
-    # 設置頁面加載策略
-    chrome_options.page_load_strategy = 'normal'  # 等待頁面完全加載
-    
-    # 調試模式：不自動關閉瀏覽器
-    chrome_options.add_experimental_option("detach", True)
-    
-    # 啟用詳細日誌記錄(可選)
-    # chrome_options.add_argument('--verbose')
-    # chrome_options.add_argument('--log-level=0')
-    
-    print("初始化 Chrome WebDriver...")
-    driver = webdriver.Chrome(options=chrome_options)
-    driver.maximize_window()
-    
-    # 設置隱式等待時間
-    driver.implicitly_wait(10)
-    
-    # 設置頁面加載超時
-    driver.set_page_load_timeout(30)
-    
-    # 設置腳本超時
-    driver.set_script_timeout(30)
-    
-    return driver
+    try:
+        # 檢查是否安裝了 webdriver_manager
+        try:
+            from webdriver_manager.chrome import ChromeDriverManager
+            from selenium.webdriver.chrome.service import Service
+            print("使用 webdriver_manager 自動下載合適的 ChromeDriver")
+            use_manager = True
+        except ImportError:
+            print("未安裝 webdriver_manager，使用默認 WebDriver 設置")
+            use_manager = False
+        
+        chrome_options = webdriver.ChromeOptions()
+        
+        # 從配置文件獲取 User-Agent
+        user_agent = config.get("request", {}).get("headers", {}).get("User-Agent")
+        if user_agent:
+            chrome_options.add_argument(f'user-agent={user_agent}')
+        
+        # 基本設置
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-notifications')  
+        chrome_options.add_argument('--disable-popup-blocking')
+        chrome_options.add_argument('--enable-javascript')
+        chrome_options.add_argument('--enable-cookies')
+        chrome_options.add_argument('--disable-web-security')
+        chrome_options.add_argument('--allow-running-insecure-content')
+        
+        # 設置頁面加載策略
+        chrome_options.page_load_strategy = 'normal'
+        
+        # 調試模式：不自動關閉瀏覽器
+        chrome_options.add_experimental_option("detach", True)
+        
+        # 使用 webdriver_manager 自動下載合適的驅動
+        if use_manager:
+            print("初始化 Chrome WebDriver，使用自動下載")
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+        else:
+            print("初始化 Chrome WebDriver，使用默認設置")
+            driver = webdriver.Chrome(options=chrome_options)
+        
+        driver.maximize_window()
+        
+        # 設置隱式等待時間
+        driver.implicitly_wait(10)
+        
+        # 設置頁面加載超時
+        driver.set_page_load_timeout(30)
+        
+        # 設置腳本超時
+        driver.set_script_timeout(30)
+        
+        print("WebDriver 初始化成功")
+        return driver
+        
+    except Exception as e:
+        print(f"WebDriver 初始化失敗: {str(e)}")
+        print("嘗試使用備用方法初始化 WebDriver...")
+        
+        try:
+            # 備用方法：嘗試不使用選項初始化
+            print("使用無選項初始化")
+            driver = webdriver.Chrome()
+            print("備用方法成功")
+            return driver
+        except Exception as e2:
+            print(f"備用初始化也失敗: {str(e2)}")
+            raise RuntimeError(f"無法初始化 WebDriver: {str(e)}, 備用方法: {str(e2)}")
 
 
 def wait_for_element(driver: webdriver.Chrome, by: str, selector: str, timeout: int = 10) -> Any:
@@ -734,12 +758,9 @@ def set_address(driver: webdriver.Chrome, search_params: Dict) -> bool:
 
 
 def set_search_keyword(driver: webdriver.Chrome, search_params: Dict) -> bool:
-    """設置搜尋關鍵字"""
+    """設置搜尋關鍵字並使用Enter鍵提交"""
     try:
         want_config = search_params.get("want", {})
-        input_selector = want_config.get("input_selector")
-        submit_selector = want_config.get("submit_selector")
-        backup_selectors = want_config.get("backup_selectors", [])
         default_keyword = want_config.get("default")
         
         if not default_keyword:
@@ -749,133 +770,182 @@ def set_search_keyword(driver: webdriver.Chrome, search_params: Dict) -> bool:
         # 等待頁面加載
         time.sleep(3)
         
-        # 等待搜尋輸入框出現
-        print(f"嘗試定位搜尋輸入框: {input_selector}")
-        search_input = WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='search'], input[aria-label*='搜尋'], input[placeholder*='搜尋']"))
-        )
+        print(f"準備搜尋關鍵字: {default_keyword}")
         
-        # 設置搜尋關鍵字
-        search_input.clear()
-        search_input.send_keys(default_keyword)
-        time.sleep(2)  # 等待輸入完成
+        # 先使用最新的CSS選擇器定位搜索框
+        search_selectors = [
+            "input[data-testid='search-input']",
+            "input[role='combobox']",
+            "input[placeholder*='搜尋']",
+            "input[id*='search']"
+        ]
         
-        # 點擊搜尋按鈕
-        search_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit'], button[aria-label*='搜尋']"))
-        )
-        search_button.click()
-        
-        # 等待餐廳列表出現
-        restaurant_list = WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "div[role='list'], div[class*='restaurant-list'], div[class*='search-results']"))
-        )
-        
-        # 等待餐廳項目出現
-        restaurant_items = WebDriverWait(driver, 10).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div[role='listitem'], div[class*='restaurant-item'], div[class*='search-item']"))
-        )
-        
-        # 如果找不到，嘗試備用選擇器
-        if not search_input:
-            print("使用主選擇器找不到搜尋輸入框，嘗試備用選擇器")
-            backup_input_selectors = [
-                "//input[@placeholder='搜尋餐廳或美食']",
-                "//input[@placeholder='Search for restaurants or items']",
-                "//input[@placeholder='搜尋']",
-                "//input[@placeholder='Search']",
-                "//input[contains(@class, 'search')]"
-            ]
-            
-            for selector in backup_input_selectors:
-                search_input = wait_for_element(driver, By.XPATH, selector)
-                if search_input:
-                    print(f"使用備用選擇器找到搜尋輸入框: {selector}")
-                    break
-        
-        # 如果仍找不到，嘗試使用JavaScript
-        if not search_input:
-            print("無法找到搜尋輸入框，嘗試使用JavaScript")
+        # 嘗試所有可能的選擇器
+        search_input = None
+        for selector in search_selectors:
             try:
-                driver.execute_script(f"""
-                    var inputs = document.querySelectorAll('input');
-                    for (var i = 0; i < inputs.length; i++) {{
-                        var input = inputs[i];
-                        var placeholder = input.getAttribute('placeholder');
-                        if (placeholder && (placeholder.includes('搜尋') || placeholder.includes('Search'))) {{
-                            input.value = "{default_keyword}";
-                            input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                            input.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                            return true;
-                        }}
-                    }}
-                    return false;
-                """)
-                print("使用JavaScript設置搜尋關鍵字")
-                time.sleep(1)
-            except Exception as e:
-                print(f"JavaScript設置搜尋關鍵字失敗: {str(e)}")
-                return False
-        else:
-            # 清除並輸入關鍵字
-            print(f"找到搜尋輸入框，輸入關鍵字: {default_keyword}")
-            search_input.clear()
-            search_input.send_keys(default_keyword)
-            # 按下Enter鍵
-            search_input.send_keys(Keys.ENTER)
-            time.sleep(1)
-        
-        # 嘗試找尋並點擊搜尋按鈕
-        print(f"嘗試定位搜尋按鈕: {submit_selector}")
-        submit_button = wait_for_element(driver, By.XPATH, submit_selector)
-        
-        # 如果找不到，嘗試備用選擇器
-        if not submit_button:
-            print("使用主選擇器找不到搜尋按鈕，嘗試備用選擇器")
-            
-            for selector in backup_selectors:
-                submit_button = wait_for_element(driver, By.XPATH, selector)
-                if submit_button:
-                    print(f"使用備用選擇器找到搜尋按鈕: {selector}")
+                print(f"嘗試選擇器: {selector}")
+                search_input = WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                )
+                if search_input:
+                    print(f"找到搜索框使用選擇器: {selector}")
                     break
-                    
-            if not submit_button:
-                # 嘗試找任何可能的搜尋按鈕
-                additional_selectors = [
-                    "//button[@type='submit']",
-                    "//button[@aria-label='搜尋' or @aria-label='Search']",
-                    "//button[contains(., '搜尋') or contains(., 'Search')]",
-                    "//svg[contains(@aria-label, '搜尋') or contains(@aria-label, 'Search')]/parent::button",
-                    "//button[contains(@class, 'search-button')]"
-                ]
-                
-                for selector in additional_selectors:
-                    submit_button = wait_for_element(driver, By.XPATH, selector)
-                    if submit_button:
-                        print(f"找到可能的搜尋按鈕: {selector}")
-                        break
+            except:
+                continue
         
-        # 如果找到按鈕，點擊它
-        if submit_button:
-            print("找到搜尋按鈕，嘗試點擊")
-            if not safe_click(driver, submit_button):
-                print("點擊搜尋按鈕失敗，嘗試JavaScript點擊")
-                driver.execute_script("arguments[0].click();", submit_button)
+        if not search_input:
+            print("無法找到搜尋輸入框，嘗試JavaScript方法")
+            # 使用JavaScript查找所有輸入框並選擇可能的搜索框
+            search_input_exists = driver.execute_script("""
+                var inputs = document.getElementsByTagName('input');
+                for (var i = 0; i < inputs.length; i++) {
+                    var input = inputs[i];
+                    if (input.type === 'text' || 
+                        input.placeholder.includes('搜尋') || 
+                        input.id.includes('search') ||
+                        input.getAttribute('role') === 'combobox') {
+                        // 先聚焦元素
+                        input.focus();
+                        // 清除當前值
+                        input.value = '';
+                        // 設置新值
+                        input.value = arguments[0];
+                        // 觸發輸入事件
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        return true;
+                    }
+                }
+                return false;
+            """, default_keyword)
+            
+            if not search_input_exists:
+                print("JavaScript無法找到適合的搜索框")
+                return False
+                
+            # 給一點時間讓輸入事件生效
+            time.sleep(1)
+            
+            # 使用JavaScript模擬Enter鍵
+            enter_pressed = driver.execute_script("""
+                var inputs = document.getElementsByTagName('input');
+                for (var i = 0; i < inputs.length; i++) {
+                    var input = inputs[i];
+                    if (input.type === 'text' || 
+                        input.placeholder.includes('搜尋') || 
+                        input.id.includes('search') ||
+                        input.getAttribute('role') === 'combobox') {
+                        // 創建一個鍵盤事件
+                        var e = new KeyboardEvent('keydown', {
+                            bubbles: true, 
+                            cancelable: true, 
+                            key: 'Enter',
+                            keyCode: 13
+                        });
+                        input.dispatchEvent(e);
+                        return true;
+                    }
+                }
+                return false;
+            """)
+            
+            print(f"JavaScript模擬Enter鍵: {'成功' if enter_pressed else '失敗'}")
         else:
-            # 如果找不到按鈕，嘗試使用Enter鍵提交
-            print("找不到搜尋按鈕，已使用Enter鍵提交")
+            # 如果找到了搜索框，先清除它
+            search_input.clear()
+            # 輸入關鍵字
+            search_input.send_keys(default_keyword)
+            print(f"輸入搜尋關鍵字: {default_keyword}")
+            time.sleep(1)
+            
+            # 嘗試三種方法提交搜索
+            
+            # 方法1: 直接按Enter
+            print("方法1: 使用Enter鍵提交搜索")
+            search_input.send_keys(Keys.RETURN)
+            time.sleep(2)
+            
+            # 檢查是否有結果出現
+            try:
+                results = WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "div[role='list'], a[href*='/store/']"))
+                )
+                print("找到搜索結果，Enter鍵提交成功")
+                return True
+            except:
+                print("未檢測到搜索結果，嘗試方法2")
+            
+            # 方法2: 點擊搜索按鈕
+            try:
+                print("方法2: 尋找並點擊搜索按鈕")
+                search_button = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit'], button[aria-label*='搜尋']"))
+                )
+                search_button.click()
+                print("點擊搜索按鈕")
+                time.sleep(3)
+                return True
+            except:
+                print("未找到搜索按鈕，嘗試方法3")
+            
+            # 方法3: JavaScript模擬Enter
+            print("方法3: 使用JavaScript模擬Enter鍵")
+            driver.execute_script("""
+                var event = new KeyboardEvent('keydown', {
+                    key: 'Enter',
+                    code: 'Enter',
+                    keyCode: 13,
+                    which: 13,
+                    bubbles: true
+                });
+                arguments[0].dispatchEvent(event);
+            """, search_input)
+            time.sleep(3)
         
         # 等待頁面加載
         time.sleep(want_config.get("wait_after_submit", 5))
         
-        # 儲存頁面資訊作為調試
-        save_page_source(driver, {}, "after_search")
-        take_screenshot(driver, {}, "after_search")
+        # 保存截圖和源碼以便調試
+        take_screenshot(driver, {}, "after_search_enter")
+        save_page_source(driver, {}, "after_search_enter")
         
-        return True
-        
+        # 檢查結果頁面的特徵
+        try:
+            # 檢查是否有常見的結果頁面元素
+            result_indicators = [
+                "div[role='list']",
+                "a[href*='/store/']",
+                "div[data-testid='store-list']",
+                "div[class*='restaurant-list']"
+            ]
+            
+            for indicator in result_indicators:
+                try:
+                    result_element = driver.find_element(By.CSS_SELECTOR, indicator)
+                    if result_element:
+                        print(f"搜索成功，找到結果指示器: {indicator}")
+                        return True
+                except:
+                    continue
+            
+            # 檢查URL是否包含搜索參數
+            current_url = driver.current_url
+            if "q=" in current_url or "query=" in current_url or "search=" in current_url:
+                print(f"URL包含搜索參數: {current_url}")
+                return True
+                
+            print("無法確認搜索是否成功，但已嘗試所有方法")
+            return True  # 即使不確定，也繼續執行後續步驟
+            
+        except Exception as e:
+            print(f"檢查搜索結果時出錯: {str(e)}")
+            return True  # 即使有錯誤，也繼續執行後續步驟
+            
     except Exception as e:
         print(f"設置搜尋關鍵字時發生錯誤: {str(e)}")
+        # 保存出錯狀態的截圖和源碼
+        take_screenshot(driver, {}, "search_keyword_error")
+        save_page_source(driver, {}, "search_keyword_error")
         return False
     
 # ===== 餐廳和餐點選擇區 =====

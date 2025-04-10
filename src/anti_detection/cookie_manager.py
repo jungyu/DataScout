@@ -2,496 +2,241 @@
 # -*- coding: utf-8 -*-
 
 """
-Cookie 管理器
-
-此模組提供 Cookie 管理相關功能，包括：
-1. Cookie 的生成和驗證
-2. Cookie 池的管理和輪換
-3. Cookie 的版本控制
-4. Cookie 的統計分析
-5. Cookie 的自動更新
-6. Cookie 的加密存儲
-7. Cookie 的過期管理
-8. Cookie 的並發控制
+Cookie 管理模組
+提供跨瀏覽器的 cookie 管理功能，支援持久化存儲和加密
 """
 
 import os
 import json
-import time
-import random
-import logging
-import hashlib
 import base64
-import threading
-import queue
-from typing import Dict, List, Optional, Union, Tuple, Any
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+import logging
+from typing import Dict, List, Optional, Union
+from datetime import datetime
 from pathlib import Path
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-from .base_error import BaseError, handle_error, retry_on_error
-from .configs.cookie_config import CookieConfig, CookiePoolConfig
+from selenium import webdriver
+from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException, WebDriverException
 
-class CookieError(BaseError):
-    """Cookie 錯誤"""
-    pass
-
-@dataclass
-class CookieResult:
-    """Cookie 結果"""
-    success: bool
-    cookie: Optional[Dict[str, Any]]
-    error: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
-    timestamp: float = field(default_factory=time.time)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """轉換為字典"""
-        return {
-            "success": self.success,
-            "cookie": self.cookie,
-            "error": self.error,
-            "metadata": self.metadata,
-            "timestamp": self.timestamp
-        }
+from .utils.encryption import encrypt_data, decrypt_data
 
 class CookieManager:
-    """
-    Cookie 管理器，負責 Cookie 的生成、驗證和管理
-    """
+    """Cookie 管理類"""
     
     def __init__(
         self,
-        config_path: str = "config/cookie.json",
-        logger: Optional[logging.Logger] = None,
-        encryption_key: Optional[str] = None
+        driver: WebDriver,
+        storage_path: str = "data/cookies",
+        encryption_key: Optional[str] = None,
+        logger: Optional[logging.Logger] = None
     ):
         """
         初始化 Cookie 管理器
         
         Args:
-            config_path: 配置文件路徑
-            logger: 日誌記錄器
+            driver: WebDriver 實例
+            storage_path: Cookie 存儲路徑
             encryption_key: 加密密鑰
+            logger: 日誌記錄器
         """
+        self.driver = driver
+        self.storage_path = Path(storage_path)
+        self.encryption_key = encryption_key
         self.logger = logger or logging.getLogger(__name__)
-        self.config_path = Path(config_path)
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
         
-        # 初始化加密
-        self.encryption_key = encryption_key or self._generate_encryption_key()
-        self.cipher_suite = Fernet(self.encryption_key)
-        
-        # 初始化配置
-        self.pool_config = CookiePoolConfig()
-        self.cookie_pool: Dict[str, CookieConfig] = {}
-        self.cookie_queue: queue.Queue = queue.Queue()
-        
-        # 初始化鎖
-        self._lock = threading.Lock()
-        self._load_lock = threading.Lock()
-        self._save_lock = threading.Lock()
-        
-        # 加載配置
-        self._load_config()
-        
-        # 初始化 Cookie 隊列
-        self._init_cookie_queue()
-        
-        # 啟動自動清理線程
-        self._start_cleanup_thread()
+        # 創建存儲目錄
+        self.storage_path.mkdir(parents=True, exist_ok=True)
     
-    def _generate_encryption_key(self) -> bytes:
-        """生成加密密鑰"""
-        salt = os.urandom(16)
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=100000
-        )
-        key = base64.urlsafe_b64encode(kdf.derive(os.urandom(32)))
-        return key
-    
-    @handle_error
-    def _load_config(self):
-        """加載配置"""
-        with self._load_lock:
-            try:
-                if self.config_path.exists():
-                    with open(self.config_path, 'rb') as f:
-                        encrypted_data = f.read()
-                    decrypted_data = self.cipher_suite.decrypt(encrypted_data)
-                    data = json.loads(decrypted_data)
-                    
-                    self.pool_config = CookiePoolConfig.from_dict(data.get('pool_config', {}))
-                    self.cookie_pool = {
-                        k: CookieConfig.from_dict(v)
-                        for k, v in data.get('cookie_pool', {}).items()
-                    }
-                    
-                    self.logger.info(f"已加載 {len(self.cookie_pool)} 個 Cookie 配置")
-            except Exception as e:
-                self.logger.error(f"加載配置失敗: {str(e)}")
-                raise CookieError("加載配置失敗") from e
-    
-    @handle_error
-    def _save_config(self):
-        """保存配置"""
-        with self._save_lock:
-            try:
-                data = {
-                    'pool_config': self.pool_config.to_dict(),
-                    'cookie_pool': {
-                        k: v.to_dict()
-                        for k, v in self.cookie_pool.items()
-                    }
-                }
-                
-                encrypted_data = self.cipher_suite.encrypt(
-                    json.dumps(data).encode()
-                )
-                
-                with open(self.config_path, 'wb') as f:
-                    f.write(encrypted_data)
-                
-                self.logger.info("配置已保存")
-            except Exception as e:
-                self.logger.error(f"保存配置失敗: {str(e)}")
-                raise CookieError("保存配置失敗") from e
-    
-    @handle_error
-    def add_cookie(self, cookie_config: CookieConfig) -> CookieResult:
+    def save_cookies(self, domain: str, cookies: List[Dict]) -> bool:
         """
-        添加 Cookie
+        保存 cookies 到文件
         
         Args:
-            cookie_config: Cookie 配置
+            domain: 網站域名
+            cookies: cookie 列表
             
         Returns:
-            Cookie 結果
-        """
-        with self._lock:
-            try:
-                cookie_key = self._generate_cookie_key(cookie_config)
-                
-                if cookie_key in self.cookie_pool:
-                    self.logger.warning(f"Cookie 已存在: {cookie_key}")
-                    return CookieResult(
-                        success=False,
-                        cookie=None,
-                        error="Cookie 已存在"
-                    )
-                
-                self.cookie_pool[cookie_key] = cookie_config
-                self._save_config()
-                self._update_cookie_queue()
-                
-                self.logger.info(f"已添加 Cookie: {cookie_key}")
-                return CookieResult(
-                    success=True,
-                    cookie=self._generate_cookie(cookie_config),
-                    metadata={"cookie_key": cookie_key}
-                )
-            except Exception as e:
-                self.logger.error(f"添加 Cookie 失敗: {str(e)}")
-                return CookieResult(
-                    success=False,
-                    cookie=None,
-                    error=str(e)
-                )
-    
-    @handle_error
-    def remove_cookie(self, cookie_key: str) -> CookieResult:
-        """
-        移除 Cookie
-        
-        Args:
-            cookie_key: Cookie 鍵值
-            
-        Returns:
-            Cookie 結果
-        """
-        with self._lock:
-            try:
-                if cookie_key not in self.cookie_pool:
-                    self.logger.warning(f"Cookie 不存在: {cookie_key}")
-                    return CookieResult(
-                        success=False,
-                        cookie=None,
-                        error="Cookie 不存在"
-                    )
-                
-                del self.cookie_pool[cookie_key]
-                self._save_config()
-                self._update_cookie_queue()
-                
-                self.logger.info(f"已移除 Cookie: {cookie_key}")
-                return CookieResult(
-                    success=True,
-                    cookie=None,
-                    metadata={"cookie_key": cookie_key}
-                )
-            except Exception as e:
-                self.logger.error(f"移除 Cookie 失敗: {str(e)}")
-                return CookieResult(
-                    success=False,
-                    cookie=None,
-                    error=str(e)
-                )
-    
-    @handle_error
-    def get_cookie(self, domain: str) -> CookieResult:
-        """
-        獲取 Cookie
-        
-        Args:
-            domain: 域名
-            
-        Returns:
-            Cookie 結果
+            是否保存成功
         """
         try:
-            cookie_key = self.cookie_queue.get_nowait()
-            cookie_config = self.cookie_pool.get(cookie_key)
+            # 創建域名目錄
+            domain_dir = self.storage_path / domain
+            domain_dir.mkdir(exist_ok=True)
             
-            if not cookie_config:
-                self.logger.warning(f"Cookie 不存在: {cookie_key}")
-                return CookieResult(
-                    success=False,
-                    cookie=None,
-                    error="Cookie 不存在"
-                )
+            # 生成文件名
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"cookies_{timestamp}.json"
+            filepath = domain_dir / filename
             
-            # 檢查過期
-            if cookie_config.expiry and time.time() > cookie_config.expiry:
-                self.logger.warning(f"Cookie 已過期: {cookie_key}")
-                self.remove_cookie(cookie_key)
-                return CookieResult(
-                    success=False,
-                    cookie=None,
-                    error="Cookie 已過期"
-                )
+            # 準備數據
+            cookie_data = {
+                "domain": domain,
+                "timestamp": timestamp,
+                "cookies": cookies
+            }
             
-            # 更新使用統計
-            cookie_config.last_used = int(time.time())
-            cookie_config.use_count += 1
-            self._save_config()
+            # 加密數據
+            if self.encryption_key:
+                cookie_data = encrypt_data(json.dumps(cookie_data), self.encryption_key)
             
-            # 將 Cookie 放回隊列
-            self.cookie_queue.put(cookie_key)
-            
-            self.logger.debug(f"已獲取 Cookie: {cookie_key}")
-            return CookieResult(
-                success=True,
-                cookie=self._generate_cookie(cookie_config),
-                metadata={"cookie_key": cookie_key}
-            )
-        except queue.Empty:
-            self.logger.warning("Cookie 隊列為空")
-            return CookieResult(
-                success=False,
-                cookie=None,
-                error="Cookie 隊列為空"
-            )
-        except Exception as e:
-            self.logger.error(f"獲取 Cookie 失敗: {str(e)}")
-            return CookieResult(
-                success=False,
-                cookie=None,
-                error=str(e)
-            )
-    
-    def _init_cookie_queue(self):
-        """初始化 Cookie 隊列"""
-        with self._lock:
-            try:
-                # 清空隊列
-                while not self.cookie_queue.empty():
-                    self.cookie_queue.get_nowait()
-                
-                # 添加有效的 Cookie
-                for cookie_key, cookie_config in self.cookie_pool.items():
-                    if not cookie_config.expiry or time.time() <= cookie_config.expiry:
-                        self.cookie_queue.put(cookie_key)
-                
-                self.logger.info(f"已初始化 Cookie 隊列，共 {self.cookie_queue.qsize()} 個")
-            except Exception as e:
-                self.logger.error(f"初始化 Cookie 隊列失敗: {str(e)}")
-                raise CookieError("初始化 Cookie 隊列失敗") from e
-    
-    def _update_cookie_queue(self):
-        """更新 Cookie 隊列"""
-        self._init_cookie_queue()
-    
-    def _generate_cookie_key(self, cookie_config: CookieConfig) -> str:
-        """
-        生成 Cookie 鍵值
-        
-        Args:
-            cookie_config: Cookie 配置
-            
-        Returns:
-            Cookie 鍵值
-        """
-        data = f"{cookie_config.domain}:{cookie_config.path}:{cookie_config.name}"
-        return hashlib.sha256(data.encode()).hexdigest()
-    
-    def _generate_cookie(self, cookie_config: CookieConfig) -> Dict[str, Any]:
-        """
-        生成 Cookie
-        
-        Args:
-            cookie_config: Cookie 配置
-            
-        Returns:
-            Cookie 字典
-        """
-        return {
-            "name": cookie_config.name,
-            "value": cookie_config.value,
-            "domain": cookie_config.domain,
-            "path": cookie_config.path,
-            "secure": cookie_config.secure,
-            "httpOnly": cookie_config.http_only,
-            "sameSite": cookie_config.same_site,
-            "expiry": cookie_config.expiry
-        }
-    
-    @handle_error
-    def update_cookie_stats(self, cookie_key: str, success: bool) -> CookieResult:
-        """
-        更新 Cookie 統計
-        
-        Args:
-            cookie_key: Cookie 鍵值
-            success: 是否成功
-            
-        Returns:
-            Cookie 結果
-        """
-        with self._lock:
-            try:
-                cookie_config = self.cookie_pool.get(cookie_key)
-                if not cookie_config:
-                    return CookieResult(
-                        success=False,
-                        cookie=None,
-                        error="Cookie 不存在"
-                    )
-                
-                if success:
-                    cookie_config.success_count += 1
+            # 保存到文件
+            with open(filepath, "w", encoding="utf-8") as f:
+                if self.encryption_key:
+                    f.write(cookie_data)
                 else:
-                    cookie_config.fail_count += 1
-                
-                self._save_config()
-                
-                return CookieResult(
-                    success=True,
-                    cookie=None,
-                    metadata={
-                        "cookie_key": cookie_key,
-                        "success_rate": cookie_config.success_rate
-                    }
-                )
-            except Exception as e:
-                self.logger.error(f"更新 Cookie 統計失敗: {str(e)}")
-                return CookieResult(
-                    success=False,
-                    cookie=None,
-                    error=str(e)
-                )
+                    json.dump(cookie_data, f, indent=2, ensure_ascii=False)
+            
+            self.logger.info(f"Cookies 已保存到: {filepath}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"保存 cookies 失敗: {str(e)}")
+            return False
     
-    @handle_error
-    def get_cookie_stats(self) -> CookieResult:
+    def load_cookies(self, domain: str, max_age_hours: int = 24) -> Optional[List[Dict]]:
         """
-        獲取 Cookie 統計
+        從文件加載 cookies
+        
+        Args:
+            domain: 網站域名
+            max_age_hours: cookie 最大有效期（小時）
+            
+        Returns:
+            cookie 列表，如果加載失敗則返回 None
+        """
+        try:
+            domain_dir = self.storage_path / domain
+            if not domain_dir.exists():
+                self.logger.warning(f"未找到域名目錄: {domain}")
+                return None
+            
+            # 獲取最新的 cookie 文件
+            cookie_files = list(domain_dir.glob("cookies_*.json"))
+            if not cookie_files:
+                self.logger.warning(f"未找到 cookie 文件: {domain}")
+                return None
+            
+            latest_file = max(cookie_files, key=lambda x: x.stat().st_mtime)
+            
+            # 檢查文件年齡
+            file_age = datetime.now().timestamp() - latest_file.stat().st_mtime
+            if file_age > max_age_hours * 3600:
+                self.logger.warning(f"Cookie 文件過期: {latest_file}")
+                return None
+            
+            # 讀取文件
+            with open(latest_file, "r", encoding="utf-8") as f:
+                if self.encryption_key:
+                    content = f.read()
+                    cookie_data = json.loads(decrypt_data(content, self.encryption_key))
+                else:
+                    cookie_data = json.load(f)
+            
+            self.logger.info(f"已加載 cookies: {latest_file}")
+            return cookie_data["cookies"]
+            
+        except Exception as e:
+            self.logger.error(f"加載 cookies 失敗: {str(e)}")
+            return None
+    
+    def add_cookies(self, cookies: List[Dict]) -> bool:
+        """
+        添加 cookies 到瀏覽器
+        
+        Args:
+            cookies: cookie 列表
+            
+        Returns:
+            是否添加成功
+        """
+        try:
+            for cookie in cookies:
+                # 移除不必要的字段
+                if "sameSite" in cookie:
+                    del cookie["sameSite"]
+                if "expiry" in cookie:
+                    cookie["expiry"] = int(cookie["expiry"])
+                
+                self.driver.add_cookie(cookie)
+            
+            self.logger.info(f"已添加 {len(cookies)} 個 cookies")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"添加 cookies 失敗: {str(e)}")
+            return False
+    
+    def get_cookies(self) -> List[Dict]:
+        """
+        獲取當前所有 cookies
         
         Returns:
-            Cookie 結果
+            cookie 列表
         """
         try:
-            stats = []
-            for cookie_key, cookie_config in self.cookie_pool.items():
-                stats.append({
-                    "cookie_key": cookie_key,
-                    "domain": cookie_config.domain,
-                    "name": cookie_config.name,
-                    "use_count": cookie_config.use_count,
-                    "success_count": cookie_config.success_count,
-                    "fail_count": cookie_config.fail_count,
-                    "success_rate": cookie_config.success_rate,
-                    "created_at": cookie_config.created_at,
-                    "last_used": cookie_config.last_used,
-                    "expiry": cookie_config.expiry
-                })
-            
-            return CookieResult(
-                success=True,
-                cookie=None,
-                metadata={"stats": stats}
-            )
+            return self.driver.get_cookies()
         except Exception as e:
-            self.logger.error(f"獲取 Cookie 統計失敗: {str(e)}")
-            return CookieResult(
-                success=False,
-                cookie=None,
-                error=str(e)
-            )
+            self.logger.error(f"獲取 cookies 失敗: {str(e)}")
+            return []
     
-    def _start_cleanup_thread(self):
-        """啟動清理線程"""
-        def cleanup_task():
-            while True:
-                try:
-                    time.sleep(3600)  # 每小時檢查一次
-                    self._cleanup_expired_cookies()
-                except Exception as e:
-                    self.logger.error(f"清理過期 Cookie 失敗: {str(e)}")
+    def clear_cookies(self) -> bool:
+        """
+        清除所有 cookies
         
-        thread = threading.Thread(target=cleanup_task, daemon=True)
-        thread.start()
-    
-    @handle_error
-    def _cleanup_expired_cookies(self):
-        """清理過期 Cookie"""
-        with self._lock:
-            try:
-                current_time = time.time()
-                expired_keys = [
-                    k for k, v in self.cookie_pool.items()
-                    if v.expiry and current_time > v.expiry
-                ]
-                
-                for key in expired_keys:
-                    del self.cookie_pool[key]
-                
-                if expired_keys:
-                    self._save_config()
-                    self._update_cookie_queue()
-                    self.logger.info(f"已清理 {len(expired_keys)} 個過期 Cookie")
-            except Exception as e:
-                self.logger.error(f"清理過期 Cookie 失敗: {str(e)}")
-                raise CookieError("清理過期 Cookie 失敗") from e
-    
-    @handle_error
-    def cleanup(self):
-        """清理資源"""
+        Returns:
+            是否清除成功
+        """
         try:
-            self._save_config()
-            self.logger.info("資源已清理")
+            self.driver.delete_all_cookies()
+            self.logger.info("已清除所有 cookies")
+            return True
         except Exception as e:
-            self.logger.error(f"清理資源失敗: {str(e)}")
-            raise CookieError("清理資源失敗") from e
+            self.logger.error(f"清除 cookies 失敗: {str(e)}")
+            return False
     
-    def __enter__(self):
-        """上下文管理器入口"""
-        return this
+    def wait_for_cookie(self, name: str, timeout: int = 10) -> bool:
+        """
+        等待特定 cookie 出現
+        
+        Args:
+            name: cookie 名稱
+            timeout: 超時時間（秒）
+            
+        Returns:
+            是否找到 cookie
+        """
+        try:
+            def cookie_exists(driver):
+                return any(cookie["name"] == name for cookie in driver.get_cookies())
+            
+            WebDriverWait(self.driver, timeout).until(cookie_exists)
+            return True
+        except TimeoutException:
+            self.logger.warning(f"等待 cookie 超時: {name}")
+            return False
+        except Exception as e:
+            self.logger.error(f"等待 cookie 失敗: {str(e)}")
+            return False
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """上下文管理器出口"""
-        this.cleanup() 
+    def get_cookie_value(self, name: str) -> Optional[str]:
+        """
+        獲取特定 cookie 的值
+        
+        Args:
+            name: cookie 名稱
+            
+        Returns:
+            cookie 值，如果不存在則返回 None
+        """
+        try:
+            for cookie in self.driver.get_cookies():
+                if cookie["name"] == name:
+                    return cookie["value"]
+            return None
+        except Exception as e:
+            self.logger.error(f"獲取 cookie 值失敗: {str(e)}")
+            return None 

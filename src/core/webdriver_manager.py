@@ -25,45 +25,74 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import WebDriverException, TimeoutException
 from selenium.webdriver.common.by import By
 
+from ..anti_detection.configs.anti_fingerprint_config import AntiFingerprintConfig
+from ..anti_detection.stealth.stealth_manager import StealthManager
+
 class WebDriverManager:
     """
     WebDriver管理器，負責創建、配置和管理WebDriver實例
     """
     
-    def __init__(self, config: Dict[str, Any], logger=None):
+    def __init__(self, config: Union[Dict[str, Any], AntiFingerprintConfig], logger=None):
         """
         初始化WebDriver管理器
         
         Args:
-            config: WebDriver配置
+            config: WebDriver配置或反指紋檢測配置
             logger: 日誌記錄器，如果為None則創建新的
         """
         self.logger = logger or logging.getLogger(__name__)
         self.config = config
         self.driver = None
+        self.stealth_manager = StealthManager(logger=self.logger)
         
-        # 瀏覽器設定
-        self.browser_type = self.config.get("browser_type", "chrome")
-        self.user_agent = self.config.get("user_agent", None)
-        self.proxy = self.config.get("proxy", None)
-        self.headless = self.config.get("headless", False)
-        self.disable_images = self.config.get("disable_images", False)
-        self.disable_javascript = self.config.get("disable_javascript", False)
-        self.disable_cookies = self.config.get("disable_cookies", False)
-        self.window_size = self.config.get("window_size", {"width": 1920, "height": 1080})
-        self.user_data_dir = self.config.get("user_data_dir", None)
-        self.extensions = self.config.get("extensions", [])
-        self.arguments = self.config.get("arguments", [])
-        self.experimental_options = self.config.get("experimental_options", {})
-        self.driver_path = self.config.get("driver_path", None)
-        self.binary_path = self.config.get("binary_path", None)
-        
-        # 防檢測設定
-        self.enable_stealth = self.config.get("enable_stealth", True)
-        self.randomize_user_agent = self.config.get("randomize_user_agent", False)
-        
-        # 用戶代理列表
-        self.user_agents = self.config.get("user_agents", self._get_default_user_agents())
+        # 判斷配置類型
+        if isinstance(config, AntiFingerprintConfig):
+            self._init_from_anti_fingerprint_config(config)
+        else:
+            self._init_from_dict_config(config)
+    
+    def _init_from_anti_fingerprint_config(self, config: AntiFingerprintConfig):
+        """從反指紋檢測配置初始化"""
+        self.browser_type = "chrome"
+        self.user_agent = config.user_agent
+        self.proxy = config.proxy
+        self.headless = config.headless
+        self.window_size = {"width": config.window_size[0], "height": config.window_size[1]}
+        self.enable_stealth = True
+        self.timeout = config.timeout
+        self.disable_images = False
+        self.disable_javascript = False
+        self.disable_cookies = False
+        self.user_data_dir = None
+        self.extensions = []
+        self.arguments = []
+        self.experimental_options = {}
+        self.driver_path = None
+        self.binary_path = None
+        self.randomize_user_agent = False
+        self.user_agents = []
+    
+    def _init_from_dict_config(self, config: Dict[str, Any]):
+        """從字典配置初始化"""
+        self.browser_type = config.get("browser_type", "chrome")
+        self.user_agent = config.get("user_agent", None)
+        self.proxy = config.get("proxy", None)
+        self.headless = config.get("headless", False)
+        self.disable_images = config.get("disable_images", False)
+        self.disable_javascript = config.get("disable_javascript", False)
+        self.disable_cookies = config.get("disable_cookies", False)
+        self.window_size = config.get("window_size", {"width": 1920, "height": 1080})
+        self.user_data_dir = config.get("user_data_dir", None)
+        self.extensions = config.get("extensions", [])
+        self.arguments = config.get("arguments", [])
+        self.experimental_options = config.get("experimental_options", {})
+        self.driver_path = config.get("driver_path", None)
+        self.binary_path = config.get("binary_path", None)
+        self.enable_stealth = config.get("enable_stealth", True)
+        self.randomize_user_agent = config.get("randomize_user_agent", False)
+        self.user_agents = config.get("user_agents", self._get_default_user_agents())
+        self.timeout = config.get("timeout", 30)
     
     def _get_default_user_agents(self) -> List[str]:
         """獲取默認的用戶代理列表"""
@@ -148,10 +177,13 @@ class WebDriverManager:
         for key, value in self.experimental_options.items():
             options.add_experimental_option(key, value)
         
-        # 防檢測設定
+        # 應用隱身選項
         if self.enable_stealth:
-            options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            options.add_experimental_option("useAutomationExtension", False)
+            stealth_config = {
+                "disable_webgl": self.config.get("disable_webgl", False),
+                "disable_canvas": self.config.get("disable_canvas", False)
+            }
+            self.stealth_manager.apply_stealth_options(options, stealth_config)
         
         return options
     
@@ -225,10 +257,13 @@ class WebDriverManager:
         for arg in self.arguments:
             options.add_argument(arg)
         
-        # 防檢測設定
+        # 應用隱身選項
         if self.enable_stealth:
-            options.set_preference("dom.webdriver.enabled", False)
-            options.set_preference("useAutomationExtension", False)
+            stealth_config = {
+                "disable_webgl": self.config.get("disable_webgl", False),
+                "disable_canvas": self.config.get("disable_canvas", False)
+            }
+            self.stealth_manager.apply_stealth_options(options, stealth_config)
         
         return options
     
@@ -279,131 +314,51 @@ class WebDriverManager:
         for key, value in self.experimental_options.items():
             options.add_experimental_option(key, value)
         
-        # 防檢測設定
+        # 應用隱身選項
         if self.enable_stealth:
-            options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            options.add_experimental_option("useAutomationExtension", False)
+            stealth_config = {
+                "disable_webgl": self.config.get("disable_webgl", False),
+                "disable_canvas": self.config.get("disable_canvas", False)
+            }
+            self.stealth_manager.apply_stealth_options(options, stealth_config)
         
         return options
     
     def create_driver(self) -> Union[webdriver.Chrome, webdriver.Firefox, webdriver.Edge]:
-        """創建並配置WebDriver實例"""
+        """
+        創建並配置WebDriver
+        
+        Returns:
+            配置好的WebDriver實例
+        """
         try:
-            self.logger.info(f"創建 {self.browser_type} WebDriver")
-            
             if self.browser_type.lower() == "chrome":
                 options = self._configure_chrome_options()
-                service = None
-                if self.driver_path:
-                    service = ChromeService(executable_path=self.driver_path)
-                
+                service = ChromeService(executable_path=self.driver_path) if self.driver_path else ChromeService()
                 self.driver = webdriver.Chrome(service=service, options=options)
-            
             elif self.browser_type.lower() == "firefox":
                 options = self._configure_firefox_options()
-                service = None
-                if self.driver_path:
-                    service = FirefoxService(executable_path=self.driver_path)
-                
+                service = FirefoxService(executable_path=self.driver_path) if self.driver_path else FirefoxService()
                 self.driver = webdriver.Firefox(service=service, options=options)
-            
             elif self.browser_type.lower() == "edge":
                 options = self._configure_edge_options()
-                service = None
-                if self.driver_path:
-                    service = EdgeService(executable_path=self.driver_path)
-                
+                service = EdgeService(executable_path=self.driver_path) if self.driver_path else EdgeService()
                 self.driver = webdriver.Edge(service=service, options=options)
-            
             else:
                 raise ValueError(f"不支持的瀏覽器類型: {self.browser_type}")
             
-            # 設置窗口大小
-            if not self.headless:
-                if self.config.get("maximize_window", True):
-                    self.driver.maximize_window()
-                else:
-                    width = self.window_size.get("width", 1920)
-                    height = self.window_size.get("height", 1080)
-                    self.driver.set_window_size(width, height)
+            # 設置頁面加載超時
+            self.driver.set_page_load_timeout(self.timeout)
             
-            # 設置超時
-            page_load_timeout = self.config.get("page_load_timeout", 30)
-            script_timeout = self.config.get("script_timeout", 30)
-            implicit_wait = self.config.get("implicit_wait", 10)
-            
-            self.driver.set_page_load_timeout(page_load_timeout)
-            self.driver.set_script_timeout(script_timeout)
-            self.driver.implicitly_wait(implicit_wait)
-            
-            # 執行隱藏 WebDriver 的 JavaScript
+            # 應用隱身腳本
             if self.enable_stealth:
-                self._apply_stealth_techniques()
+                self.stealth_manager.apply_stealth_scripts(self.driver)
             
-            self.logger.info(f"{self.browser_type} WebDriver 創建成功")
             return self.driver
             
         except Exception as e:
-            self.logger.error(f"創建 {self.browser_type} WebDriver 失敗: {str(e)}")
-            if self.driver:
-                self.driver.quit()
-                self.driver = None
+            self.logger.error(f"創建WebDriver失敗: {str(e)}")
             raise
-    
-    def _apply_stealth_techniques(self):
-        """應用隱身技術，防止瀏覽器自動化檢測"""
-        if not self.driver:
-            return
-        
-        try:
-            # 通用的 WebDriver 隱藏腳本
-            stealth_script = """
-            // 覆蓋 WebDriver 屬性
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => false,
-            });
-            
-            // 移除 Automation 標記
-            const originalHasAttribute = Element.prototype.hasAttribute;
-            Element.prototype.hasAttribute = function(name) {
-                if (name === 'webdriver') {
-                    return false;
-                }
-                return originalHasAttribute.apply(this, arguments);
-            };
-            
-            // 添加 Chrome 特有對象
-            if (!window.chrome) {
-                window.chrome = {};
-            }
-            
-            // 添加 Plugins API
-            if (!window.chrome.runtime) {
-                window.chrome.runtime = {};
-                window.chrome.runtime.sendMessage = function() {};
-            }
-            
-            // 模擬Chrome插件
-            if (!window.chrome.webstore) {
-                window.chrome.webstore = {};
-            }
-            
-            // 覆蓋 permissions API
-            if (navigator.permissions) {
-                const originalQuery = navigator.permissions.query;
-                navigator.permissions.query = function(parameters) {
-                    if (parameters.name === 'notifications') {
-                        return Promise.resolve({state: Notification.permission, onchange: null});
-                    }
-                    return originalQuery.apply(navigator.permissions, arguments);
-                };
-            }
-            """
-            
-            self.driver.execute_script(stealth_script)
-            self.logger.debug("已應用防檢測腳本")
-        except Exception as e:
-            self.logger.warning(f"應用防檢測腳本失敗: {str(e)}")
     
     def close_driver(self):
         """安全關閉 WebDriver"""
