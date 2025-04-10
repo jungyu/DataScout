@@ -29,6 +29,11 @@ from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 from lxml import html, etree
 
+# 確保必要的目錄存在
+os.makedirs("examples/data/output", exist_ok=True)
+os.makedirs("examples/data/screenshots", exist_ok=True)
+os.makedirs("examples/data/debug", exist_ok=True)
+
 
 # ===== 工具函數區 =====
 
@@ -344,23 +349,17 @@ def scroll_page(driver: webdriver.Chrome, direction: str = "down", amount: int =
 
 
 def take_screenshot(driver: webdriver.Chrome, config: Dict, page_type: str) -> Optional[str]:
-    """截取螢幕截圖"""
-    screenshot_config = config.get("advanced_settings", {}).get("screenshot", {})
-    if not screenshot_config.get("enabled", False):
+    """擷取頁面截圖"""
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"shopee_{timestamp}_{page_type}.png"
+        screenshot_path = os.path.join("examples/data/screenshots", filename)
+        driver.save_screenshot(screenshot_path)
+        print(f"已保存截圖：{screenshot_path}")
+        return screenshot_path
+    except Exception as e:
+        print(f"截圖失敗：{str(e)}")
         return None
-        
-    directory = screenshot_config.get("directory", "./screenshots")
-    os.makedirs(directory, exist_ok=True)
-    
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    filename_pattern = screenshot_config.get("filename_pattern", "screenshot_{timestamp}_{page_type}.png")
-    filename = filename_pattern.format(timestamp=timestamp, page_type=page_type)
-    
-    file_path = os.path.join(directory, filename)
-    driver.save_screenshot(file_path)
-    print(f"已儲存螢幕截圖: {file_path}")
-    
-    return file_path
 
 
 def handle_recaptcha(driver: webdriver.Chrome, config: Dict) -> bool:
@@ -1068,61 +1067,38 @@ def fetch_product_details(driver: webdriver.Chrome, products: List[Dict], config
 # ===== 結果處理區 =====
 
 def save_results(results: Dict[str, Any], config: Dict) -> Optional[str]:
-    """保存結果到JSON檔案"""
-    if not results:
-        print("沒有結果可保存")
-        return None
+    """保存爬取結果到JSON檔案"""
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"shopee_{timestamp}.json"
+        output_path = os.path.join("examples/data/output", filename)
         
-    os.makedirs("output", exist_ok=True)
-    
-    # 使用商店名稱作為檔名的一部分
-    shop = config.get("search_parameters", {}).get("shop", {}).get("default", "")
-    keyword = config.get("search_parameters", {}).get("keyword", {}).get("default", "")
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    
-    filename = f"shopee_{shop}_{keyword}_{timestamp}"
-    # 移除特殊字符
-    filename = re.sub(r'[\\/:*?"<>|]', '_', filename)
-    
-    output_file = f"output/{filename}.json"
-    
-    # 格式化結果以便 JSON 序列化
-    formatted_results = format_for_json(results)
-    
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(formatted_results, f, ensure_ascii=False, indent=2)
-    
-    print(f"結果已儲存至: {output_file}")
-    
-    return output_file
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(results, f, ensure_ascii=False, indent=2)
+        print(f"結果已保存到: {output_path}")
+        return output_path
+    except Exception as e:
+        print(f"保存結果失敗：{str(e)}")
+        return None
 
 
 def handle_error(driver: webdriver.Chrome, config: Dict, error: Exception) -> None:
     """處理錯誤並保存錯誤頁面"""
-    print(f"發生錯誤: {str(error)}")
-    traceback.print_exc()
-    
-    if not driver:
-        return
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        error_html = driver.page_source
+        error_path = os.path.join("examples/data/debug", f"error_{timestamp}.html")
         
-    # 檢查是否需要保存錯誤頁面
-    if config.get("advanced_settings", {}).get("save_error_page", False):
-        error_page_dir = config.get("advanced_settings", {}).get("error_page_dir", "./debug")
-        os.makedirs(error_page_dir, exist_ok=True)
+        with open(error_path, 'w', encoding='utf-8') as f:
+            f.write(error_html)
+        print(f"錯誤頁面已保存到：{error_path}")
         
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        error_filename = f"error_{timestamp}.html"
-        error_filepath = os.path.join(error_page_dir, error_filename)
-        
-        with open(error_filepath, "w", encoding="utf-8") as f:
-            f.write(driver.page_source)
-            
-        print(f"錯誤頁面已儲存至: {error_filepath}")
-        
-        # 順便截圖
-        screenshot_path = os.path.join(error_page_dir, f"error_{timestamp}.png")
+        # 保存錯誤截圖
+        screenshot_path = os.path.join("examples/data/screenshots", f"error_{timestamp}.png")
         driver.save_screenshot(screenshot_path)
-        print(f"錯誤頁面截圖已儲存至: {screenshot_path}")
+        print(f"錯誤截圖已保存到：{screenshot_path}")
+    except Exception as e:
+        print(f"保存錯誤資訊失敗：{str(e)}")
 
 
 # ===== 輔助函數區 =====
@@ -1582,7 +1558,7 @@ def main() -> None:
     
     try:
         # 1. 載入配置
-        config_path = "../../../config/shopee/basic/product.json"
+        config_path = "examples/config/shopee/basic/product.json"
         config = load_config(config_path)
         
         # 2. 設置WebDriver
