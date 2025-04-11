@@ -163,8 +163,8 @@ pytest --cov=src --cov-report=html
 
 1. 克隆專案：
 ```bash
-git clone https://github.com/yourusername/crawler-selenium.git
-cd crawler-selenium
+git clone https://github.com/yourusername/datascout.git
+cd datascout
 ```
 
 2. 安裝依賴：

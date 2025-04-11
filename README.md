@@ -16,7 +16,7 @@
 ## 框架架構
 
 ```
-crawler-selenium/
+DataScout/
 ├── src/                    # 核心框架代碼
 │   ├── api/               # API 處理模組
 │   │   └── handlers/     # API 處理器
@@ -86,8 +86,8 @@ crawler-selenium/
 
 ```bash
 # 克隆專案
-git clone https://github.com/yourusername/crawler-selenium.git
-cd crawler-selenium
+git clone https://github.com/yourusername/DataScout.git
+cd DataScout
 
 # 安裝依賴
 pip install -r requirements.txt

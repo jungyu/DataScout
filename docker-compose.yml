@@ -6,7 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: crawler-selenium
+    container_name: datascout
     volumes:
       - ./data:/app/data
       - ./config:/app/config
