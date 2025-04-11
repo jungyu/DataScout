@@ -1,7 +1,7 @@
 """
 點擊驗證碼解決器 (Click CAPTCHA Solver)
 Copyright (c) 2024 Aaron-Yu, Claude AI
-Author: Aaron-Yu <jungyuyu@gmail.com>
+Author: Aaron-Yu <https://github.com/jungyu>
 License: MIT License
 版本: 1.0.0
 """

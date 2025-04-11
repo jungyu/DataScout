@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # 爬蟲主服務
+  crawler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crawler-selenium
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+    environment:
+      - PYTHONPATH=/app
+      - TZ=Asia/Taipei
+    restart: unless-stopped
+    networks:
+      - crawler-network
+
+  # MongoDB 數據庫服務
+  mongodb:
+    image: mongo:latest
+    container_name: crawler-mongodb
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    networks:
+      - crawler-network
+
+  # Redis 緩存服務
+  redis:
+    image: redis:latest
+    container_name: crawler-redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - crawler-network
+
+  # 監控服務
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: crawler-prometheus
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    networks:
+      - crawler-network
+
+  # 日誌服務
+  grafana:
+    image: grafana/grafana:latest
+    container_name: crawler-grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=password
+    restart: unless-stopped
+    networks:
+      - crawler-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  crawler-network:
+    driver: bridge

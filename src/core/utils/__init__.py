@@ -4,52 +4,89 @@
 """
 核心工具模組
 
-提供基礎的工具類，包括：
-- 瀏覽器操作工具
-- URL處理工具
-- 配置管理工具
-- 日誌處理工具
-- 數據處理工具
-- 路徑處理工具
-- Cookie管理工具
-- 錯誤處理工具
+提供爬蟲系統的通用工具功能，包括：
+- 瀏覽器操作
+- URL 處理
+- 配置管理
+- 錯誤處理
+- 日誌記錄
+- 路徑處理
+- 數據處理
 """
 
-from .browser_utils import BrowserUtils
-from .url_utils import URLUtils
-from .config_utils import ConfigUtils
-from .logger import Logger, setup_logger, LogConfig, LogFilter, LogFormatter
-from .data_processor import DataProcessor
-from .path_utils import PathUtils
-from .cookie_manager import CookieManager
-from .error_handler import ErrorHandler
+from .browser_utils import (
+    BrowserUtils,
+    BrowserAction,
+    BrowserState
+)
+from .url_utils import (
+    URLUtils,
+    URLValidator,
+    URLNormalizer
+)
+from .config_utils import (
+    ConfigUtils,
+    ConfigValidator,
+    ConfigLoader
+)
+from .error_handler import (
+    ErrorHandler,
+    ErrorLevel,
+    ErrorType
+)
+from .logger import (
+    Logger,
+    LogLevel,
+    LogFormatter
+)
+from .path_utils import (
+    PathUtils,
+    PathValidator,
+    PathNormalizer
+)
+from .data_processor import (
+    DataProcessor,
+    DataValidator,
+    DataNormalizer
+)
+
+__version__ = '1.0.0'
+__author__ = 'Aaron Yu (https://github.com/jungyu), Claude AI, Cursor AI'
+__license__ = 'MIT'
 
 __all__ = [
     # 瀏覽器工具
     'BrowserUtils',
+    'BrowserAction',
+    'BrowserState',
     
-    # URL工具
+    # URL 工具
     'URLUtils',
+    'URLValidator',
+    'URLNormalizer',
     
     # 配置工具
     'ConfigUtils',
+    'ConfigValidator',
+    'ConfigLoader',
+    
+    # 錯誤處理
+    'ErrorHandler',
+    'ErrorLevel',
+    'ErrorType',
     
     # 日誌工具
     'Logger',
-    'setup_logger',
-    'LogConfig',
-    'LogFilter',
+    'LogLevel',
     'LogFormatter',
-    
-    # 數據處理工具
-    'DataProcessor',
     
     # 路徑工具
     'PathUtils',
+    'PathValidator',
+    'PathNormalizer',
     
-    # Cookie工具
-    'CookieManager',
-    
-    # 錯誤處理工具
-    'ErrorHandler'
+    # 數據處理
+    'DataProcessor',
+    'DataValidator',
+    'DataNormalizer'
 ] 

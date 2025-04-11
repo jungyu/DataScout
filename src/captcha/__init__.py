@@ -4,26 +4,22 @@
 """
 驗證碼模組
 
-提供驗證碼處理相關功能，包括：
+提供爬蟲系統的驗證碼處理功能，包括：
 - 驗證碼檢測
-- 驗證碼處理
 - 驗證碼識別
-- 驗證碼特定工具
-- 特定網站驗證碼求解器
+- 驗證碼處理
 """
 
-from .base_config import CaptchaConfig
-from .detection import CaptchaDetector
-from .captcha_manager import CaptchaManager
-from .types import CaptchaType, CaptchaSource, CaptchaResult
-from .solvers.shopee_solver import ShopeeSolver
+from .detector import CaptchaDetector
+from .recognizer import CaptchaRecognizer
+from .handler import CaptchaHandler
+
+__version__ = '1.0.0'
+__author__ = 'Aaron Yu (https://github.com/jungyu), Claude AI, Cursor AI'
+__license__ = 'MIT'
 
 __all__ = [
-    'CaptchaConfig',
     'CaptchaDetector',
-    'CaptchaManager',
-    'CaptchaType',
-    'CaptchaSource',
-    'CaptchaResult',
-    'ShopeeSolver'
+    'CaptchaRecognizer',
+    'CaptchaHandler'
 ]

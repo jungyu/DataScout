@@ -4,32 +4,25 @@
 """
 反檢測模組
 
-提供防止被網站偵測為爬蟲的功能，包括：
-- 瀏覽器指紋
-- 代理管理
-- Cookie 管理
-- 用戶代理管理
-- 反檢測特定工具
+提供爬蟲系統的反檢測功能，包括：
+- 瀏覽器指紋偽裝
+- 代理IP管理
+- 請求頭偽裝
+- 行為模擬
 """
 
-from .base_config import AntiDetectionConfig
-from .user_agent_manager import UserAgentManager
-from .anti_detection_manager import AntiDetectionManager
-from .browser_fingerprint_manager import BrowserFingerprintManager
-from .proxy_manager import ProxyManager
-from .base_error import AntiDetectionError
-from .base_manager import BaseManager
-from .detection_handler import DetectionHandler
-from .honeypot_detector import HoneypotDetector
+from .fingerprint import FingerprintManager
+from .proxy import ProxyManager
+from .headers import HeadersManager
+from .behavior import BehaviorSimulator
+
+__version__ = '1.0.0'
+__author__ = 'Aaron Yu (https://github.com/jungyu), Claude AI, Cursor AI'
+__license__ = 'MIT'
 
 __all__ = [
-    'AntiDetectionConfig',
-    'UserAgentManager',
-    'AntiDetectionManager',
-    'BrowserFingerprintManager',
+    'FingerprintManager',
     'ProxyManager',
-    'AntiDetectionError',
-    'BaseManager',
-    'DetectionHandler',
-    'HoneypotDetector'
+    'HeadersManager',
+    'BehaviorSimulator'
 ]

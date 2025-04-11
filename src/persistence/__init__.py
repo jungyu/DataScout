@@ -2,54 +2,24 @@
 # -*- coding: utf-8 -*-
 
 """
-數據持久化模組
+持久化模組
 
-提供數據存儲相關功能，包括：
-- 本地存儲
-- 數據庫存儲
-- API 存儲
-- 雲存儲
-- 存儲特定工具
+提供爬蟲系統的數據持久化功能，包括：
+- 數據存儲
+- 數據備份
+- 數據恢復
 """
 
-from src.core.utils import (
-    ConfigUtils,
-    Logger,
-    PathUtils,
-    DataProcessor,
-    ErrorHandler
-)
+from .storage import Storage
+from .backup import Backup
+from .recovery import Recovery
 
-from .config import StorageConfig
-from .manager import StorageManager
-from .handlers import (
-    StorageHandler,
-    LocalStorageHandler,
-    MongoDBHandler,
-    NotionHandler,
-    CaptchaHandler,
-    CaptchaDetectionResult
-)
+__version__ = '1.0.0'
+__author__ = 'Aaron Yu (https://github.com/jungyu), Claude AI, Cursor AI'
+__license__ = 'MIT'
 
 __all__ = [
-    # 核心工具類
-    'ConfigUtils',
-    'Logger',
-    'PathUtils',
-    'DataProcessor',
-    'ErrorHandler',
-    
-    # 配置類
-    'StorageConfig',
-    
-    # 管理器
-    'StorageManager',
-    
-    # 處理器
-    'StorageHandler',
-    'LocalStorageHandler',
-    'MongoDBHandler',
-    'NotionHandler',
-    'CaptchaHandler',
-    'CaptchaDetectionResult'
+    'Storage',
+    'Backup',
+    'Recovery'
 ]
