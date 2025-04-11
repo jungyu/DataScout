@@ -125,6 +125,14 @@ class ProcessingError(DataError):
     """處理錯誤"""
     pass
 
+class NavigationError(CrawlerException):
+    """導航錯誤"""
+    pass
+
+class ExtractionError(CrawlerException):
+    """提取錯誤"""
+    pass
+
 def handle_exception(error: Exception, logger: Any) -> None:
     """
     處理異常的通用函數

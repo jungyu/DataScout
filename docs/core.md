@@ -44,7 +44,7 @@
 from src.core.utils.config_utils import ConfigUtils
 from src.core.utils.logger import Logger
 from src.core.utils.path_utils import PathUtils
-from src.core.utils.data_processor import DataProcessor
+from src.core.utils.data_processor import SimpleDataProcessor
 from src.core.utils.error_handler import ErrorHandler
 from src.core.utils.time_utils import TimeUtils
 from src.core.utils.validation_utils import ValidationUtils
@@ -54,7 +54,7 @@ from src.core.utils.security_utils import SecurityUtils
 config_utils = ConfigUtils()
 logger = Logger()
 path_utils = PathUtils()
-data_processor = DataProcessor()
+data_processor = SimpleDataProcessor()
 error_handler = ErrorHandler()
 time_utils = TimeUtils()
 validation_utils = ValidationUtils()

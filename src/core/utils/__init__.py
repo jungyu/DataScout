@@ -4,89 +4,46 @@
 """
 核心工具模組
 
-提供爬蟲系統的通用工具功能，包括：
-- 瀏覽器操作
-- URL 處理
-- 配置管理
-- 錯誤處理
+提供各種通用工具和功能，包括：
 - 日誌記錄
 - 路徑處理
+- 配置管理
+- 錯誤處理
 - 數據處理
+- 瀏覽器操作
+- URL 處理
+- 圖像處理
+- 音頻處理
+- 文本處理
+- Cookie 管理
+- 安全工具
 """
 
-from .browser_utils import (
-    BrowserUtils,
-    BrowserAction,
-    BrowserState
-)
-from .url_utils import (
-    URLUtils,
-    URLValidator,
-    URLNormalizer
-)
-from .config_utils import (
-    ConfigUtils,
-    ConfigValidator,
-    ConfigLoader
-)
-from .error_handler import (
-    ErrorHandler,
-    ErrorLevel,
-    ErrorType
-)
-from .logger import (
-    Logger,
-    LogLevel,
-    LogFormatter
-)
-from .path_utils import (
-    PathUtils,
-    PathValidator,
-    PathNormalizer
-)
-from .data_processor import (
-    DataProcessor,
-    DataValidator,
-    DataNormalizer
-)
-
-__version__ = '1.0.0'
-__author__ = 'Aaron Yu (https://github.com/jungyu), Claude AI, Cursor AI'
-__license__ = 'MIT'
+from .logger import Logger, setup_logger
+from .path_utils import PathUtils
+from .config_utils import ConfigUtils
+from .error_handler import ErrorHandler
+from .data_processor import SimpleDataProcessor as DataProcessor
+from .browser_utils import BrowserUtils
+from .url_utils import URLUtils
+from .image_utils import ImageUtils
+from .audio_utils import AudioUtils
+from .text_utils import TextUtils
+from .cookie_manager import CookieManager
+from .security_utils import SecurityUtils
 
 __all__ = [
-    # 瀏覽器工具
-    'BrowserUtils',
-    'BrowserAction',
-    'BrowserState',
-    
-    # URL 工具
-    'URLUtils',
-    'URLValidator',
-    'URLNormalizer',
-    
-    # 配置工具
-    'ConfigUtils',
-    'ConfigValidator',
-    'ConfigLoader',
-    
-    # 錯誤處理
-    'ErrorHandler',
-    'ErrorLevel',
-    'ErrorType',
-    
-    # 日誌工具
     'Logger',
-    'LogLevel',
-    'LogFormatter',
-    
-    # 路徑工具
+    'setup_logger',
     'PathUtils',
-    'PathValidator',
-    'PathNormalizer',
-    
-    # 數據處理
+    'ConfigUtils',
+    'ErrorHandler',
     'DataProcessor',
-    'DataValidator',
-    'DataNormalizer'
+    'BrowserUtils',
+    'URLUtils',
+    'ImageUtils',
+    'AudioUtils',
+    'TextUtils',
+    'CookieManager',
+    'SecurityUtils'
 ] 

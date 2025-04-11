@@ -28,7 +28,6 @@ from selenium.webdriver.support import expected_conditions as EC
 
 # 核心模組
 from src.core import (
-    ConfigLoader,
     CrawlerEngine,
     CrawlerStateManager,
     CrawlerException,
@@ -46,7 +45,6 @@ from src.core.utils import (
     PathUtils,
     BrowserUtils,
     URLUtils,
-    DataProcessor,
     SecurityUtils
 )
 
@@ -54,14 +52,14 @@ from src.core.utils import (
 from src.anti_detection import (
     BaseScraper,
     AntiDetectionManager,
-    HumanBehaviorSimulator,
+    HumanBehavior,
     CookieManager,
     BrowserFingerprint
 )
 
 # 存儲
 from src.persistence import (
-    Storage,
+    StorageHandler,
     LocalStorageHandler,
     MongoDBHandler,
     NotionHandler
@@ -69,11 +67,13 @@ from src.persistence import (
 
 # 驗證碼
 from src.captcha import (
-    CaptchaType,
-    CaptchaManager,
-    CaptchaHandler,
-    CaptchaDetectionResult
+    CaptchaService,
+    CaptchaResult,
+    CaptchaConfig,
+    CaptchaType
 )
+
+from src.core.data_processor import DataProcessor
 
 class ScraperError(CrawlerException):
     """爬蟲錯誤"""
@@ -99,7 +99,7 @@ class ShopeeCrawler:
         self.logger = Logger()
         self.browser_utils = BrowserUtils()
         self.url_utils = URLUtils()
-        self.data_processor = DataProcessor()
+        self.data_processor = DataProcessor({})
         self.security_utils = SecurityUtils()
         
         # 加載配置
@@ -133,12 +133,12 @@ class ShopeeCrawler:
         except Exception as e:
             raise ConfigError(f"加載配置失敗: {str(e)}")
         
-    def _init_storage(self) -> Storage:
+    def _init_storage(self) -> StorageHandler:
         """
         初始化存儲處理器
         
         Returns:
-            Storage: 存儲處理器實例
+            StorageHandler: 存儲處理器實例
         """
         try:
             storage_type = self.storage_config.get('default_storage', 'local')
@@ -226,49 +226,150 @@ class ShopeeCrawler:
 class ShopeeBaseScraper(BaseScraper):
     """蝦皮爬蟲基礎類"""
     
-    def __init__(self, 
-                 config_path: str,
-                 data_dir: str = "./examples/data",
-                 domain: str = "shopee.tw",
-                 debug_mode: bool = False):
+    def __init__(self, config: Optional[Dict] = None):
         """
-        初始化爬蟲
+        初始化蝦皮爬蟲基礎類
         
         Args:
-            config_path: 配置文件路徑
-            data_dir: 數據目錄
-            domain: 目標網站域名
-            debug_mode: 是否啟用調試模式
+            config: 配置字典
         """
-        super().__init__(config_path, data_dir, domain, debug_mode)
+        # 初始化配置
+        self.config = config or {}
+        self.crawler_config = self.config.get('crawler', {})
         
-        # 初始化各個管理器
+        # 初始化工具類
+        self.logger = Logger(
+            name=self.__class__.__name__,
+            level=self.config.get('log_level', 'INFO'),
+            log_dir=self.config.get('log_dir', 'logs')
+        )
+        self.path_utils = PathUtils(self.logger)
+        self.config_utils = ConfigUtils(self.logger)
+        self.browser_utils = BrowserUtils(self.logger)
+        self.url_utils = URLUtils(self.logger)
+        self.security_utils = SecurityUtils(self.logger)
+        
+        # 初始化爬蟲引擎
+        self.engine = CrawlerEngine(
+            config=self.config.get('engine', {}),
+            logger=self.logger
+        )
+        
+        # 初始化狀態管理器
+        self.state_manager = CrawlerStateManager(
+            config=self.config.get('state', {}),
+            logger=self.logger
+        )
+        
+        # 初始化存儲處理器
+        self.storage = self._init_storage()
+        
+        # 初始化瀏覽器
+        self.driver = None
+        self.setup_browser()
+        
+        # 初始化反檢測
+        self.browser_fingerprint = BrowserFingerprint(
+            driver=self.driver,
+            id=f"fingerprint_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            config=self.config.get("browser_fingerprint", {}),
+            logger=self.logger
+        )
+        
+        self.human_behavior = HumanBehavior(
+            driver=self.driver,
+            id=f"behavior_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            config=self.config.get("human_behavior", {}),
+            logger=self.logger
+        )
+        
+        # 初始化管理器
         self._init_managers()
         
-        # 載入蝦皮特定配置
+        # 載入蝦皮配置
         self._load_shopee_config()
         
-    def _init_managers(self) -> None:
-        """初始化各個管理器"""
+    def _init_storage(self) -> StorageHandler:
+        """
+        初始化存儲處理器
+        
+        Returns:
+            StorageHandler: 存儲處理器實例
+        """
         try:
-            # 初始化反爬蟲管理器
-            self.anti_detection = AntiDetectionManager(self.config)
+            storage_type = self.crawler_config.get('default_storage', 'local')
+            storage_config = self.crawler_config.get('storage_types', {}).get(storage_type, {})
+            
+            if storage_type == 'local':
+                return LocalStorageHandler(
+                    base_path=storage_config.get('base_path', 'data'),
+                    file_format=storage_config.get('file_format', 'json')
+                )
+            elif storage_type == 'mongodb':
+                return MongoDBHandler(
+                    host=storage_config.get('host', 'localhost'),
+                    port=storage_config.get('port', 27017),
+                    database=storage_config.get('database', 'crawler'),
+                    username=storage_config.get('username'),
+                    password=storage_config.get('password')
+                )
+            elif storage_type == 'notion':
+                return NotionHandler(
+                    token=storage_config.get('token'),
+                    database_id=storage_config.get('database_id')
+                )
+            else:
+                raise ValueError(f"不支持的存儲類型: {storage_type}")
+        except Exception as e:
+            raise ScraperError(f"初始化存儲失敗: {str(e)}")
+            
+    def setup_browser(self):
+        """設置瀏覽器"""
+        try:
+            options = self.browser_utils.create_chrome_options(
+                headless=self.crawler_config.get('headless', False),
+                proxy=self.security_config.get('proxy'),
+                user_agent=self.security_config.get('user_agent')
+            )
+            
+            self.driver = self.browser_utils.create_driver(options)
+            self.driver.set_window_size(
+                self.crawler_config.get('window_width', 1920),
+                self.crawler_config.get('window_height', 1080)
+            )
+        except Exception as e:
+            raise BrowserError(f"設置瀏覽器失敗: {str(e)}")
+        
+    def _init_managers(self) -> None:
+        """初始化管理器"""
+        try:
+            # 初始化反檢測管理器
+            self.anti_detection = AntiDetectionManager(
+                id=f"{self.id}_anti_detection",
+                driver=self.driver,
+                config=self.config.get("anti_detection", {})
+            )
             
             # 初始化人類行為模擬器
-            self.human_behavior = self.anti_detection.human_behavior
+            self.human_behavior = HumanBehavior(
+                id=f"{self.id}_human_behavior",
+                driver=self.driver,
+                config=self.config.get("human_behavior", {})
+            )
+            
+            # 初始化瀏覽器指紋
+            self.browser_fingerprint = BrowserFingerprint(
+                id=f"{self.id}_browser_fingerprint",
+                driver=self.driver,
+                config=self.config.get("browser_fingerprint", {})
+            )
             
             # 初始化 Cookie 管理器
-            self.cookie_manager = self.anti_detection.cookie_manager
-            
-            # 初始化瀏覽器指紋管理器
-            self.browser_fingerprint = self.anti_detection.browser_fingerprint
-            
-            # 初始化驗證碼管理器
-            self.captcha_manager = CaptchaManager()
-            
-            # 初始化驗證碼處理器
-            self.captcha_handler = CaptchaHandler(self.config)
-            self.captcha_handler.set_captcha_manager(self.captcha_manager)
+            self.cookie_manager = CookieManager(
+                id=f"{self.id}_cookie_manager",
+                driver=self.driver,
+                config=self.config.get("cookie", {})
+            )
             
         except Exception as e:
             raise ScraperError(f"初始化管理器失敗: {str(e)}")
@@ -277,7 +378,6 @@ class ShopeeBaseScraper(BaseScraper):
         """載入蝦皮特定配置"""
         try:
             # 載入驗證碼相關配置
-            self.captcha_config = self.config.get("captcha", {})
             self.captcha_selectors = self.captcha_config.get("selectors", {})
             
             # 載入人類行為模擬配置

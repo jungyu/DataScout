@@ -23,8 +23,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from queue import Queue
 
-from src.core.utils.logger import setup_logger
-from ..utils.error_handler import retry_on_exception, handle_exception
+from src.core.utils import Logger
+from src.core.utils.error_handler import retry_on_error as retry_on_exception, handle_exception
 
 
 @dataclass

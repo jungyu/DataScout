@@ -23,6 +23,21 @@ from .delay_config import DelayConfig
 class AntiDetectionConfig(BaseConfig):
     """反檢測配置類"""
     
+    # 基本屬性（必需參數）
+    id: str
+    
+    # 基本屬性（可選參數）
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+    
+    # 統計信息
+    total_uses: int = 0
+    success_count: int = 0
+    failure_count: int = 0
+    last_used: Optional[datetime] = None
+    last_success: Optional[datetime] = None
+    last_failure: Optional[datetime] = None
+    
     # 基本設置
     headless: bool = True
     window_size: Dict[str, int] = field(default_factory=lambda: {"width": 1920, "height": 1080})
@@ -46,6 +61,9 @@ class AntiDetectionConfig(BaseConfig):
     max_retries: int = 3
     retry_delay: int = 5
     detection_threshold: float = 0.8
+    
+    # 元數據
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
     def validate(self) -> bool:
         """驗證反檢測配置"""

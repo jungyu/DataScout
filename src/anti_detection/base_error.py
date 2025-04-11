@@ -9,11 +9,16 @@
 2. 錯誤信息格式化
 3. 錯誤追蹤
 4. 錯誤恢復
+5. 錯誤處理裝飾器
 """
 
 import logging
-from typing import Dict, Any, Optional
+import functools
+from typing import Dict, Any, Optional, Callable, TypeVar, ParamSpec
 from datetime import datetime
+
+T = TypeVar('T')
+P = ParamSpec('P')
 
 class BaseError(Exception):
     """基礎錯誤類"""
@@ -78,4 +83,60 @@ class BaseError(Exception):
             return True
         except Exception as e:
             self.logger.error(f"恢復失敗: {e}")
-            return False 
+            return False
+
+def handle_error(func: Callable[P, T]) -> Callable[P, T]:
+    """
+    錯誤處理裝飾器
+    
+    Args:
+        func: 要處理的函數
+        
+    Returns:
+        包裝後的函數
+    """
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        try:
+            return func(*args, **kwargs)
+        except BaseError as e:
+            logging.error(f"處理錯誤: {e}")
+            raise
+        except Exception as e:
+            logging.error(f"未知錯誤: {e}")
+            raise BaseError(500, str(e))
+    return wrapper
+
+def retry_on_error(
+    max_retries: int = 3,
+    delay: float = 1.0,
+    exceptions: tuple = (BaseError,)
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """
+    錯誤重試裝飾器
+    
+    Args:
+        max_retries: 最大重試次數
+        delay: 重試延遲時間
+        exceptions: 需要重試的異常類型
+        
+    Returns:
+        包裝後的函數
+    """
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+        @functools.wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            import time
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    retries += 1
+                    if retries == max_retries:
+                        raise
+                    logging.warning(f"重試 {retries}/{max_retries}: {e}")
+                    time.sleep(delay)
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator 

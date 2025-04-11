@@ -36,7 +36,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 def setup_logger(name: str, 
-                level: int = logging.INFO,
+                level_name: str = 'INFO',
                 log_dir: str = 'logs',
                 log_file: Optional[str] = None,
                 console_output: bool = True,
@@ -46,7 +46,7 @@ def setup_logger(name: str,
     
     Args:
         name: 日誌記錄器名稱
-        level: 日誌等級
+        level_name: 日誌等級名稱
         log_dir: 日誌目錄
         log_file: 日誌文件名
         console_output: 是否輸出到控制台
@@ -55,8 +55,9 @@ def setup_logger(name: str,
     Returns:
         配置好的日誌記錄器
     """
+    level = getattr(logging, level_name.upper())
     config = LogConfig(
-        level=level,
+        level_name=level_name,
         log_dir=log_dir,
         log_file=log_file,
         console_output=console_output,
@@ -67,7 +68,7 @@ def setup_logger(name: str,
 @dataclass
 class LogConfig:
     """日誌配置數據類"""
-    level: int = logging.INFO
+    level_name: str = 'INFO'
     format: str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     date_format: str = '%Y-%m-%d %H:%M:%S'
     log_dir: str = 'logs'
@@ -87,6 +88,11 @@ class LogConfig:
     alert_smtp_port: Optional[int] = None
     alert_smtp_user: Optional[str] = None
     alert_smtp_password: Optional[str] = None
+    
+    @property
+    def level(self) -> int:
+        """獲取日誌等級"""
+        return getattr(logging, self.level_name.upper())
 
 class LogFilter(logging.Filter):
     """日誌過濾器"""

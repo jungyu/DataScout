@@ -20,6 +20,21 @@ from ..base_config import BaseConfig
 class DelayConfig(BaseConfig):
     """延遲配置類"""
     
+    # 基本屬性（必需參數）
+    id: str
+    
+    # 基本屬性（可選參數）
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+    
+    # 統計信息
+    total_uses: int = 0
+    success_count: int = 0
+    failure_count: int = 0
+    last_used: Optional[datetime] = None
+    last_success: Optional[datetime] = None
+    last_failure: Optional[datetime] = None
+    
     # 延遲設置
     page_load: Dict[str, float] = field(default_factory=lambda: {"min": 2.0, "max": 5.0})
     between_actions: Dict[str, float] = field(default_factory=lambda: {"min": 1.0, "max": 3.0})
@@ -31,6 +46,9 @@ class DelayConfig(BaseConfig):
     use_human_like_delay: bool = True
     min_delay: float = 0.1
     max_delay: float = 10.0
+    
+    # 元數據
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
     def validate(self) -> bool:
         """驗證延遲配置"""

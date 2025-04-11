@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .utils.logger import Logger, setup_logger
 from .utils.url_utils import URLUtils
-from .utils.data_processor import DataProcessor as UtilsDataProcessor
+from .utils.data_processor import SimpleDataProcessor as UtilsDataProcessor
 from .utils.config_utils import ConfigUtils
 from .utils.path_utils import PathUtils
 from .utils.cookie_manager import CookieManager

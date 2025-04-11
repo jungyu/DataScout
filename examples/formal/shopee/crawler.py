@@ -35,12 +35,8 @@ from src.core import (
     StateError
 )
 
-from src.captcha import (
-    CaptchaType,
-    CaptchaManager,
-    CaptchaHandler,
-    CaptchaDetectionResult
-)
+from src.captcha.handlers.service import CaptchaType
+from src.captcha import CaptchaConfig
 
 from src.captcha.solvers.shopee_solver import ShopeeSolver
 
@@ -53,18 +49,41 @@ class ShopeeError(CrawlerException):
 class ShopeeCrawler(ShopeeBaseScraper):
     """蝦皮爬蟲"""
     
-    def __init__(self, config_path: str, data_dir: str = "./examples/data"):
+    def __init__(self, config_path: str, data_dir: str = "./examples/data", captcha_config: Optional[CaptchaConfig] = None):
         """
         初始化蝦皮爬蟲
         
         Args:
             config_path: 配置文件路徑
             data_dir: 數據目錄
+            captcha_config: 驗證碼配置
         """
-        super().__init__(config_path, data_dir)
+        # 讀取配置文件
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+            
+        # 添加數據目錄到配置
+        config['data_dir'] = data_dir
+        
+        # 調用父類初始化
+        super().__init__(config)
+        
+        # 初始化配置工具
+        self.config_utils = self.config.get("utils", {})
         
         # 初始化蝦皮驗證碼求解器
-        self.shopee_solver = ShopeeSolver(self.config)
+        self.shopee_solver = ShopeeSolver(
+            browser=self.driver,
+            config=captcha_config or CaptchaConfig(
+                id="shopee_captcha",
+                enabled=True,
+                captcha_type=CaptchaType.IMAGE,
+                captcha_source="local",
+                max_retries=3,
+                retry_delay=1.0,
+                timeout=30.0
+            )
+        )
         
         # 載入爬蟲相關配置
         self._load_crawler_config()
@@ -106,9 +125,22 @@ class ShopeeCrawler(ShopeeBaseScraper):
             if not captcha_type:
                 return True
                 
+            # 檢查驗證碼元素
+            captcha_selector = self._get_captcha_selector(captcha_type)
+            if not captcha_selector:
+                self.logger.error(f"未找到驗證碼選擇器: {captcha_type}")
+                return False
+                
+            # 獲取驗證碼元素
+            captcha_element = self.driver.find_element(By.CSS_SELECTOR, captcha_selector)
+            if not captcha_element:
+                self.logger.error(f"未找到驗證碼元素: {captcha_selector}")
+                return False
+                
             # 使用蝦皮驗證碼求解器處理
             result = self.shopee_solver.solve(
                 driver=self.driver,
+                element=captcha_element,
                 captcha_type=captcha_type
             )
             
@@ -562,6 +594,23 @@ class ShopeeCrawler(ShopeeBaseScraper):
             return int(count_text)
         except (NoSuchElementException, ValueError):
             return 0
+
+    def _get_captcha_selector(self, captcha_type: CaptchaType) -> Optional[str]:
+        """
+        獲取驗證碼選擇器
+        
+        Args:
+            captcha_type: 驗證碼類型
+            
+        Returns:
+            選擇器字符串
+        """
+        selector_map = {
+            CaptchaType.SLIDER: self.search_selectors.get("slider_captcha"),
+            CaptchaType.IMAGE: self.search_selectors.get("image_captcha"),
+            CaptchaType.CLICK: self.search_selectors.get("click_captcha")
+        }
+        return selector_map.get(captcha_type)
 
 def main():
     """主函數"""

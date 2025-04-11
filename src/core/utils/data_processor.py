@@ -17,95 +17,24 @@ import logging
 from typing import Any, Dict, List, Union, Optional
 from datetime import datetime
 
-class DataProcessor:
-    """數據處理工具類"""
+class DataValidator:
+    """數據驗證工具類"""
     
     def __init__(self, logger: Optional[logging.Logger] = None):
         """
-        初始化數據處理器
+        初始化數據驗證器
         
         Args:
             logger: 日誌記錄器
         """
-        self.logger = logger or logging.getLogger(self.__class__.__name__)
+        self.logger = logger or setup_logger(
+            name=__name__,
+            level_name="INFO"
+        )
         
-    def clean_text(self, text: str) -> str:
+    def validate_schema(self, data: Dict[str, Any], schema: Dict[str, Any]) -> bool:
         """
-        清理文本
-        
-        Args:
-            text: 原始文本
-            
-        Returns:
-            清理後的文本
-        """
-        if not text:
-            return ""
-            
-        # 移除多餘的空白字符
-        text = re.sub(r'\s+', ' ', text.strip())
-        
-        # 移除特殊字符
-        text = re.sub(r'[^\w\s\u4e00-\u9fff]', '', text)
-        
-        return text
-        
-    def clean_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        清理數據
-        
-        Args:
-            data: 原始數據
-            
-        Returns:
-            清理後的數據
-        """
-        try:
-            cleaned_data = {}
-            
-            for key, value in data.items():
-                if isinstance(value, str):
-                    cleaned_data[key] = self.clean_text(value)
-                elif isinstance(value, dict):
-                    cleaned_data[key] = self.clean_data(value)
-                elif isinstance(value, list):
-                    cleaned_data[key] = [
-                        self.clean_data(item) if isinstance(item, dict)
-                        else self.clean_text(item) if isinstance(item, str)
-                        else item
-                        for item in value
-                    ]
-                else:
-                    cleaned_data[key] = value
-                    
-            return cleaned_data
-            
-        except Exception as e:
-            self.logger.error(f"清理數據失敗: {str(e)}")
-            return data
-            
-    def format_for_json(self, data: Any) -> Any:
-        """
-        格式化數據為 JSON 格式
-        
-        Args:
-            data: 原始數據
-            
-        Returns:
-            格式化後的數據
-        """
-        if isinstance(data, datetime):
-            return data.isoformat()
-        elif isinstance(data, (list, tuple)):
-            return [self.format_for_json(item) for item in data]
-        elif isinstance(data, dict):
-            return {key: self.format_for_json(value) for key, value in data.items()}
-        else:
-            return data
-            
-    def validate_data(self, data: Dict[str, Any], schema: Dict[str, Any]) -> bool:
-        """
-        驗證數據
+        驗證數據是否符合模式
         
         Args:
             data: 要驗證的數據
@@ -151,6 +80,270 @@ class DataProcessor:
         except Exception as e:
             self.logger.error(f"驗證數據失敗: {str(e)}")
             return False
+            
+    def validate_format(self, data: Dict[str, Any], format_rules: Dict[str, str]) -> bool:
+        """
+        驗證數據格式
+        
+        Args:
+            data: 要驗證的數據
+            format_rules: 格式規則
+            
+        Returns:
+            是否驗證通過
+        """
+        try:
+            for key, pattern in format_rules.items():
+                if key in data:
+                    value = str(data[key])
+                    if not re.match(pattern, value):
+                        self.logger.error(f"格式錯誤: {key} 不符合規則 {pattern}")
+                        return False
+            return True
+        except Exception as e:
+            self.logger.error(f"驗證格式失敗: {str(e)}")
+            return False
+            
+    def validate_range(self, data: Dict[str, Any], range_rules: Dict[str, Dict[str, Any]]) -> bool:
+        """
+        驗證數據範圍
+        
+        Args:
+            data: 要驗證的數據
+            range_rules: 範圍規則
+            
+        Returns:
+            是否驗證通過
+        """
+        try:
+            for key, rules in range_rules.items():
+                if key in data:
+                    value = data[key]
+                    if "min" in rules and value < rules["min"]:
+                        self.logger.error(f"範圍錯誤: {key} 小於最小值 {rules['min']}")
+                        return False
+                    if "max" in rules and value > rules["max"]:
+                        self.logger.error(f"範圍錯誤: {key} 大於最大值 {rules['max']}")
+                        return False
+            return True
+        except Exception as e:
+            self.logger.error(f"驗證範圍失敗: {str(e)}")
+            return False
+
+class DataNormalizer:
+    """數據標準化工具類"""
+    
+    def __init__(self, logger: Optional[logging.Logger] = None):
+        """
+        初始化數據標準化器
+        
+        Args:
+            logger: 日誌記錄器
+        """
+        self.logger = logger or setup_logger(
+            name=__name__,
+            level_name="INFO"
+        )
+        
+    def normalize_text(self, text: str) -> str:
+        """
+        標準化文本
+        
+        Args:
+            text: 原始文本
+            
+        Returns:
+            標準化後的文本
+        """
+        if not text:
+            return ""
+            
+        # 移除多餘的空白字符
+        text = re.sub(r'\s+', ' ', text.strip())
+        
+        # 標準化標點符號
+        text = text.replace('，', ',').replace('。', '.').replace('！', '!').replace('？', '?')
+        
+        # 標準化引號
+        text = text.replace('"', '"').replace('"', '"').replace(''', "'").replace(''', "'")
+        
+        return text
+        
+    def normalize_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        標準化數據
+        
+        Args:
+            data: 原始數據
+            
+        Returns:
+            標準化後的數據
+        """
+        try:
+            normalized = {}
+            
+            for key, value in data.items():
+                if isinstance(value, str):
+                    normalized[key] = self.normalize_text(value)
+                elif isinstance(value, dict):
+                    normalized[key] = self.normalize_data(value)
+                elif isinstance(value, list):
+                    normalized[key] = [
+                        self.normalize_data(item) if isinstance(item, dict)
+                        else self.normalize_text(item) if isinstance(item, str)
+                        else item
+                        for item in value
+                    ]
+                else:
+                    normalized[key] = value
+                    
+            return normalized
+            
+        except Exception as e:
+            self.logger.error(f"標準化數據失敗: {str(e)}")
+            return data
+            
+    def normalize_date(self, date_str: str, format: str = "%Y-%m-%d") -> str:
+        """
+        標準化日期
+        
+        Args:
+            date_str: 日期字符串
+            format: 目標格式
+            
+        Returns:
+            標準化後的日期字符串
+        """
+        try:
+            # 嘗試解析常見的日期格式
+            for fmt in ["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y", "%Y年%m月%d日"]:
+                try:
+                    date = datetime.strptime(date_str, fmt)
+                    return date.strftime(format)
+                except ValueError:
+                    continue
+                    
+            raise ValueError(f"無法解析日期: {date_str}")
+            
+        except Exception as e:
+            self.logger.error(f"標準化日期失敗: {str(e)}")
+            return date_str
+            
+    def normalize_number(self, number_str: str) -> float:
+        """
+        標準化數字
+        
+        Args:
+            number_str: 數字字符串
+            
+        Returns:
+            標準化後的數字
+        """
+        try:
+            # 移除貨幣符號和空格
+            number_str = re.sub(r'[^\d.-]', '', number_str)
+            
+            # 轉換為浮點數
+            return float(number_str)
+            
+        except Exception as e:
+            self.logger.error(f"標準化數字失敗: {str(e)}")
+            return 0.0
+
+class SimpleDataProcessor:
+    """簡單數據處理器"""
+    
+    def __init__(self, logger: Optional[logging.Logger] = None):
+        """
+        初始化簡單數據處理器
+        
+        Args:
+            logger: 日誌記錄器
+        """
+        self.logger = logger or setup_logger(
+            name=__name__,
+            level_name="INFO"
+        )
+        self.validator = DataValidator(self.logger)
+        self.normalizer = DataNormalizer(self.logger)
+        
+    def process(self, data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """
+        處理數據
+        
+        Args:
+            data: 要處理的數據
+            
+        Returns:
+            處理後的數據
+        """
+        try:
+            if isinstance(data, dict):
+                return self.normalizer.normalize_data(data)
+            elif isinstance(data, list):
+                return [self.normalizer.normalize_data(item) for item in data]
+            else:
+                self.logger.error(f"不支持的數據類型: {type(data)}")
+                return data
+        except Exception as e:
+            self.logger.error(f"處理數據失敗: {str(e)}")
+            return data
+            
+    def validate(self, data: Dict[str, Any], schema: Dict[str, Any]) -> bool:
+        """
+        驗證數據
+        
+        Args:
+            data: 要驗證的數據
+            schema: 數據模式
+            
+        Returns:
+            是否驗證通過
+        """
+        return self.validator.validate_schema(data, schema)
+        
+    def clean_text(self, text: str) -> str:
+        """
+        清理文本
+        
+        Args:
+            text: 要清理的文本
+            
+        Returns:
+            清理後的文本
+        """
+        return self.normalizer.normalize_text(text)
+        
+    def clean_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        清理數據
+        
+        Args:
+            data: 原始數據
+            
+        Returns:
+            清理後的數據
+        """
+        return self.normalizer.normalize_data(data)
+        
+    def format_for_json(self, data: Any) -> Any:
+        """
+        格式化數據為 JSON 格式
+        
+        Args:
+            data: 原始數據
+            
+        Returns:
+            格式化後的數據
+        """
+        if isinstance(data, datetime):
+            return data.isoformat()
+        elif isinstance(data, (list, tuple)):
+            return [self.format_for_json(item) for item in data]
+        elif isinstance(data, dict):
+            return {key: self.format_for_json(value) for key, value in data.items()}
+        else:
+            return data
             
     def merge_data(self, data1: Dict[str, Any], data2: Dict[str, Any]) -> Dict[str, Any]:
         """

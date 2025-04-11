@@ -10,7 +10,7 @@
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from datetime import datetime, timedelta
 from ..base_config import BaseConfig
 
@@ -26,6 +26,21 @@ class ProxyConfig(BaseConfig):
     5. 性能指標
     6. 使用統計
     """
+    
+    # 基本屬性（必需參數）
+    id: str
+    
+    # 基本屬性（可選參數）
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+    
+    # 統計信息
+    total_uses: int = 0
+    success_count: int = 0
+    failure_count: int = 0
+    last_used: Optional[datetime] = None
+    last_success: Optional[datetime] = None
+    last_failure: Optional[datetime] = None
     
     # 代理類型
     proxy_type: str = "http"  # http, https, socks4, socks5
@@ -51,13 +66,17 @@ class ProxyConfig(BaseConfig):
     
     # 使用統計
     use_count: int = 0
-    success_count: int = 0
+    proxy_success_count: int = 0
     fail_count: int = 0
-    last_used: Optional[datetime] = None
+    proxy_last_used: Optional[datetime] = None
+    
+    # 元數據
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict:
         """轉換為字典格式"""
-        return {
+        data = super().to_dict()
+        data.update({
             "proxy_type": self.proxy_type,
             "host": self.host,
             "port": self.port,
@@ -71,19 +90,48 @@ class ProxyConfig(BaseConfig):
             "success_rate": self.success_rate,
             "last_check": self.last_check.isoformat(),
             "use_count": self.use_count,
-            "success_count": self.success_count,
+            "proxy_success_count": self.proxy_success_count,
             "fail_count": self.fail_count,
-            "last_used": self.last_used.isoformat() if self.last_used else None
-        }
+            "proxy_last_used": self.proxy_last_used.isoformat() if self.proxy_last_used else None
+        })
+        return data
     
     @classmethod
     def from_dict(cls, data: Dict) -> 'ProxyConfig':
         """從字典創建實例"""
+        config = super().from_dict(data)
         if "last_check" in data:
             data["last_check"] = datetime.fromisoformat(data["last_check"])
-        if "last_used" in data and data["last_used"]:
-            data["last_used"] = datetime.fromisoformat(data["last_used"])
-        return cls(**data)
+        if "proxy_last_used" in data and data["proxy_last_used"]:
+            data["proxy_last_used"] = datetime.fromisoformat(data["proxy_last_used"])
+        return cls(
+            id=config.id,
+            proxy_type=data.get("proxy_type", "http"),
+            host=data.get("host", ""),
+            port=data.get("port", 0),
+            username=data.get("username"),
+            password=data.get("password"),
+            country=data.get("country", ""),
+            region=data.get("region", ""),
+            city=data.get("city", ""),
+            isp=data.get("isp", ""),
+            speed=data.get("speed", 0.0),
+            success_rate=data.get("success_rate", 0.0),
+            last_check=data.get("last_check", datetime.now()),
+            use_count=data.get("use_count", 0),
+            proxy_success_count=data.get("proxy_success_count", 0),
+            fail_count=data.get("fail_count", 0),
+            proxy_last_used=data.get("proxy_last_used"),
+            created_at=config.created_at,
+            updated_at=config.updated_at,
+            total_uses=config.total_uses,
+            success_count=config.success_count,
+            failure_count=config.failure_count,
+            last_used=config.last_used,
+            last_success=config.last_success,
+            last_failure=config.last_failure,
+            metadata=config.metadata
+        )
     
     @property
     def url(self) -> str:
@@ -101,11 +149,12 @@ class ProxyConfig(BaseConfig):
         """更新使用統計"""
         self.use_count += 1
         if success:
-            self.success_count += 1
+            self.proxy_success_count += 1
         else:
             self.fail_count += 1
-        self.last_used = datetime.now()
-        self.success_rate = self.success_count / self.use_count if self.use_count > 0 else 0.0
+        self.proxy_last_used = datetime.now()
+        self.success_rate = self.proxy_success_count / self.use_count if self.use_count > 0 else 0.0
+        self.update_stats(success)
 
 @dataclass
 class ProxyPoolConfig(BaseConfig):
@@ -118,6 +167,21 @@ class ProxyPoolConfig(BaseConfig):
     4. 地理位置要求
     5. 性能要求
     """
+    
+    # 基本屬性（必需參數）
+    id: str
+    
+    # 基本屬性（可選參數）
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+    
+    # 統計信息
+    total_uses: int = 0
+    success_count: int = 0
+    failure_count: int = 0
+    last_used: Optional[datetime] = None
+    last_success: Optional[datetime] = None
+    last_failure: Optional[datetime] = None
     
     # 池大小限制
     max_size: int = 100
@@ -145,9 +209,13 @@ class ProxyPoolConfig(BaseConfig):
     # 代理類型要求
     allowed_types: List[str] = field(default_factory=lambda: ["http", "https", "socks4", "socks5"])
     
+    # 元數據
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
     def to_dict(self) -> Dict:
         """轉換為字典格式"""
-        return {
+        data = super().to_dict()
+        data.update({
             "max_size": self.max_size,
             "min_size": self.min_size,
             "update_interval": self.update_interval,
@@ -162,12 +230,39 @@ class ProxyPoolConfig(BaseConfig):
             "allowed_isps": self.allowed_isps,
             "blocked_isps": self.blocked_isps,
             "allowed_types": self.allowed_types
-        }
+        })
+        return data
     
     @classmethod
     def from_dict(cls, data: Dict) -> 'ProxyPoolConfig':
         """從字典創建實例"""
-        return cls(**data)
+        config = super().from_dict(data)
+        return cls(
+            id=config.id,
+            max_size=data.get("max_size", 100),
+            min_size=data.get("min_size", 10),
+            update_interval=data.get("update_interval", 300),
+            check_interval=data.get("check_interval", 60),
+            max_age=data.get("max_age", 86400),
+            min_success_rate=data.get("min_success_rate", 0.8),
+            max_speed=data.get("max_speed", 1000.0),
+            allowed_countries=data.get("allowed_countries", []),
+            blocked_countries=data.get("blocked_countries", []),
+            allowed_regions=data.get("allowed_regions", []),
+            blocked_regions=data.get("blocked_regions", []),
+            allowed_isps=data.get("allowed_isps", []),
+            blocked_isps=data.get("blocked_isps", []),
+            allowed_types=data.get("allowed_types", ["http", "https", "socks4", "socks5"]),
+            created_at=config.created_at,
+            updated_at=config.updated_at,
+            total_uses=config.total_uses,
+            success_count=config.success_count,
+            failure_count=config.failure_count,
+            last_used=config.last_used,
+            last_success=config.last_success,
+            last_failure=config.last_failure,
+            metadata=config.metadata
+        )
     
     def is_proxy_allowed(self, proxy: ProxyConfig) -> bool:
         """檢查代理是否符合要求"""

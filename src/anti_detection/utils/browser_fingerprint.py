@@ -3,16 +3,21 @@
 提供瀏覽器指紋生成和管理功能
 """
 
+import os
 import json
+import logging
 import random
 import string
-import logging
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Union
+from datetime import datetime
+from pathlib import Path
 from selenium.webdriver import Chrome, Firefox, Edge
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from ..base_error import BaseError, handle_error, retry_on_error
-from ..configs.browser_fingerprint_config import BrowserFingerprintConfig
+from ..base_error import BaseError
+from src.core.utils.error_handler import retry_on_error, handle_exception
+from ..configs.browser_fp_config import BrowserFingerprintConfig
+from src.core.utils import setup_logger
 
 class BrowserFingerprintError(BaseError):
     """瀏覽器指紋錯誤"""
@@ -24,6 +29,7 @@ class BrowserFingerprint:
     def __init__(
         self,
         driver: WebDriver,
+        id: str,
         config: Optional[Dict[str, Any]] = None,
         logger: Optional[logging.Logger] = None
     ):
@@ -32,11 +38,16 @@ class BrowserFingerprint:
         
         Args:
             driver: WebDriver 實例
+            id: 唯一標識符
             config: 配置字典
             logger: 日誌記錄器
         """
         self.driver = driver
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or setup_logger(
+            name=__name__,
+            level_name="INFO"
+        )
+        self.id = id
         self.config = BrowserFingerprintConfig.from_dict(config or {})
         if not self.config.validate():
             raise BrowserFingerprintError("無效的瀏覽器指紋配置")
@@ -44,7 +55,7 @@ class BrowserFingerprint:
         self.fingerprint_history: List[Dict[str, Any]] = []
         self.fingerprint_stats: Dict[str, Dict[str, int]] = {}
     
-    @handle_error
+    @handle_exception
     def generate_fingerprint(self) -> Dict[str, Any]:
         """
         生成瀏覽器指紋
@@ -53,33 +64,33 @@ class BrowserFingerprint:
             指紋字典
         """
         fingerprint = {
-            "user_agent": this._generate_user_agent(),
-            "screen": this._generate_screen_info(),
-            "navigator": this._generate_navigator_info(),
-            "webgl": this._generate_webgl_info(),
-            "canvas": this._generate_canvas_info(),
-            "fonts": this._generate_fonts_info(),
-            "audio": this._generate_audio_info(),
-            "plugins": this._generate_plugins_info(),
-            "timezone": this._generate_timezone_info(),
-            "language": this._generate_language_info(),
-            "platform": this._generate_platform_info(),
-            "hardware": this._generate_hardware_info()
+            "user_agent": self._generate_user_agent(),
+            "screen": self._generate_screen_info(),
+            "navigator": self._generate_navigator_info(),
+            "webgl": self._generate_webgl_info(),
+            "canvas": self._generate_canvas_info(),
+            "fonts": self._generate_fonts_info(),
+            "audio": self._generate_audio_info(),
+            "plugins": self._generate_plugins_info(),
+            "timezone": self._generate_timezone_info(),
+            "language": self._generate_language_info(),
+            "platform": self._generate_platform_info(),
+            "hardware": self._generate_hardware_info()
         }
         
         # 記錄指紋
-        this.fingerprint_history.append(fingerprint)
+        self.fingerprint_history.append(fingerprint)
         
         # 更新統計信息
         for key in fingerprint:
-            if key not in this.fingerprint_stats:
-                this.fingerprint_stats[key] = {}
+            if key not in self.fingerprint_stats:
+                self.fingerprint_stats[key] = {}
             value = str(fingerprint[key])
-            this.fingerprint_stats[key][value] = this.fingerprint_stats[key].get(value, 0) + 1
+            self.fingerprint_stats[key][value] = self.fingerprint_stats[key].get(value, 0) + 1
         
         return fingerprint
     
-    @handle_error
+    @handle_exception
     def apply_fingerprint(self, fingerprint: Dict[str, Any]) -> None:
         """
         應用瀏覽器指紋
@@ -88,42 +99,42 @@ class BrowserFingerprint:
             fingerprint: 指紋字典
         """
         # 設置 User-Agent
-        this._set_user_agent(fingerprint["user_agent"])
+        self._set_user_agent(fingerprint["user_agent"])
         
         # 設置屏幕信息
-        this._set_screen_info(fingerprint["screen"])
+        self._set_screen_info(fingerprint["screen"])
         
         # 設置 Navigator 信息
-        this._set_navigator_info(fingerprint["navigator"])
+        self._set_navigator_info(fingerprint["navigator"])
         
         # 設置 WebGL 信息
-        this._set_webgl_info(fingerprint["webgl"])
+        self._set_webgl_info(fingerprint["webgl"])
         
         # 設置 Canvas 信息
-        this._set_canvas_info(fingerprint["canvas"])
+        self._set_canvas_info(fingerprint["canvas"])
         
         # 設置字體信息
-        this._set_fonts_info(fingerprint["fonts"])
+        self._set_fonts_info(fingerprint["fonts"])
         
         # 設置音頻信息
-        this._set_audio_info(fingerprint["audio"])
+        self._set_audio_info(fingerprint["audio"])
         
         # 設置插件信息
-        this._set_plugins_info(fingerprint["plugins"])
+        self._set_plugins_info(fingerprint["plugins"])
         
         # 設置時區信息
-        this._set_timezone_info(fingerprint["timezone"])
+        self._set_timezone_info(fingerprint["timezone"])
         
         # 設置語言信息
-        this._set_language_info(fingerprint["language"])
+        self._set_language_info(fingerprint["language"])
         
         # 設置平台信息
-        this._set_platform_info(fingerprint["platform"])
+        self._set_platform_info(fingerprint["platform"])
         
         # 設置硬件信息
-        this._set_hardware_info(fingerprint["hardware"])
+        self._set_hardware_info(fingerprint["hardware"])
     
-    @handle_error
+    @handle_exception
     def validate_fingerprint(self, fingerprint: Dict[str, Any]) -> bool:
         """
         驗證瀏覽器指紋
@@ -153,60 +164,60 @@ class BrowserFingerprint:
             
             for field in required_fields:
                 if field not in fingerprint:
-                    this.logger.error(f"缺少必要字段: {field}")
+                    self.logger.error(f"缺少必要字段: {field}")
                     return False
             
             # 檢查字段類型
             if not isinstance(fingerprint["user_agent"], str):
-                this.logger.error("User-Agent 必須是字符串")
+                self.logger.error("User-Agent 必須是字符串")
                 return False
             
             if not isinstance(fingerprint["screen"], dict):
-                this.logger.error("Screen 必須是字典")
+                self.logger.error("Screen 必須是字典")
                 return False
             
             if not isinstance(fingerprint["navigator"], dict):
-                this.logger.error("Navigator 必須是字典")
+                self.logger.error("Navigator 必須是字典")
                 return False
             
             # 檢查字段值
             if not fingerprint["user_agent"]:
-                this.logger.error("User-Agent 不能為空")
+                self.logger.error("User-Agent 不能為空")
                 return False
             
             if not fingerprint["screen"].get("width") or not fingerprint["screen"].get("height"):
-                this.logger.error("Screen 寬高不能為空")
+                self.logger.error("Screen 寬高不能為空")
                 return False
             
             if not fingerprint["navigator"].get("platform"):
-                this.logger.error("Navigator platform 不能為空")
+                self.logger.error("Navigator platform 不能為空")
                 return False
             
             return True
             
         except Exception as e:
-            this.logger.error(f"驗證指紋時發生錯誤: {str(e)}")
+            self.logger.error(f"驗證指紋時發生錯誤: {str(e)}")
             return False
     
     def get_fingerprint_report(self) -> Dict[str, Any]:
         """獲取指紋報告"""
         return {
-            "total_fingerprints": len(this.fingerprint_history),
-            "fingerprint_stats": this.fingerprint_stats,
-            "recent_fingerprints": this.fingerprint_history[-10:]
+            "total_fingerprints": len(self.fingerprint_history),
+            "fingerprint_stats": self.fingerprint_stats,
+            "recent_fingerprints": self.fingerprint_history[-10:]
         }
     
     def _generate_user_agent(self) -> str:
         """生成 User-Agent"""
         # 根據瀏覽器類型生成不同的 User-Agent
-        if isinstance(this.driver, Chrome):
-            return this._generate_chrome_user_agent()
-        elif isinstance(this.driver, Firefox):
-            return this._generate_firefox_user_agent()
-        elif isinstance(this.driver, Edge):
-            return this._generate_edge_user_agent()
+        if isinstance(self.driver, Chrome):
+            return self._generate_chrome_user_agent()
+        elif isinstance(self.driver, Firefox):
+            return self._generate_firefox_user_agent()
+        elif isinstance(self.driver, Edge):
+            return self._generate_edge_user_agent()
         else:
-            return this._generate_default_user_agent()
+            return self._generate_default_user_agent()
     
     def _generate_screen_info(self) -> Dict[str, Any]:
         """生成屏幕信息"""
@@ -356,7 +367,7 @@ class BrowserFingerprint:
         """生成平台信息"""
         return {
             "platform": random.choice(["Win32", "MacIntel", "Linux x86_64"]),
-            "userAgent": this._generate_user_agent(),
+            "userAgent": self._generate_user_agent(),
             "appVersion": random.choice([
                 "5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
                 "5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -407,15 +418,15 @@ class BrowserFingerprint:
     
     def _generate_default_user_agent(self) -> str:
         """生成默認 User-Agent"""
-        return this._generate_chrome_user_agent()
+        return self._generate_chrome_user_agent()
     
     def _set_user_agent(self, user_agent: str) -> None:
         """設置 User-Agent"""
-        this.driver.execute_cdp_cmd("Network.setUserAgentOverride", {"userAgent": user_agent})
+        self.driver.execute_cdp_cmd("Network.setUserAgentOverride", {"userAgent": user_agent})
     
     def _set_screen_info(self, screen_info: Dict[str, Any]) -> None:
         """設置屏幕信息"""
-        this.driver.execute_cdp_cmd("Emulation.setDeviceMetricsOverride", {
+        self.driver.execute_cdp_cmd("Emulation.setDeviceMetricsOverride", {
             "width": screen_info["width"],
             "height": screen_info["height"],
             "deviceScaleFactor": screen_info["devicePixelRatio"],
@@ -424,7 +435,7 @@ class BrowserFingerprint:
     
     def _set_navigator_info(self, navigator_info: Dict[str, Any]) -> None:
         """設置 Navigator 信息"""
-        this.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": f"""
                 Object.defineProperty(navigator, 'platform', {{
                     get: () => '{navigator_info["platform"]}'
@@ -452,7 +463,7 @@ class BrowserFingerprint:
     
     def _set_webgl_info(self, webgl_info: Dict[str, Any]) -> None:
         """設置 WebGL 信息"""
-        this.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": f"""
                 const getParameter = WebGLRenderingContext.prototype.getParameter;
                 WebGLRenderingContext.prototype.getParameter = function(parameter) {{
@@ -477,7 +488,7 @@ class BrowserFingerprint:
     
     def _set_canvas_info(self, canvas_info: Dict[str, Any]) -> None:
         """設置 Canvas 信息"""
-        this.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": f"""
                 const originalGetContext = HTMLCanvasElement.prototype.getContext;
                 HTMLCanvasElement.prototype.getContext = function(type, attributes) {{
@@ -502,7 +513,7 @@ class BrowserFingerprint:
     
     def _set_fonts_info(self, fonts: List[str]) -> None:
         """設置字體信息"""
-        this.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": f"""
                 const originalFontFace = window.FontFace;
                 window.FontFace = function(family, source, descriptors) {{
@@ -516,7 +527,7 @@ class BrowserFingerprint:
     
     def _set_audio_info(self, audio_info: Dict[str, Any]) -> None:
         """設置音頻信息"""
-        this.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": f"""
                 const originalGetChannelData = AudioBuffer.prototype.getChannelData;
                 AudioBuffer.prototype.getChannelData = function(channel) {{
@@ -532,7 +543,7 @@ class BrowserFingerprint:
     
     def _set_plugins_info(self, plugins: List[Dict[str, str]]) -> None:
         """設置插件信息"""
-        this.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": f"""
                 Object.defineProperty(navigator, 'plugins', {{
                     get: () => {{
@@ -550,7 +561,7 @@ class BrowserFingerprint:
     
     def _set_timezone_info(self, timezone_info: Dict[str, Any]) -> None:
         """設置時區信息"""
-        this.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": f"""
                 Object.defineProperty(Intl, 'DateTimeFormat', {{
                     get: () => function(locale, options) {{
@@ -558,7 +569,7 @@ class BrowserFingerprint:
                         const originalFormat = format.format;
                         format.format = function(date) {{
                             const result = originalFormat.apply(this, arguments);
-                            return result.replace(/\+\d{2}:\d{2}/, '{timezone_info["offset"]:+03d}:00');
+                            return result.replace(/\\+\\d{2}:\\d{2}/, '{timezone_info["offset"]:+03d}:00');
                         }};
                         return format;
                     }}
@@ -568,7 +579,7 @@ class BrowserFingerprint:
     
     def _set_language_info(self, language_info: Dict[str, Any]) -> None:
         """設置語言信息"""
-        this.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": f"""
                 Object.defineProperty(navigator, 'language', {{
                     get: () => '{language_info["language"]}'
@@ -584,7 +595,7 @@ class BrowserFingerprint:
     
     def _set_platform_info(self, platform_info: Dict[str, Any]) -> None:
         """設置平台信息"""
-        this.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": f"""
                 Object.defineProperty(navigator, 'platform', {{
                     get: () => '{platform_info["platform"]}'
@@ -600,7 +611,7 @@ class BrowserFingerprint:
     
     def _set_hardware_info(self, hardware_info: Dict[str, Any]) -> None:
         """設置硬件信息"""
-        this.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": f"""
                 Object.defineProperty(navigator, 'deviceMemory', {{
                     get: () => {hardware_info["deviceMemory"]}

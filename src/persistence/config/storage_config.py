@@ -56,23 +56,19 @@ class StorageConfig:
     notion_page_size: int = 100
     
     # 混入 CoreMixin
-    core_mixin: InitVar[CoreMixin] = field(default_factory=CoreMixin)
+    core_mixin: CoreMixin = field(default_factory=lambda: None)
     
-    def __post_init__(self, core_mixin: CoreMixin):
-        """
-        初始化後處理
-        
-        Args:
-            core_mixin: CoreMixin 實例
-        """
+    def __post_init__(self):
+        """初始化後處理"""
         # 初始化核心工具類
-        self.core_mixin = core_mixin
+        if self.core_mixin is None:
+            self.core_mixin = CoreMixin()
         self.core_mixin.init_core_utils()
         
         # 複製核心工具類的屬性
-        for attr in dir(core_mixin):
+        for attr in dir(self.core_mixin):
             if not attr.startswith('_'):
-                setattr(self, attr, getattr(core_mixin, attr))
+                setattr(self, attr, getattr(self.core_mixin, attr))
     
     @classmethod
     def from_credentials(cls, credentials_path: str = "config/credentials.json") -> "StorageConfig":

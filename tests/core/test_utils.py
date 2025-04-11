@@ -19,7 +19,7 @@ sys.path.append(str(project_root))
 from src.core.utils.config_utils import ConfigUtils
 from src.core.utils.logger import Logger
 from src.core.utils.path_utils import PathUtils
-from src.core.utils.data_processor import DataProcessor
+from src.core.utils.data_processor import SimpleDataProcessor
 from src.core.utils.error_handler import ErrorHandler
 from src.core.utils.time_utils import TimeUtils
 from src.core.utils.validation_utils import ValidationUtils
@@ -78,14 +78,14 @@ class TestDataProcessor:
     
     def test_process_data(self):
         """測試數據處理"""
-        data_processor = DataProcessor()
+        data_processor = SimpleDataProcessor()
         test_data = {"key": "value"}
         processed_data = data_processor.process_data(test_data)
         assert isinstance(processed_data, dict)
     
     def test_validate_data(self):
         """測試數據驗證"""
-        data_processor = DataProcessor()
+        data_processor = SimpleDataProcessor()
         test_data = {"key": "value"}
         is_valid = data_processor.validate_data(test_data)
         assert is_valid is True

@@ -13,7 +13,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 from pathlib import Path
 
-from src.core.utils import CoreMixin
+from .core_mixin import CoreMixin
 
 class StorageUtils(CoreMixin):
     """存儲工具類"""

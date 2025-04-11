@@ -29,16 +29,16 @@ from src.core.config_loader import BaseConfig
 
 class CaptchaType(Enum):
     """驗證碼類型枚舉"""
-    RECAPTCHA = "recaptcha"    # Google reCAPTCHA
-    HCAPTCHA = "hcaptcha"      # hCaptcha
-    IMAGE_CAPTCHA = "image"    # 傳統圖片驗證碼
-    SLIDER_CAPTCHA = "slider"  # 滑塊驗證碼
-    ROTATE_CAPTCHA = "rotate"  # 旋轉驗證碼
-    CLICK_CAPTCHA = "click"    # 點擊驗證碼
-    TEXT_CAPTCHA = "text"      # 文字問答驗證碼
-    MANUAL = "manual"          # 人工手動驗證
-    CUSTOM = "custom"          # 自定義驗證函式
-    UNKNOWN = "unknown"        # 未知類型
+    SLIDER = "slider"      # 滑塊驗證碼
+    IMAGE = "image"        # 圖片驗證碼
+    CLICK = "click"        # 點擊驗證碼
+    AUDIO = "audio"        # 音頻驗證碼
+    TEXT = "text"          # 文本驗證碼
+    RECAPTCHA = "recaptcha"  # Google reCAPTCHA
+    HCAPTCHA = "hcaptcha"    # hCaptcha
+    MANUAL = "manual"        # 人工手動驗證
+    CUSTOM = "custom"        # 自定義驗證函式
+    UNKNOWN = "unknown"      # 未知類型
 
 
 @dataclass
@@ -59,9 +59,10 @@ class CaptchaConfig(BaseConfig):
         self.enabled: bool = kwargs.get('enabled', True)
         self.max_retries: int = kwargs.get('max_retries', 3)
         self.retry_delay: float = kwargs.get('retry_delay', 1.0)
+        self.timeout: float = kwargs.get('timeout', 30.0)
         
         # 驗證碼類型設置
-        self.captcha_type: str = kwargs.get('captcha_type', 'image')
+        self.captcha_type: CaptchaType = kwargs.get('captcha_type', CaptchaType.IMAGE)
         self.captcha_source: str = kwargs.get('captcha_source', 'local')
         
         # 圖像驗證碼設置
@@ -78,6 +79,11 @@ class CaptchaConfig(BaseConfig):
         self.text_config: Dict[str, Any] = kwargs.get('text_config', {})
         self.text_preprocessing: bool = kwargs.get('text_preprocessing', True)
         self.text_min_length: int = kwargs.get('text_min_length', 4)
+        
+        # 滑塊驗證碼設置
+        self.slider_config: Dict[str, Any] = kwargs.get('slider_config', {})
+        self.slider_move_delay: float = kwargs.get('slider_move_delay', 0.1)
+        self.slider_move_offset: int = kwargs.get('slider_move_offset', 5)
         
         # API設置
         self.api_config: Dict[str, Any] = kwargs.get('api_config', {})
@@ -149,6 +155,7 @@ class CaptchaConfig(BaseConfig):
             'enabled': self.enabled,
             'max_retries': self.max_retries,
             'retry_delay': self.retry_delay,
+            'timeout': self.timeout,
             'captcha_type': self.captcha_type,
             'captcha_source': self.captcha_source,
             'image_config': self.image_config,
@@ -160,6 +167,9 @@ class CaptchaConfig(BaseConfig):
             'text_config': self.text_config,
             'text_preprocessing': self.text_preprocessing,
             'text_min_length': self.text_min_length,
+            'slider_config': self.slider_config,
+            'slider_move_delay': self.slider_move_delay,
+            'slider_move_offset': self.slider_move_offset,
             'api_config': self.api_config,
             'api_key': self.api_key,
             'api_endpoint': self.api_endpoint,
@@ -196,6 +206,8 @@ class CaptchaConfig(BaseConfig):
         config.enabled = data.get('enabled', True)
         config.max_retries = data.get('max_retries', 3)
         config.retry_delay = data.get('retry_delay', 1.0)
+        config.timeout = data.get('timeout', 30.0)
+        config.captcha_type = data.get('captcha_type', CaptchaType.IMAGE)
         config.captcha_type = data.get('captcha_type', 'image')
         config.captcha_source = data.get('captcha_source', 'local')
         config.image_config = data.get('image_config', {})
@@ -218,9 +230,9 @@ class CaptchaConfig(BaseConfig):
 @dataclass
 class CaptchaResult:
     """驗證碼結果類"""
-    success: bool
-    captcha_type: CaptchaType
-    solution: Optional[str] = None
-    confidence: float = 0.0
-    error: Optional[str] = None
-    details: Dict[str, Any] = field(default_factory=dict) 
+    success: bool                                  # 是否成功
+    captcha_type: CaptchaType                     # 驗證碼類型
+    solution: Optional[str] = None                 # 解決方案
+    confidence: float = 0.0                        # 可信度
+    error: Optional[str] = None                    # 錯誤信息
+    details: Dict[str, Any] = field(default_factory=dict)  # 詳細信息 

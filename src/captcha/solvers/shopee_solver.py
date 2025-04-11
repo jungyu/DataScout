@@ -12,6 +12,7 @@ from pathlib import Path
 import time
 import json
 import base64
+from datetime import datetime
 
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -33,14 +34,29 @@ from src.core.utils.error_handler import ErrorHandler
 class ShopeeSolver(BaseSolver):
     """蝦皮網站驗證碼求解器"""
     
-    def __init__(self, config: Optional[CaptchaConfig] = None):
+    def __init__(self, browser: WebDriver, config: Optional[CaptchaConfig] = None):
         """
         初始化蝦皮驗證碼求解器
         
         Args:
+            browser: WebDriver 實例
             config: 驗證碼配置
         """
-        super().__init__(config)
+        # 設置默認配置
+        default_config = {
+            'timeout': 10,
+            'retry_count': 3,
+            'screenshot_dir': 'screenshots/shopee',
+            'temp_dir': 'temp/shopee',
+            'sample_dir': 'samples/shopee'
+        }
+        
+        # 合併配置
+        if config:
+            default_config.update(config.to_dict())
+            
+        # 調用父類初始化
+        super().__init__(browser, default_config)
         
         # 初始化工具類
         self.browser_utils = BrowserUtils()
@@ -56,7 +72,6 @@ class ShopeeSolver(BaseSolver):
             'slider_container_selector': '.shopee-slider',
             'success_selector': '.shopee-slider__success',
             'error_selector': '.shopee-slider__error',
-            'timeout': 10,  # 等待元素出現的超時時間
             'move_offset': 5,  # 滑動偏移量
             'move_delay': 0.1  # 滑動延遲
         }
@@ -111,14 +126,20 @@ class ShopeeSolver(BaseSolver):
                 self.logger.info("驗證碼求解成功")
                 return CaptchaResult(
                     success=True,
-                    message="驗證碼求解成功",
-                    solution={"distance": distance, "tracks": tracks}
+                    captcha_type=CaptchaType.SLIDER,
+                    solution="滑動驗證通過",
+                    confidence=1.0,
+                    details={
+                        "distance": distance,
+                        "tracks": tracks,
+                        "timestamp": datetime.now().isoformat()
+                    }
                 )
             else:
                 self.logger.error("滑動驗證失敗")
                 return CaptchaResult(
                     success=False,
-                    message="驗證碼求解失敗",
+                    captcha_type=CaptchaType.SLIDER,
                     error="滑動驗證失敗"
                 )
         
@@ -126,7 +147,7 @@ class ShopeeSolver(BaseSolver):
             self.logger.error("等待元素超時")
             return CaptchaResult(
                 success=False,
-                message="驗證碼求解失敗",
+                captcha_type=CaptchaType.SLIDER,
                 error="等待元素超時"
             )
         
@@ -134,7 +155,7 @@ class ShopeeSolver(BaseSolver):
             self.error_handler.handle_error(e, "求解驗證碼時發生錯誤")
             return CaptchaResult(
                 success=False,
-                message="驗證碼求解失敗",
+                captcha_type=CaptchaType.SLIDER,
                 error=str(e)
             )
     
@@ -197,33 +218,44 @@ class ShopeeSolver(BaseSolver):
         """
         try:
             # 移動到滑塊
-            action = driver.action_chains
-            action.move_to_element(slider)
-            action.click_and_hold().perform()
+            actions = driver.action_chains
+            actions.move_to_element(slider)
+            actions.click_and_hold()
+            actions.perform()
             
             # 根據軌跡移動
             for track in tracks:
-                action.move_by_offset(xoffset=track, yoffset=0).perform()
-                time.sleep(self.shopee_config['move_delay'])
+                actions.move_by_offset(xoffset=track, yoffset=0)
+                actions.pause(self.shopee_config['move_delay'])
+                actions.perform()
             
             # 微調位置
-            action.move_by_offset(xoffset=self.shopee_config['move_offset'], yoffset=0).perform()
-            action.move_by_offset(xoffset=-self.shopee_config['move_offset'], yoffset=0).perform()
+            actions.move_by_offset(xoffset=self.shopee_config['move_offset'], yoffset=0)
+            actions.pause(0.1)
+            actions.move_by_offset(xoffset=-self.shopee_config['move_offset'], yoffset=0)
+            actions.pause(0.1)
             
             # 釋放滑塊
-            time.sleep(0.5)
-            action.release().perform()
+            actions.release()
+            actions.perform()
+            
+            # 等待結果
+            time.sleep(1)
             
             # 檢查是否成功
-            time.sleep(1)
             try:
-                success = driver.find_element(By.CSS_SELECTOR, self.shopee_config['success_selector'])
-                return True
-            except NoSuchElementException:
+                success_element = self.browser_utils.wait_for_element(
+                    driver,
+                    By.CSS_SELECTOR,
+                    self.shopee_config['success_selector'],
+                    timeout=self.shopee_config['timeout']
+                )
+                return success_element is not None
+            except TimeoutException:
                 return False
-        
+                
         except Exception as e:
-            self.error_handler.handle_error(e, "執行滑動操作時發生錯誤")
+            self.logger.error(f"執行滑動操作失敗: {str(e)}")
             return False
     
     def _save_screenshot(self, driver: WebDriver, name: str = "captcha") -> Optional[str]:

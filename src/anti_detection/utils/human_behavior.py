@@ -1,22 +1,40 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 """
-人類行為模擬模組
-提供隨機延遲和人類行為模擬功能
+人類行為模擬器
+
+此模組提供模擬人類行為的功能，包括：
+1. 滑鼠移動模擬
+2. 點擊行為模擬
+3. 滾動行為模擬
+4. 輸入行為模擬
 """
 
-import random
+import os
+import json
 import time
+import random
 import math
 import logging
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Tuple, Optional, Union
+from datetime import datetime
+from pathlib import Path
 from selenium.webdriver import ActionChains
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.common.exceptions import (
+    ElementNotVisibleException,
+    ElementNotInteractableException,
+    StaleElementReferenceException
+)
 
-from ..base_error import BaseError, handle_error, retry_on_error
+from ..base_error import BaseError
+from src.core.utils.error_handler import retry_on_error, handle_exception
 from ..configs.human_behavior_config import HumanBehaviorConfig
 
 class HumanBehaviorError(BaseError):
-    """人類行為錯誤"""
+    """人類行為模擬錯誤"""
     pass
 
 class HumanBehaviorResult:
@@ -56,12 +74,260 @@ class HumanBehaviorResult:
             "timestamp": self.timestamp
         }
 
+class HumanBehaviorSimulator:
+    """人類行為模擬器類"""
+    
+    def __init__(
+        self,
+        id: str,
+        driver: WebDriver,
+        config: Optional[Dict[str, Any]] = None,
+        logger: Optional[logging.Logger] = None
+    ):
+        """
+        初始化人類行為模擬器
+        
+        Args:
+            id: 唯一標識符
+            driver: WebDriver實例
+            config: 配置字典
+            logger: 日誌記錄器
+        """
+        self.id = id
+        self.driver = driver
+        self.logger = logger or logging.getLogger(__name__)
+        self.config = HumanBehaviorConfig.from_dict(config or {"id": self.id})
+        
+        # 移動參數
+        self.min_move_time = 0.5
+        self.max_move_time = 2.0
+        self.move_points = 50
+        
+        # 點擊參數
+        self.min_click_delay = 0.1
+        self.max_click_delay = 0.3
+        
+        # 滾動參數
+        self.min_scroll_delay = 0.5
+        self.max_scroll_delay = 1.5
+        self.scroll_step = 100
+        
+        # 輸入參數
+        self.min_type_delay = 0.1
+        self.max_type_delay = 0.3
+        
+        self.logger.info(f"人類行為模擬器 {self.id} 初始化完成")
+    
+    def move_to_element(self, element: WebElement, random_offset: bool = True) -> bool:
+        """
+        模擬人類移動滑鼠到元素
+        
+        Args:
+            element: 目標元素
+            random_offset: 是否添加隨機偏移
+            
+        Returns:
+            是否成功
+        """
+        try:
+            # 獲取元素位置和大小
+            location = element.location
+            size = element.size
+            
+            # 計算目標點
+            target_x = location['x'] + size['width'] // 2
+            target_y = location['y'] + size['height'] // 2
+            
+            # 添加隨機偏移
+            if random_offset:
+                offset_x = random.randint(-size['width'] // 4, size['width'] // 4)
+                offset_y = random.randint(-size['height'] // 4, size['height'] // 4)
+                target_x += offset_x
+                target_y += offset_y
+            
+            # 生成貝塞爾曲線路徑
+            current_x, current_y = self._get_current_mouse_position()
+            path = self._generate_bezier_curve(
+                (current_x, current_y),
+                (target_x, target_y),
+                self.move_points
+            )
+            
+            # 執行移動
+            move_time = random.uniform(self.min_move_time, self.max_move_time)
+            step_time = move_time / len(path)
+            
+            actions = ActionChains(self.driver)
+            for point in path:
+                actions.move_by_offset(point[0] - current_x, point[1] - current_y)
+                current_x, current_y = point
+                time.sleep(step_time)
+            
+            actions.perform()
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"移動到元素失敗: {str(e)}")
+            return False
+    
+    def click_element(self, element: WebElement, double_click: bool = False) -> bool:
+        """
+        模擬人類點擊元素
+        
+        Args:
+            element: 目標元素
+            double_click: 是否雙擊
+            
+        Returns:
+            是否成功
+        """
+        try:
+            # 先移動到元素
+            if not self.move_to_element(element):
+                return False
+            
+            # 添加隨機延遲
+            time.sleep(random.uniform(self.min_click_delay, self.max_click_delay))
+            
+            # 執行點擊
+            actions = ActionChains(self.driver)
+            if double_click:
+                actions.double_click(element)
+            else:
+                actions.click(element)
+            
+            actions.perform()
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"點擊元素失敗: {str(e)}")
+            return False
+    
+    def scroll_to_element(self, element: WebElement, smooth: bool = True) -> bool:
+        """
+        模擬人類滾動到元素
+        
+        Args:
+            element: 目標元素
+            smooth: 是否平滑滾動
+            
+        Returns:
+            是否成功
+        """
+        try:
+            # 獲取元素位置
+            location = element.location
+            current_scroll = self.driver.execute_script("return window.pageYOffset;")
+            target_scroll = location['y']
+            
+            if smooth:
+                # 計算滾動步驟
+                distance = target_scroll - current_scroll
+                steps = abs(distance) // self.scroll_step
+                
+                # 執行平滑滾動
+                for _ in range(steps):
+                    if distance > 0:
+                        current_scroll += self.scroll_step
+                    else:
+                        current_scroll -= self.scroll_step
+                    
+                    self.driver.execute_script(f"window.scrollTo(0, {current_scroll});")
+                    time.sleep(random.uniform(self.min_scroll_delay, self.max_scroll_delay))
+            
+            # 最後滾動到精確位置
+            self.driver.execute_script(f"window.scrollTo(0, {target_scroll});")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"滾動到元素失敗: {str(e)}")
+            return False
+    
+    def type_text(self, element: WebElement, text: str, clear_first: bool = True) -> bool:
+        """
+        模擬人類輸入文字
+        
+        Args:
+            element: 目標元素
+            text: 要輸入的文字
+            clear_first: 是否先清空
+            
+        Returns:
+            是否成功
+        """
+        try:
+            # 先點擊元素
+            if not self.click_element(element):
+                return False
+            
+            # 清空輸入框
+            if clear_first:
+                element.clear()
+            
+            # 模擬人類輸入
+            for char in text:
+                element.send_keys(char)
+                time.sleep(random.uniform(self.min_type_delay, self.max_type_delay))
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"輸入文字失敗: {str(e)}")
+            return False
+    
+    def _get_current_mouse_position(self) -> Tuple[int, int]:
+        """獲取當前滑鼠位置"""
+        return self.driver.execute_script("""
+            return [
+                window.mouseX || window.event.clientX,
+                window.mouseY || window.event.clientY
+            ];
+        """)
+    
+    def _generate_bezier_curve(
+        self,
+        start: Tuple[int, int],
+        end: Tuple[int, int],
+        points: int
+    ) -> List[Tuple[int, int]]:
+        """生成貝塞爾曲線路徑"""
+        # 生成控制點
+        control1 = (
+            start[0] + (end[0] - start[0]) // 3,
+            start[1] + random.randint(-100, 100)
+        )
+        control2 = (
+            start[0] + 2 * (end[0] - start[0]) // 3,
+            end[1] + random.randint(-100, 100)
+        )
+        
+        # 生成路徑點
+        path = []
+        for i in range(points):
+            t = i / (points - 1)
+            x = (
+                (1 - t) ** 3 * start[0] +
+                3 * (1 - t) ** 2 * t * control1[0] +
+                3 * (1 - t) * t ** 2 * control2[0] +
+                t ** 3 * end[0]
+            )
+            y = (
+                (1 - t) ** 3 * start[1] +
+                3 * (1 - t) ** 2 * t * control1[1] +
+                3 * (1 - t) * t ** 2 * control2[1] +
+                t ** 3 * end[1]
+            )
+            path.append((int(x), int(y)))
+        
+        return path
+
 class HumanBehavior:
     """人類行為模擬類"""
     
     def __init__(
         self,
         driver: WebDriver,
+        id: str,
         config: Optional[Dict[str, Any]] = None,
         logger: Optional[logging.Logger] = None
     ):
@@ -70,12 +336,14 @@ class HumanBehavior:
         
         Args:
             driver: WebDriver 實例
+            id: 唯一標識符
             config: 配置字典
             logger: 日誌記錄器
         """
         self.driver = driver
         self.actions = ActionChains(driver)
         self.logger = logger or logging.getLogger(__name__)
+        self.id = id
         self.config = HumanBehaviorConfig.from_dict(config or {})
         if not self.config.validate():
             raise HumanBehaviorError("無效的人類行為配置")
@@ -179,7 +447,7 @@ class HumanBehavior:
         # 隨機停頓
         self.random_sleep(min_seconds, max_seconds)
     
-    @handle_error
+    @handle_exception
     def move_to_element(
         self,
         element: WebElement,
@@ -231,7 +499,7 @@ class HumanBehavior:
             }
         )
     
-    @handle_error
+    @handle_exception
     def click_element(
         self,
         element: WebElement,
@@ -269,7 +537,7 @@ class HumanBehavior:
             details={"click_type": click_type}
         )
     
-    @handle_error
+    @handle_exception
     def scroll_to_element(
         self,
         element: WebElement,

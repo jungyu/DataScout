@@ -26,7 +26,7 @@ from selenium.common.exceptions import (
     WebDriverException
 )
 
-from .data_processor import DataProcessor
+from .data_processor import SimpleDataProcessor
 from .path_utils import PathUtils
 
 class BrowserUtils:
@@ -48,10 +48,13 @@ class BrowserUtils:
         """
         self.driver = driver
         self.config = config or {}
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or setup_logger(
+            name=__name__,
+            level_name="INFO"
+        )
         
         # 初始化其他工具類
-        self.data_processor = DataProcessor(logger)
+        self.data_processor = SimpleDataProcessor(logger)
         self.path_utils = PathUtils(logger)
         
         # 性能監控相關
@@ -642,43 +645,116 @@ class BrowserUtils:
             
     def get_element_screenshot(self, element: WebElement) -> Optional[str]:
         """
-        截取元素截圖
+        獲取元素的截圖
         
         Args:
             element: 要截圖的元素
             
         Returns:
-            截圖文件路徑
+            截圖文件路徑，如果失敗則返回None
         """
-        if not self.driver:
-            self.logger.warning("WebDriver未初始化")
-            return None
-            
         try:
-            # 獲取元素位置和大小
-            location = element.location
-            size = element.size
+            # 檢查元素是否可見
+            if not element.is_displayed():
+                self.logger.warning("元素不可見，無法截圖")
+                return None
+                
+            # 捲動到元素位置
+            self.scroll_to_element(element)
+            time.sleep(0.3)
             
-            # 截取整個頁面
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            screenshot_dir = self.path_utils.get_screenshot_dir()
-            filepath = os.path.join(screenshot_dir, f"element_{timestamp}.png")
+            # 生成文件名
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"element_screenshot_{timestamp}.png"
+            filepath = self.path_utils.join_path("screenshots", filename)
             
-            self.driver.save_screenshot(filepath)
+            # 確保目錄存在
+            self.path_utils.ensure_dir("screenshots")
             
-            # 使用PIL裁剪元素區域
-            from PIL import Image
-            img = Image.open(filepath)
-            left = location['x']
-            top = location['y']
-            right = location['x'] + size['width']
-            bottom = location['y'] + size['height']
-            img = img.crop((left, top, right, bottom))
-            img.save(filepath)
-            
+            # 截取元素圖片
+            element.screenshot(filepath)
             self.logger.info(f"已保存元素截圖: {filepath}")
             return filepath
             
         except Exception as e:
-            self.logger.error(f"截取元素截圖失敗: {str(e)}")
-            return None 
+            self.logger.error(f"獲取元素截圖失敗: {str(e)}")
+            return None
+            
+    @staticmethod
+    def create_chrome_options(
+        headless: bool = False,
+        window_size: Tuple[int, int] = (1920, 1080),
+        proxy: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        disable_gpu: bool = True,
+        no_sandbox: bool = True,
+        disable_dev_shm: bool = True,
+        disable_images: bool = False,
+        disable_javascript: bool = False,
+        incognito: bool = True,
+        start_maximized: bool = True
+    ) -> webdriver.ChromeOptions:
+        """
+        創建Chrome瀏覽器選項
+        
+        Args:
+            headless: 是否使用無頭模式
+            window_size: 窗口大小
+            proxy: 代理服務器
+            user_agent: 用戶代理
+            disable_gpu: 是否禁用GPU
+            no_sandbox: 是否禁用沙箱
+            disable_dev_shm: 是否禁用/dev/shm
+            disable_images: 是否禁用圖片
+            disable_javascript: 是否禁用JavaScript
+            incognito: 是否使用隱身模式
+            start_maximized: 是否最大化窗口
+            
+        Returns:
+            Chrome瀏覽器選項
+        """
+        options = webdriver.ChromeOptions()
+        
+        # 基本設置
+        if headless:
+            options.add_argument('--headless')
+        if disable_gpu:
+            options.add_argument('--disable-gpu')
+        if no_sandbox:
+            options.add_argument('--no-sandbox')
+        if disable_dev_shm:
+            options.add_argument('--disable-dev-shm-usage')
+        if incognito:
+            options.add_argument('--incognito')
+        if start_maximized:
+            options.add_argument('--start-maximized')
+            
+        # 設置窗口大小
+        options.add_argument(f'--window-size={window_size[0]},{window_size[1]}')
+        
+        # 設置代理
+        if proxy:
+            options.add_argument(f'--proxy-server={proxy}')
+            
+        # 設置用戶代理
+        if user_agent:
+            options.add_argument(f'--user-agent={user_agent}')
+            
+        # 禁用圖片
+        if disable_images:
+            prefs = {"profile.managed_default_content_settings.images": 2}
+            options.add_experimental_option("prefs", prefs)
+            
+        # 禁用JavaScript
+        if disable_javascript:
+            prefs = {"profile.managed_default_content_settings.javascript": 2}
+            options.add_experimental_option("prefs", prefs)
+            
+        # 其他常用設置
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-popup-blocking')
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_experimental_option('excludeSwitches', ['enable-automation'])
+        options.add_experimental_option('useAutomationExtension', False)
+        
+        return options 

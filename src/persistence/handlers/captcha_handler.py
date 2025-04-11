@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .base_handler import StorageHandler
 from src.captcha.types import CaptchaType
-from src.captcha import CaptchaManager
+from src.captcha import CaptchaService
 from src.core.utils.logger import setup_logger
 
 class CaptchaDetectionResult:
@@ -63,12 +63,12 @@ class CaptchaHandler(StorageHandler):
             self.logger.error(f"初始化存儲失敗: {str(e)}")
             raise
             
-    def set_captcha_manager(self, manager: CaptchaManager) -> None:
+    def set_captcha_manager(self, manager: CaptchaService) -> None:
         """
         設置驗證碼管理器
         
         Args:
-            manager: 驗證碼管理器實例
+            manager: 驗證碼服務實例
         """
         self.captcha_manager = manager
         

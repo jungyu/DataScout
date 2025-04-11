@@ -14,6 +14,7 @@
 
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
+from datetime import datetime
 
 @dataclass
 class WebGLConfig:
@@ -244,6 +245,7 @@ class FontConfig:
 @dataclass
 class BrowserFingerprintConfig:
     """瀏覽器指紋配置"""
+    id: str
     platform: str = "Win32"  # 平台
     user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"  # User-Agent
     vendor: str = "Google Inc."  # 供應商
@@ -257,10 +259,13 @@ class BrowserFingerprintConfig:
     canvas_config: CanvasConfig = field(default_factory=CanvasConfig)  # Canvas 配置
     audio_config: AudioConfig = field(default_factory=AudioConfig)  # 音頻配置
     font_config: FontConfig = field(default_factory=FontConfig)  # 字體配置
+    created_at: datetime = field(default_factory=datetime.now)  # 創建時間
+    updated_at: datetime = field(default_factory=datetime.now)  # 更新時間
     
     def to_dict(self) -> Dict[str, Any]:
         """轉換為字典"""
         return {
+            "id": self.id,
             "platform": self.platform,
             "user_agent": self.user_agent,
             "vendor": self.vendor,
@@ -273,13 +278,21 @@ class BrowserFingerprintConfig:
             "webgl_config": self.webgl_config.to_dict(),
             "canvas_config": self.canvas_config.to_dict(),
             "audio_config": self.audio_config.to_dict(),
-            "font_config": self.font_config.to_dict()
+            "font_config": self.font_config.to_dict(),
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat()
         }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'BrowserFingerprintConfig':
         """從字典創建實例"""
+        if 'created_at' in data:
+            data['created_at'] = datetime.fromisoformat(data['created_at'])
+        if 'updated_at' in data:
+            data['updated_at'] = datetime.fromisoformat(data['updated_at'])
+            
         return cls(
+            id=data.get("id"),
             platform=data.get("platform", "Win32"),
             user_agent=data.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"),
             vendor=data.get("vendor", "Google Inc."),
@@ -292,5 +305,7 @@ class BrowserFingerprintConfig:
             webgl_config=WebGLConfig.from_dict(data.get("webgl_config", {})),
             canvas_config=CanvasConfig.from_dict(data.get("canvas_config", {})),
             audio_config=AudioConfig.from_dict(data.get("audio_config", {})),
-            font_config=FontConfig.from_dict(data.get("font_config", {}))
+            font_config=FontConfig.from_dict(data.get("font_config", {})),
+            created_at=data.get('created_at', datetime.now()),
+            updated_at=data.get('updated_at', datetime.now())
         ) 

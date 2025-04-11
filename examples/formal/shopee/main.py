@@ -18,7 +18,11 @@ import argparse
 from typing import List, Dict, Any
 from datetime import datetime
 
-from .crawler import ShopeeCrawler
+# 添加項目根目錄到 Python 路徑
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+
+from examples.formal.shopee.crawler import ShopeeCrawler
+from src.captcha import CaptchaConfig, CaptchaType
 
 def parse_args():
     """解析命令行參數"""
@@ -94,8 +98,24 @@ def main():
         # 解析命令行參數
         args = parse_args()
         
+        # 載入配置文件
+        with open(args.config, "r", encoding="utf-8") as f:
+            config = json.load(f)
+            
+        # 初始化驗證碼配置
+        captcha_config = CaptchaConfig(
+            id="shopee_captcha",
+            enabled=True,
+            captcha_type=CaptchaType.IMAGE,
+            captcha_source="local",
+            max_retries=3,
+            retry_delay=1.0,
+            timeout=30.0,
+            **config.get("captcha", {})
+        )
+        
         # 初始化爬蟲
-        crawler = ShopeeCrawler(args.config, args.data_dir)
+        crawler = ShopeeCrawler(args.config, args.data_dir, captcha_config)
         
         results = []
         

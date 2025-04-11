@@ -1,0 +1,27 @@
+{
+    "crawler": {
+        "headless": false,
+        "window_width": 1920,
+        "window_height": 1080,
+        "timeout": 10,
+        "scroll_delay": 1
+    },
+    "storage": {
+        "default_storage": "local",
+        "storage_types": {
+            "local": {
+                "base_path": "examples/data/shopee",
+                "file_format": "json"
+            }
+        }
+    },
+    "security": {
+        "proxy": null,
+        "user_agent": null
+    },
+    "logging": {
+        "level": "INFO",
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        "file": "examples/logs/shopee.log"
+    }
+} 

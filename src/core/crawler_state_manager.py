@@ -26,12 +26,12 @@ from enum import Enum, auto
 from datetime import datetime
 
 from src.core.utils.logger import setup_logger
-from ..utils.error_handler import retry_on_exception, handle_exception
-from .utils.logger import Logger
-from .utils.path_utils import PathUtils
-from .utils.config_utils import ConfigUtils
-from .utils.data_processor import DataProcessor as UtilsDataProcessor
-from .utils.error_handler import ErrorHandler
+from src.core.utils.error_handler import retry_on_error, handle_exception
+from src.core.utils.logger import Logger
+from src.core.utils.path_utils import PathUtils
+from src.core.utils.config_utils import ConfigUtils
+from src.core.utils.data_processor import SimpleDataProcessor as UtilsDataProcessor
+from src.core.utils.error_handler import ErrorHandler
 
 
 class StorageFormat(Enum):

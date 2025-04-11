@@ -14,6 +14,7 @@
 
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
+from datetime import datetime
 
 @dataclass
 class MouseConfig:
@@ -150,6 +151,7 @@ class TimingConfig:
 @dataclass
 class HumanBehaviorConfig:
     """人類行為配置"""
+    id: str
     mouse_config: MouseConfig = field(default_factory=MouseConfig)  # 滑鼠配置
     keyboard_config: KeyboardConfig = field(default_factory=KeyboardConfig)  # 鍵盤配置
     scroll_config: ScrollConfig = field(default_factory=ScrollConfig)  # 滾動配置
@@ -157,28 +159,41 @@ class HumanBehaviorConfig:
     behavior_pattern: str = "natural"  # 行為模式：natural, aggressive, cautious
     randomize_behavior: bool = True  # 是否隨機化行為
     session_pattern: str = "normal"  # 會話模式：normal, quick, thorough
+    created_at: datetime = field(default_factory=datetime.now)  # 創建時間
+    updated_at: datetime = field(default_factory=datetime.now)  # 更新時間
     
     def to_dict(self) -> Dict[str, Any]:
         """轉換為字典"""
         return {
+            "id": self.id,
             "mouse_config": self.mouse_config.to_dict(),
             "keyboard_config": self.keyboard_config.to_dict(),
             "scroll_config": self.scroll_config.to_dict(),
             "timing_config": self.timing_config.to_dict(),
             "behavior_pattern": self.behavior_pattern,
             "randomize_behavior": self.randomize_behavior,
-            "session_pattern": self.session_pattern
+            "session_pattern": self.session_pattern,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat()
         }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'HumanBehaviorConfig':
         """從字典創建實例"""
+        if 'created_at' in data:
+            data['created_at'] = datetime.fromisoformat(data['created_at'])
+        if 'updated_at' in data:
+            data['updated_at'] = datetime.fromisoformat(data['updated_at'])
+            
         return cls(
+            id=data.get("id"),
             mouse_config=MouseConfig.from_dict(data.get("mouse_config", {})),
             keyboard_config=KeyboardConfig.from_dict(data.get("keyboard_config", {})),
             scroll_config=ScrollConfig.from_dict(data.get("scroll_config", {})),
             timing_config=TimingConfig.from_dict(data.get("timing_config", {})),
             behavior_pattern=data.get("behavior_pattern", "natural"),
             randomize_behavior=data.get("randomize_behavior", True),
-            session_pattern=data.get("session_pattern", "normal")
+            session_pattern=data.get("session_pattern", "normal"),
+            created_at=data.get('created_at', datetime.now()),
+            updated_at=data.get('updated_at', datetime.now())
         ) 

@@ -26,8 +26,8 @@ from pathlib import Path
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 
-from src.core.utils.logger import setup_logger
-from ..utils.error_handler import retry_on_exception, handle_exception
+from src.core.utils import Logger, ErrorHandler
+from src.core.utils.error_handler import retry_on_error
 
 
 @dataclass
@@ -338,7 +338,7 @@ class ProxyManager:
         
         return False
     
-    @retry_on_exception(max_retries=3)
+    @retry_on_error(max_retries=3)
     def _check_proxy(self, proxy_config: ProxyConfig) -> bool:
         """
         檢查代理是否可用

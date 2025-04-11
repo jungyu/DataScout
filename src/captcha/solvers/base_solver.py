@@ -60,14 +60,15 @@ class BaseSolver(ABC):
         self.config = config
         
         # 初始化工具類
+        self.browser_utils = BrowserUtils()
         self.logger = Logger(__name__)
-        self.error_handler = ErrorHandler()
-        self.config_utils = ConfigUtils()
-        self.browser_utils = BrowserUtils(self.browser)
         self.url_utils = URLUtils()
         self.data_processor = DataProcessor()
         self.image_utils = ImageUtils()
         self.cookie_manager = CookieManager()
+        self.error_handler = ErrorHandler()
+        self.config_utils = ConfigUtils()
+        self.path_utils = PathUtils()
         
         # 初始化配置
         self._init_solver()

@@ -12,8 +12,6 @@ from src.core.utils import (
     PathUtils,
     DataProcessor,
     ErrorHandler,
-    TimeUtils,
-    ValidationUtils,
     SecurityUtils
 )
 
@@ -33,10 +31,6 @@ class CoreMixin:
         self.path_utils = PathUtils()
         self.data_processor = DataProcessor()
         self.error_handler = ErrorHandler()
-        
-        # 額外工具
-        self.time_utils = TimeUtils()
-        self.validation_utils = ValidationUtils()
         self.security_utils = SecurityUtils()
         
     def log_info(self, message: str) -> None:
@@ -55,10 +49,6 @@ class CoreMixin:
         """處理錯誤"""
         self.error_handler.handle_error(error)
         
-    def validate_data(self, data: dict) -> bool:
-        """驗證數據"""
-        return self.validation_utils.validate_data(data)
-        
     def process_data(self, data: dict) -> dict:
         """處理數據"""
         return self.data_processor.process_data(data)
@@ -66,10 +56,6 @@ class CoreMixin:
     def get_path(self, path: str) -> str:
         """獲取路徑"""
         return self.path_utils.get_absolute_path(path)
-        
-    def get_timestamp(self) -> float:
-        """獲取時間戳"""
-        return self.time_utils.get_timestamp()
         
     def encrypt_data(self, data: str) -> str:
         """加密數據"""

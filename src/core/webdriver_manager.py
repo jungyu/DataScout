@@ -84,7 +84,7 @@ class WebDriverManager:
         # 初始化工具類
         self.logger = setup_logger(
             name="webdriver_manager",
-            level=logging.INFO,
+            level_name="INFO",
             log_dir="logs",
             console_output=True,
             file_output=True

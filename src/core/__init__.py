@@ -25,7 +25,6 @@ from .exceptions import (
 )
 from .data_processor import DataProcessor
 from .webdriver_manager import WebDriverManager
-from .template_crawler import TemplateCrawler
 
 __version__ = '1.0.0'
 __author__ = 'Aaron Yu (https://github.com/jungyu), Claude AI, Cursor AI'
@@ -38,7 +37,6 @@ __all__ = [
     
     # 爬蟲引擎
     'CrawlerEngine',
-    'TemplateCrawler',
     
     # 狀態管理
     'CrawlerStateManager',

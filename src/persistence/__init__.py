@@ -10,16 +10,18 @@
 - 數據恢復
 """
 
-from .storage import Storage
-from .backup import Backup
-from .recovery import Recovery
+from .handlers.base_handler import StorageHandler
+from .handlers.local_handler import LocalStorageHandler
+from .handlers.mongodb_handler import MongoDBHandler
+from .handlers.notion_handler import NotionHandler
 
 __version__ = '1.0.0'
 __author__ = 'Aaron Yu (https://github.com/jungyu), Claude AI, Cursor AI'
 __license__ = 'MIT'
 
 __all__ = [
-    'Storage',
-    'Backup',
-    'Recovery'
+    'StorageHandler',
+    'LocalStorageHandler',
+    'MongoDBHandler',
+    'NotionHandler'
 ]

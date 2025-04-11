@@ -23,7 +23,7 @@ from .utils.logger import Logger, setup_logger
 from .utils.path_utils import PathUtils
 from .utils.config_utils import ConfigUtils
 from .utils.error_handler import ErrorHandler
-from .utils.data_processor import DataProcessor as UtilsDataProcessor
+from .utils.data_processor import SimpleDataProcessor as UtilsDataProcessor
 
 @dataclass
 class DataProcessorConfig:
@@ -50,17 +50,17 @@ class DataProcessorConfig:
 class DataProcessor:
     """數據處理器"""
     
-    def __init__(self, config: Dict):
+    def __init__(self, config: Optional[Dict] = None):
         """
         初始化數據處理器
         
         Args:
-            config: 配置字典
+            config: 配置字典，可選
         """
         # 初始化工具類
         self.logger = setup_logger(
             name="data_processor",
-            level=logging.INFO,
+            level_name="INFO",
             log_dir="logs",
             console_output=True,
             file_output=True
@@ -71,7 +71,7 @@ class DataProcessor:
         self.utils_processor = UtilsDataProcessor(self.logger)
         
         # 加載配置
-        self.config = DataProcessorConfig(**config)
+        self.config = DataProcessorConfig(**(config or {}))
         
         # 創建輸出目錄
         self.path_utils.ensure_dir(self.config.output_dir)

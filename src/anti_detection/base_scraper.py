@@ -73,6 +73,9 @@ class BaseScraper:
         self.domain = domain
         self.debug_mode = debug_mode
         
+        # 生成唯一標識符
+        self.id = self._generate_id()
+        
         # 初始化配置
         self._load_config()
         
@@ -90,6 +93,11 @@ class BaseScraper:
         
         # 初始化 WebDriver
         self.driver = None
+        
+    def _generate_id(self) -> str:
+        """生成唯一標識符"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return f"{self.__class__.__name__}_{timestamp}"
         
     def _load_config(self) -> None:
         """載入配置"""

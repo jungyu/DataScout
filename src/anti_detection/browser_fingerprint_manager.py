@@ -24,8 +24,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from queue import Queue
 
-from src.core.utils.logger import setup_logger
-from ..utils.error_handler import retry_on_exception, handle_exception
+from src.core.utils import Logger, ErrorHandler
 
 
 @dataclass
@@ -156,7 +155,7 @@ class BrowserFingerprintManager:
             config_path: 配置文件路徑
             logger: 日誌記錄器
         """
-        self.logger = logger or setup_logger(__name__)
+        self.logger = logger or Logger.setup_logger(__name__)
         self.config_path = Path(config_path)
         
         # 瀏覽器指紋池
@@ -177,36 +176,36 @@ class BrowserFingerprintManager:
         """載入配置文件"""
         try:
             if not self.config_path.exists():
-                self.logger.warning(f"配置文件不存在: {this.config_path}")
+                self.logger.warning(f"配置文件不存在: {self.config_path}")
                 return
             
-            with open(this.config_path, "r", encoding="utf-8") as f:
+            with open(self.config_path, "r", encoding="utf-8") as f:
                 config_data = json.load(f)
             
             for fp_data in config_data.get("fingerprints", []):
                 fp_config = FingerprintConfig.from_dict(fp_data)
                 fp_key = self._generate_fp_key(fp_config)
-                this.fingerprint_pool[fp_key] = fp_config
+                self.fingerprint_pool[fp_key] = fp_config
             
-            this.logger.info(f"已載入 {len(this.fingerprint_pool)} 個瀏覽器指紋配置")
+            self.logger.info(f"已載入 {len(self.fingerprint_pool)} 個瀏覽器指紋配置")
             
         except Exception as e:
-            this.logger.error(f"載入瀏覽器指紋配置失敗: {str(e)}")
+            self.logger.error(f"載入瀏覽器指紋配置失敗: {str(e)}")
     
     def _save_config(self):
         """保存配置文件"""
         try:
             config_data = {
-                "fingerprints": [fp.to_dict() for fp in this.fingerprint_pool.values()]
+                "fingerprints": [fp.to_dict() for fp in self.fingerprint_pool.values()]
             }
             
-            with open(this.config_path, "w", encoding="utf-8") as f:
+            with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(config_data, f, indent=2, ensure_ascii=False)
             
-            this.logger.info("瀏覽器指紋配置已保存")
+            self.logger.info("瀏覽器指紋配置已保存")
             
         except Exception as e:
-            this.logger.error(f"保存瀏覽器指紋配置失敗: {str(e)}")
+            self.logger.error(f"保存瀏覽器指紋配置失敗: {str(e)}")
     
     def add_fingerprint(self, fp_config: FingerprintConfig) -> bool:
         """
@@ -222,19 +221,19 @@ class BrowserFingerprintManager:
             fp_key = self._generate_fp_key(fp_config)
             
             # 添加到瀏覽器指紋池
-            this.fingerprint_pool[fp_key] = fp_config
+            self.fingerprint_pool[fp_key] = fp_config
             
             # 更新瀏覽器指紋隊列
-            this._update_fingerprint_queue()
+            self._update_fingerprint_queue()
             
             # 保存配置
-            this._save_config()
+            self._save_config()
             
-            this.logger.info(f"已添加瀏覽器指紋: {fp_key}")
+            self.logger.info(f"已添加瀏覽器指紋: {fp_key}")
             return True
             
         except Exception as e:
-            this.logger.error(f"添加瀏覽器指紋失敗: {str(e)}")
+            self.logger.error(f"添加瀏覽器指紋失敗: {str(e)}")
             return False
     
     def remove_fingerprint(self, fp_key: str) -> bool:
@@ -248,24 +247,24 @@ class BrowserFingerprintManager:
             是否成功移除
         """
         try:
-            if fp_key not in this.fingerprint_pool:
-                this.logger.warning(f"瀏覽器指紋不存在: {fp_key}")
+            if fp_key not in self.fingerprint_pool:
+                self.logger.warning(f"瀏覽器指紋不存在: {fp_key}")
                 return False
             
             # 從瀏覽器指紋池移除
-            del this.fingerprint_pool[fp_key]
+            del self.fingerprint_pool[fp_key]
             
             # 更新瀏覽器指紋隊列
-            this._update_fingerprint_queue()
+            self._update_fingerprint_queue()
             
             # 保存配置
-            this._save_config()
+            self._save_config()
             
-            this.logger.info(f"已移除瀏覽器指紋: {fp_key}")
+            self.logger.info(f"已移除瀏覽器指紋: {fp_key}")
             return True
             
         except Exception as e:
-            this.logger.error(f"移除瀏覽器指紋失敗: {str(e)}")
+            self.logger.error(f"移除瀏覽器指紋失敗: {str(e)}")
             return False
     
     def get_fingerprint(self) -> Optional[Dict[str, Any]]:
@@ -276,16 +275,16 @@ class BrowserFingerprintManager:
             瀏覽器指紋字典
         """
         try:
-            if this._fingerprint_queue.empty():
-                this.logger.warning("瀏覽器指紋隊列為空")
+            if self._fingerprint_queue.empty():
+                self.logger.warning("瀏覽器指紋隊列為空")
                 return None
             
             # 從隊列獲取瀏覽器指紋
-            fp_key = this._fingerprint_queue.get()
-            fp_config = this.fingerprint_pool.get(fp_key)
+            fp_key = self._fingerprint_queue.get()
+            fp_config = self.fingerprint_pool.get(fp_key)
             
             if not fp_config:
-                this.logger.warning(f"瀏覽器指紋不存在: {fp_key}")
+                self.logger.warning(f"瀏覽器指紋不存在: {fp_key}")
                 return None
             
             # 更新使用統計
@@ -293,39 +292,39 @@ class BrowserFingerprintManager:
             fp_config.use_count += 1
             
             # 將瀏覽器指紋放回隊列
-            this._fingerprint_queue.put(fp_key)
+            self._fingerprint_queue.put(fp_key)
             
             # 生成瀏覽器指紋字典
             return self._generate_fingerprint(fp_config)
             
         except Exception as e:
-            this.logger.error(f"獲取瀏覽器指紋失敗: {str(e)}")
+            self.logger.error(f"獲取瀏覽器指紋失敗: {str(e)}")
             return None
     
     def _init_fingerprint_queue(self):
         """初始化瀏覽器指紋隊列"""
         try:
             # 清空隊列
-            while not this._fingerprint_queue.empty():
-                this._fingerprint_queue.get()
+            while not self._fingerprint_queue.empty():
+                self._fingerprint_queue.get()
             
             # 添加所有瀏覽器指紋
-            for fp_key in this.fingerprint_pool.keys():
-                this._fingerprint_queue.put(fp_key)
+            for fp_key in self.fingerprint_pool.keys():
+                self._fingerprint_queue.put(fp_key)
             
-            this.logger.info(f"瀏覽器指紋隊列初始化完成，共 {this._fingerprint_queue.qsize()} 個瀏覽器指紋")
+            self.logger.info(f"瀏覽器指紋隊列初始化完成，共 {self._fingerprint_queue.qsize()} 個瀏覽器指紋")
             
         except Exception as e:
-            this.logger.error(f"初始化瀏覽器指紋隊列失敗: {str(e)}")
+            self.logger.error(f"初始化瀏覽器指紋隊列失敗: {str(e)}")
     
     def _update_fingerprint_queue(self):
         """更新瀏覽器指紋隊列"""
         try:
             # 重新初始化隊列
-            this._init_fingerprint_queue()
+            self._init_fingerprint_queue()
             
         except Exception as e:
-            this.logger.error(f"更新瀏覽器指紋隊列失敗: {str(e)}")
+            self.logger.error(f"更新瀏覽器指紋隊列失敗: {str(e)}")
     
     def _generate_fp_key(self, fp_config: FingerprintConfig) -> str:
         """
@@ -388,7 +387,7 @@ class BrowserFingerprintManager:
             return fingerprint
             
         except Exception as e:
-            this.logger.error(f"生成瀏覽器指紋失敗: {str(e)}")
+            self.logger.error(f"生成瀏覽器指紋失敗: {str(e)}")
             return None
     
     def update_fingerprint_stats(self, fp_key: str, success: bool):
@@ -400,9 +399,9 @@ class BrowserFingerprintManager:
             success: 是否成功
         """
         try:
-            fp_config = this.fingerprint_pool.get(fp_key)
+            fp_config = self.fingerprint_pool.get(fp_key)
             if not fp_config:
-                this.logger.warning(f"瀏覽器指紋不存在: {fp_key}")
+                self.logger.warning(f"瀏覽器指紋不存在: {fp_key}")
                 return
             
             if success:
@@ -411,10 +410,10 @@ class BrowserFingerprintManager:
                 fp_config.fail_count += 1
             
             # 保存配置
-            this._save_config()
+            self._save_config()
             
         except Exception as e:
-            this.logger.error(f"更新瀏覽器指紋統計信息失敗: {str(e)}")
+            self.logger.error(f"更新瀏覽器指紋統計信息失敗: {str(e)}")
     
     def get_fingerprint_stats(self) -> List[Dict]:
         """
@@ -425,7 +424,7 @@ class BrowserFingerprintManager:
         """
         try:
             stats = []
-            for fp_key, fp_config in this.fingerprint_pool.items():
+            for fp_key, fp_config in self.fingerprint_pool.items():
                 stats.append({
                     "fingerprint": fp_key,
                     "success_rate": fp_config.success_rate,
@@ -435,7 +434,7 @@ class BrowserFingerprintManager:
             return stats
             
         except Exception as e:
-            this.logger.error(f"獲取瀏覽器指紋統計信息失敗: {str(e)}")
+            self.logger.error(f"獲取瀏覽器指紋統計信息失敗: {str(e)}")
             return []
     
     def generate_stealth_script(self, fp_key: str) -> Optional[str]:
@@ -449,9 +448,9 @@ class BrowserFingerprintManager:
             隱藏腳本字符串
         """
         try:
-            fp_config = this.fingerprint_pool.get(fp_key)
+            fp_config = self.fingerprint_pool.get(fp_key)
             if not fp_config:
-                this.logger.warning(f"瀏覽器指紋不存在: {fp_key}")
+                self.logger.warning(f"瀏覽器指紋不存在: {fp_key}")
                 return None
             
             # 獲取指紋字典
@@ -607,24 +606,24 @@ class BrowserFingerprintManager:
             return script
             
         except Exception as e:
-            this.logger.error(f"生成隱藏腳本失敗: {str(e)}")
+            self.logger.error(f"生成隱藏腳本失敗: {str(e)}")
             return None
     
     def cleanup(self):
         """清理資源"""
         try:
             # 保存配置
-            this._save_config()
+            self._save_config()
             
-            this.logger.info("瀏覽器指紋管理器清理完成")
+            self.logger.info("瀏覽器指紋管理器清理完成")
             
         except Exception as e:
-            this.logger.error(f"瀏覽器指紋管理器清理失敗: {str(e)}")
+            self.logger.error(f"瀏覽器指紋管理器清理失敗: {str(e)}")
     
     def __enter__(self):
         """上下文管理器入口"""
-        return this
+        return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         """上下文管理器出口"""
-        this.cleanup() 
+        self.cleanup() 

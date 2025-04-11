@@ -7,15 +7,21 @@ import random
 import logging
 from typing import Dict, List, Optional, Union
 
-from selenium import webdriver
+import json
+from pathlib import Path
 
-from ..core._webdriver_manager import WebDriverManager
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+
+from ..core.webdriver_manager import WebDriverManager
 from src.core.utils.logger import setup_logger
 from .utils.browser_fingerprint import BrowserFingerprint
-from .utils.human_behavior import HumanBehaviorSimulator
+from .utils.human_behavior import HumanBehavior
 from .detection_handler import DetectionHandler
 from .honeypot_detector import HoneypotDetector
 from .stealth_script_loader import StealthScriptLoader
+from .proxy_manager import ProxyManager
+from .user_agent_manager import UserAgentManager
 
 
 class AntiDetectionManager:
@@ -25,16 +31,18 @@ class AntiDetectionManager:
     行為模擬、代理切換等。
     """
     
-    def __init__(self, config: Dict = None, log_level: int = logging.INFO):
+    def __init__(self, id: str, config: Dict = None, log_level: int = logging.INFO):
         """
         初始化反爬蟲管理器
         
         Args:
+            id: 唯一標識符
             config: 配置字典
             log_level: 日誌級別
         """
+        self.id = id
         self.logger = setup_logger(__name__, log_level)
-        self.logger.info("初始化反爬蟲管理器")
+        self.logger.info(f"初始化反爬蟲管理器 {self.id}")
         
         self.config = config or {}
         
@@ -67,14 +75,28 @@ class AntiDetectionManager:
         self.stealth_script_loader = StealthScriptLoader(log_level)
         
         # 初始化各個模組
-        self.fingerprint_modifier = BrowserFingerprintModifier(self.logger)
-        self.behavior_simulator = HumanBehaviorSimulator(self.delays, self.logger)
-        self.detection_handler = DetectionHandler(
-            self, self.config, self.logger, self.max_retries
+        self.fingerprint_modifier = BrowserFingerprint(
+            id=f"{self.id}_fingerprint",
+            logger=self.logger
         )
-        self.honeypot_detector = HoneypotDetector(self.logger)
+        self.behavior_simulator = HumanBehaviorSimulator(
+            id=f"{self.id}_behavior",
+            delays=self.delays,
+            logger=self.logger
+        )
+        self.detection_handler = DetectionHandler(
+            id=f"{self.id}_detection",
+            manager=self,
+            config=self.config,
+            logger=self.logger,
+            max_retries=self.max_retries
+        )
+        self.honeypot_detector = HoneypotDetector(
+            id=f"{self.id}_honeypot",
+            logger=self.logger
+        )
         
-        self.logger.info("反爬蟲管理器初始化完成")
+        self.logger.info(f"反爬蟲管理器 {self.id} 初始化完成")
     
     def create_webdriver(self, headless: bool = True) -> webdriver.Remote:
         """
@@ -232,16 +254,18 @@ class AntiDetectionManager:
         return self.honeypot_detector.detect(driver)
 
 
-class BrowserFingerprintModifier:
+class BrowserFingerprint:
     """處理瀏覽器指紋修改"""
     
-    def __init__(self, logger=None):
+    def __init__(self, id: str, logger=None):
         """
         初始化瀏覽器指紋修改器
         
         Args:
+            id: 唯一標識符
             logger: 日誌記錄器
         """
+        self.id = id
         self.logger = logger or logging.getLogger(__name__)
     
     def modify_browser_fingerprint(self, driver: webdriver.Remote):

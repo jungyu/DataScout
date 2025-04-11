@@ -26,6 +26,59 @@ from pathlib import Path
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+def retry_on_error(
+    max_retries: int = 3,
+    delay: float = 1.0,
+    exceptions: Union[Type[Exception], tuple] = Exception,
+    backoff_factor: float = 2.0
+) -> Callable:
+    """
+    重試裝飾器
+    
+    Args:
+        max_retries: 最大重試次數
+        delay: 重試延遲時間(秒)
+        exceptions: 需要重試的異常類型
+        backoff_factor: 退避因子
+        
+    Returns:
+        裝飾器函數
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_error = None
+            current_delay = delay
+            
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_error = e
+                    if attempt < max_retries - 1:
+                        time.sleep(current_delay)
+                        current_delay *= backoff_factor
+                    else:
+                        raise last_error
+                        
+            raise last_error
+            
+        return wrapper
+    return decorator
+
+def handle_exception(error: Exception, context: Any = None) -> None:
+    """
+    處理異常
+    
+    Args:
+        error: 異常實例
+        context: 上下文信息
+    """
+    logger = logging.getLogger(__name__)
+    logger.error(f"異常: {str(error)}")
+    logger.debug(f"異常堆棧: {traceback.format_exc()}")
+    logger.debug(f"上下文: {str(context)}")
+
 class ScraperError(Exception):
     """爬蟲基礎異常類"""
     pass
@@ -167,46 +220,6 @@ class ErrorHandler:
                 except Exception as e:
                     self.handle_error(e, context)
                     raise
-            return wrapper
-        return decorator
-        
-    def retry_on_error(
-        self,
-        max_retries: int = 3,
-        delay: float = 1.0,
-        exceptions: Union[Type[Exception], tuple] = Exception,
-        backoff_factor: float = 2.0
-    ) -> Callable:
-        """
-        重試裝飾器
-        
-        Args:
-            max_retries: 最大重試次數
-            delay: 重試延遲時間(秒)
-            exceptions: 需要重試的異常類型
-            backoff_factor: 退避因子
-            
-        Returns:
-            裝飾器函數
-        """
-        def decorator(func: Callable) -> Callable:
-            @wraps(func)
-            def wrapper(*args, **kwargs):
-                last_error = None
-                current_delay = delay
-                
-                for attempt in range(max_retries):
-                    try:
-                        return func(*args, **kwargs)
-                    except exceptions as e:
-                        last_error = e
-                        if attempt < max_retries - 1:
-                            self.logger.warning(
-                                f"操作失敗 (嘗試 {attempt + 1}/{max_retries}): {str(e)}"
-                            )
-                            time.sleep(current_delay)
-                            current_delay *= backoff_factor
-                raise last_error
             return wrapper
         return decorator
         
