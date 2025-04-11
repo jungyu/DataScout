@@ -3,7 +3,7 @@
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options as ChromeOptions

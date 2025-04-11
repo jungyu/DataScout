@@ -13,13 +13,154 @@
 
 ## 概述
 
-數據持久化模組提供了將爬取的數據保存到不同存儲介質的功能，支持本地文件存儲、MongoDB 數據庫和 Notion 數據庫等多種存儲方式。該模組設計為可擴展的架構，允許輕鬆添加新的存儲處理器。
+持久化模組負責數據的存儲和管理，提供多種存儲處理器和統一的管理器。該模組依賴於核心模組，並使用 `CoreMixin` 提供的功能。
 
-主要功能包括：
-- 多種存儲介質的支持（本地文件、MongoDB、Notion）
-- 統一的數據存取接口
-- 自動備份和恢復功能
-- 數據格式轉換和映射
+## 目錄結構
+
+```
+persistence/
+├── config/         # 配置相關
+│   └── storage_config.py
+├── handlers/       # 存儲處理器
+│   ├── base_handler.py
+│   ├── local_handler.py
+│   ├── mongodb_handler.py
+│   ├── notion_handler.py
+│   └── captcha_handler.py
+├── manager/        # 管理器
+│   └── storage_manager.py
+├── utils/          # 工具類
+│   ├── core_mixin.py
+│   └── storage_utils.py
+└── __init__.py
+```
+
+## 存儲處理器
+
+### 基礎存儲處理器 (`StorageHandler`)
+
+基礎存儲處理器是所有存儲處理器的基類，提供通用的功能和方法。
+
+#### 主要方法
+
+- `__init__(config)`: 初始化存儲處理器，設置配置和狀態。
+- `_update_status(operation, success, error=None)`: 更新操作狀態，記錄成功和失敗次數。
+- `save_data(data)`: 保存數據。
+- `load_data(query=None)`: 加載數據，可選查詢條件。
+- `delete_data(query)`: 刪除數據。
+- `clear_data()`: 清空數據。
+- `get_data_count(query=None)`: 獲取數據數量。
+- `create_backup()`: 創建備份。
+- `restore_backup(backup_name)`: 恢復備份。
+- `list_backups()`: 列出所有備份。
+- `delete_backup(backup_name)`: 刪除備份。
+
+### 本地存儲處理器 (`LocalStorageHandler`)
+
+本地存儲處理器用於將數據存儲在本地文件系統中。
+
+#### 主要方法
+
+- `__init__(config)`: 初始化本地存儲處理器，設置存儲路徑和備份路徑。
+- `save_data(data)`: 將數據保存為 JSON 文件。
+- `load_data(query=None)`: 從 JSON 文件加載數據。
+- `delete_data(query)`: 根據查詢條件刪除數據。
+- `clear_data()`: 清空所有數據。
+- `get_data_count(query=None)`: 獲取數據數量。
+- `create_backup()`: 創建數據備份。
+- `restore_backup(backup_name)`: 從備份恢復數據。
+- `list_backups()`: 列出所有備份。
+- `delete_backup(backup_name)`: 刪除備份。
+
+### MongoDB存儲處理器 (`MongoDBHandler`)
+
+MongoDB存儲處理器用於將數據存儲在 MongoDB 數據庫中。
+
+#### 主要方法
+
+- `__init__(config)`: 初始化 MongoDB 存儲處理器，設置連接參數。
+- `_connect()`: 連接到 MongoDB 數據庫。
+- `save_data(data)`: 將數據保存到 MongoDB。
+- `load_data(query=None)`: 從 MongoDB 加載數據。
+- `delete_data(query)`: 根據查詢條件刪除數據。
+- `clear_data()`: 清空所有數據。
+- `get_data_count(query=None)`: 獲取數據數量。
+- `create_backup()`: 創建數據備份。
+- `restore_backup(backup_name)`: 從備份恢復數據。
+- `list_backups()`: 列出所有備份。
+- `delete_backup(backup_name)`: 刪除備份。
+
+### Notion存儲處理器 (`NotionHandler`)
+
+Notion存儲處理器用於將數據存儲在 Notion 數據庫中。
+
+#### 主要方法
+
+- `__init__(config)`: 初始化 Notion 存儲處理器，設置 API 參數。
+- `_connect()`: 連接到 Notion API。
+- `save_data(data)`: 將數據保存到 Notion。
+- `load_data(query=None)`: 從 Notion 加載數據。
+- `delete_data(query)`: 根據查詢條件刪除數據。
+- `clear_data()`: 清空所有數據。
+- `get_data_count(query=None)`: 獲取數據數量。
+- `create_backup()`: 創建數據備份。
+- `restore_backup(backup_name)`: 從備份恢復數據。
+- `list_backups()`: 列出所有備份。
+- `delete_backup(backup_name)`: 刪除備份。
+
+### 驗證碼處理器 (`CaptchaHandler`)
+
+驗證碼處理器用於處理和存儲驗證碼相關的數據。
+
+#### 主要方法
+
+- `__init__(config)`: 初始化驗證碼處理器。
+- `save_detection_result(result)`: 保存驗證碼檢測結果。
+- `save_solution_result(result)`: 保存驗證碼解決結果。
+- `get_detection_history()`: 獲取檢測歷史。
+- `get_solution_history()`: 獲取解決歷史。
+- `clear_history()`: 清空歷史記錄。
+
+## 存儲管理器
+
+### 存儲管理器 (`StorageManager`)
+
+存儲管理器用於統一管理多種存儲處理器，根據配置選擇合適的處理器。
+
+#### 主要方法
+
+- `__init__(config)`: 初始化存儲管理器，設置配置。
+- `get_handler()`: 根據配置獲取合適的存儲處理器。
+- `save_data(data)`: 保存數據。
+- `load_data(query=None)`: 加載數據。
+- `delete_data(query)`: 刪除數據。
+- `clear_data()`: 清空數據。
+- `get_data_count(query=None)`: 獲取數據數量。
+- `create_backup()`: 創建備份。
+- `restore_backup(backup_name)`: 恢復備份。
+- `list_backups()`: 列出所有備份。
+- `delete_backup(backup_name)`: 刪除備份。
+
+## 工具類
+
+### 核心功能混入 (`CoreMixin`)
+
+核心功能混入提供通用的功能和方法，供存儲處理器使用。
+
+#### 主要方法
+
+- `_update_status(operation, success, error=None)`: 更新操作狀態。
+- `_log_error(error)`: 記錄錯誤信息。
+
+### 存儲工具 (`StorageUtils`)
+
+存儲工具提供數據處理和轉換的功能。
+
+#### 主要方法
+
+- `process_data(data)`: 處理數據。
+- `validate_data(data)`: 驗證數據。
+- `convert_query(query)`: 轉換查詢條件。
 
 ## 存儲配置
 
@@ -65,67 +206,6 @@
     "notion_page_size": 100  # Notion 頁面大小
 }
 ```
-
-## 存儲管理器
-
-`StorageManager` 類提供了統一的存儲管理接口，負責創建和管理適當的存儲處理器。主要方法包括：
-
-- `save_data(data)`: 保存單條數據
-- `save_batch(data_list)`: 批量保存數據
-- `load_data(query)`: 加載數據
-- `delete_data(query)`: 刪除數據
-- `clear_data()`: 清空數據
-- `get_data_count(query)`: 獲取數據數量
-- `create_backup()`: 創建備份
-- `restore_backup(backup_id)`: 恢復備份
-- `list_backups()`: 列出所有備份
-- `delete_backup(backup_id)`: 刪除備份
-
-## 存儲處理器
-
-系統提供以下存儲處理器：
-
-### 基礎存儲處理器
-
-`StorageHandler` 是所有存儲處理器的基類，定義了所有存儲處理器必須實現的接口：
-
-- `save_data(data)`: 保存單條數據
-- `save_batch(data_list)`: 批量保存數據
-- `load_data(query)`: 加載數據
-- `delete_data(query)`: 刪除數據
-- `clear_data()`: 清空數據
-- `get_data_count(query)`: 獲取數據數量
-- `create_backup()`: 創建備份
-- `restore_backup(backup_id)`: 恢復備份
-- `list_backups()`: 列出所有備份
-- `delete_backup(backup_id)`: 刪除備份
-
-### 本地存儲處理器
-
-`LocalStorageHandler` 實現了本地文件存儲功能：
-
-- 支持多種文件格式（JSON、Pickle、CSV）
-- 內存緩存機制
-- 自動備份和恢復
-- 數據過濾和查詢
-
-### MongoDB 存儲處理器
-
-`MongoDBHandler` 實現了 MongoDB 數據庫存儲功能：
-
-- 連接池管理
-- 批量操作支持
-- 查詢過濾
-- 備份和恢復
-
-### Notion 存儲處理器
-
-`NotionHandler` 實現了 Notion 數據庫存儲功能：
-
-- 數據類型轉換
-- 屬性映射
-- 分頁查詢
-- 數據過濾
 
 ## 使用示例
 

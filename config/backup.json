@@ -1,0 +1,33 @@
+{
+    "enabled": true,
+    "max_backups": 5,
+    "backup_interval": 86400,
+    "backup_path": "backups",
+    "include_dirs": [
+        "data",
+        "config"
+    ],
+    "exclude_patterns": [
+        "*.tmp",
+        "*.log",
+        "*.bak"
+    ],
+    "compression": {
+        "enabled": true,
+        "format": "zip",
+        "level": 9
+    },
+    "retention": {
+        "days": 30,
+        "max_size": 1073741824
+    },
+    "notifications": {
+        "enabled": false,
+        "on_success": false,
+        "on_failure": true,
+        "email": {
+            "enabled": false,
+            "recipients": []
+        }
+    }
+} 

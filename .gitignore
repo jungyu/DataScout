@@ -1,29 +1,104 @@
-# Python 快取檔案
-src/core/__pycache__/*.pyc
+# Python 相關
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# 虛擬環境
+venv/
+env/
+ENV/
+.env
+.venv
+env.bak/
+venv.bak/
+
+# IDE 相關
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
 
 # 系統檔案
-src/.DS_Store
-src/extractors/.DS_Store
 .DS_Store
+Thumbs.db
+desktop.ini
+*.log
+*.bak
+*.tmp
+*.temp
 
+# 爬蟲專案特定
 # 輸出資料
-output/*.json
-
-# 配置檔案（忽略所有配置，但保留範例檔案）
-config/*.json
-!config/_*.json
+output/
+data/
+logs/
+captchas/
+debug/
+temp/
+backups/
 
 # 憑證和敏感資訊
 config/credentials.json
 certs/
 keys/
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
 
-# 資料和日誌
-data/
-logs/
-captchas/
-debug/
-.DS_Store
+# 瀏覽器相關
+geckodriver.log
+chromedriver.log
+*.profile
+*.session
+*.session-journal
+
+# 測試相關
+.coverage
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+.coverage.*
+coverage/
+*.py,cover
+.hypothesis/
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+.coverage.*
+coverage/
+*.py,cover

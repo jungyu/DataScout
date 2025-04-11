@@ -2,8 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-ConfigLoader 模組
-負責載入、合併和驗證配置文件，支援模板繼承和覆蓋機制
+配置管理模組
+
+提供統一的配置管理功能，包括：
+1. 基礎配置類
+2. 配置載入和驗證
+3. 配置合併和覆蓋
+4. 配置快取
 """
 
 import os
@@ -11,7 +16,106 @@ import json
 import logging
 import copy
 from typing import Dict, Any, Optional, List, Union, Tuple
+from dataclasses import dataclass, field
+from datetime import datetime
 from jsonschema import validate, ValidationError
+
+
+@dataclass
+class BaseConfig:
+    """基礎配置類
+    
+    所有配置類的基類，提供基本的配置功能：
+    1. 配置驗證
+    2. 配置轉換
+    3. 配置比較
+    4. 配置統計
+    """
+    
+    # 基本屬性
+    id: str
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+    
+    # 統計信息
+    total_uses: int = 0
+    success_count: int = 0
+    failure_count: int = 0
+    last_used: Optional[datetime] = None
+    last_success: Optional[datetime] = None
+    last_failure: Optional[datetime] = None
+    
+    # 元數據
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def validate(self) -> bool:
+        """驗證配置"""
+        try:
+            # 子類實現具體的驗證邏輯
+            return True
+        except Exception:
+            return False
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """轉換為字典"""
+        return {
+            'id': self.id,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat(),
+            'total_uses': self.total_uses,
+            'success_count': self.success_count,
+            'failure_count': self.failure_count,
+            'last_used': self.last_used.isoformat() if self.last_used else None,
+            'last_success': self.last_success.isoformat() if self.last_success else None,
+            'last_failure': self.last_failure.isoformat() if self.last_failure else None,
+            'metadata': self.metadata
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'BaseConfig':
+        """從字典創建配置"""
+        return cls(
+            id=data['id'],
+            created_at=datetime.fromisoformat(data['created_at']),
+            updated_at=datetime.fromisoformat(data['updated_at']),
+            total_uses=data['total_uses'],
+            success_count=data['success_count'],
+            failure_count=data['failure_count'],
+            last_used=datetime.fromisoformat(data['last_used']) if data['last_used'] else None,
+            last_success=datetime.fromisoformat(data['last_success']) if data['last_success'] else None,
+            last_failure=datetime.fromisoformat(data['last_failure']) if data['last_failure'] else None,
+            metadata=data['metadata']
+        )
+    
+    def update_stats(self, success: bool):
+        """更新統計信息"""
+        self.total_uses += 1
+        if success:
+            self.success_count += 1
+            self.last_success = datetime.now()
+        else:
+            self.failure_count += 1
+            self.last_failure = datetime.now()
+        self.last_used = datetime.now()
+        self.updated_at = datetime.now()
+    
+    @property
+    def success_rate(self) -> float:
+        """計算成功率"""
+        if self.total_uses == 0:
+            return 0.0
+        return self.success_count / self.total_uses
+    
+    def __eq__(self, other: Any) -> bool:
+        """比較配置是否相等"""
+        if not isinstance(other, BaseConfig):
+            return False
+        return self.id == other.id
+    
+    def __hash__(self) -> int:
+        """計算哈希值"""
+        return hash(self.id)
+
 
 class ConfigLoader:
     """
@@ -257,7 +361,7 @@ class ConfigLoader:
     
     def load_template_with_config(self, template_path: str, config_path: str = None, schema_path: str = None) -> Dict[str, Any]:
         """
-        載入模板並合併配置
+        載入模板並可選合併配置
         
         Args:
             template_path: 模板文件路徑
@@ -274,21 +378,18 @@ class ConfigLoader:
         if config_path:
             try:
                 config = self.load_config(config_path)
-                final_config = self.merge_configs(template, config)
-                self.logger.info(f"已合併模板 {template_path} 和配置 {config_path}")
+                template = self.merge_configs(template, config)
+                self.logger.info(f"已合併配置: {config_path}")
             except Exception as e:
-                self.logger.error(f"合併模板和配置失敗: {str(e)}")
-                final_config = template
-        else:
-            final_config = template
+                self.logger.error(f"合併配置 {config_path} 失敗: {str(e)}")
         
         # 驗證最終配置
         if schema_path:
-            is_valid, error_msg = self.validate_config(final_config, schema_path)
+            is_valid, error_msg = self.validate_config(template, schema_path)
             if not is_valid:
                 self.logger.warning(f"最終配置不符合schema: {error_msg}，但仍然繼續")
         
-        return final_config
+        return template
     
     def save_config(self, config: Dict[str, Any], config_path: str) -> bool:
         """
@@ -296,7 +397,7 @@ class ConfigLoader:
         
         Args:
             config: 配置字典
-            config_path: 保存路徑
+            config_path: 配置文件路徑
             
         Returns:
             是否保存成功
@@ -304,13 +405,14 @@ class ConfigLoader:
         resolved_path = self._resolve_path(config_path)
         
         try:
+            self.logger.info(f"保存配置到文件: {resolved_path}")
+            
             # 確保目錄存在
-            os.makedirs(os.path.dirname(os.path.abspath(resolved_path)), exist_ok=True)
+            os.makedirs(os.path.dirname(resolved_path), exist_ok=True)
             
             # 保存配置
-            self.logger.info(f"保存配置到: {resolved_path}")
             with open(resolved_path, 'w', encoding='utf-8') as f:
-                json.dump(config, f, ensure_ascii=False, indent=2)
+                json.dump(config, f, indent=4, ensure_ascii=False)
             
             # 更新快取
             self.config_cache[resolved_path] = copy.deepcopy(config)
@@ -321,9 +423,7 @@ class ConfigLoader:
             return False
     
     def clear_cache(self) -> None:
-        """
-        清除配置和schema快取
-        """
-        self.config_cache.clear()
+        """清除配置快取"""
         self.schema_cache.clear()
-        self.logger.info("已清除配置和schema快取")
+        self.config_cache.clear()
+        self.logger.info("已清除配置快取")

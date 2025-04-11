@@ -5,7 +5,7 @@
 from selenium import webdriver
 from src.captcha.handlers.poker_captcha import PokerCaptchaSolver
 from src.captcha.handlers.advanced_poker_captcha import AdvancedPokerCaptchaSolver
-from src.utils.logger import setup_logger
+from src.core.utils.logger import setup_logger
 
 def solve_poker_captcha(url, use_advanced=False):
     """

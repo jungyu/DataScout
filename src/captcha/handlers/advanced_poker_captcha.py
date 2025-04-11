@@ -6,7 +6,7 @@
 import cv2
 import numpy as np
 from .poker_captcha import PokerCaptchaSolver
-from ...utils.logger import setup_logger
+from src.core.utils.logger import setup_logger
 
 class AdvancedPokerCaptchaSolver(PokerCaptchaSolver):
     """高級撲克牌驗證碼解決器"""

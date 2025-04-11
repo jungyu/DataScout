@@ -4,19 +4,12 @@
 """
 API 模組
 
-提供 API 相關的功能和組件。
+提供 API 相關的功能。
 包括：
-1. API 配置
-2. API 類型
-3. 認證類型
-4. API 處理器
+1. API 處理器
+2. API 配置
+3. API 錯誤處理
 """
-
-from .config import (
-    APIConfig,
-    APIType,
-    AuthType
-)
 
 from .handlers import (
     BaseAPIHandler,
@@ -24,34 +17,31 @@ from .handlers import (
     APIResponse,
     APIError,
     RESTAPIHandler,
-    WebhookAPIHandler,
-    N8NAPIHandler,
-    MakeAPIHandler,
-    ZapierAPIHandler,
-    IFTTTAPIHandler,
-    CustomAPIHandler,
-    AutomationAPIHandler
+    WebhookHandler,
+    N8NHandler,
+    MakeHandler,
+    ZapierHandler,
+    IFTTTHandler,
+    CustomHandler,
+    AutomationHandler
 )
 
+from src.extractors.handlers.api.api_handler import APIConfig, APIMethod, APIAuthType
+
 __all__ = [
-    # 配置相關
-    'APIConfig',
-    'APIType',
-    'AuthType',
-    
-    # 基礎組件
     'BaseAPIHandler',
     'APIRequest',
     'APIResponse',
     'APIError',
-    
-    # API 處理器
     'RESTAPIHandler',
-    'WebhookAPIHandler',
-    'N8NAPIHandler',
-    'MakeAPIHandler',
-    'ZapierAPIHandler',
-    'IFTTTAPIHandler',
-    'CustomAPIHandler',
-    'AutomationAPIHandler'
+    'WebhookHandler',
+    'N8NHandler',
+    'MakeHandler',
+    'ZapierHandler',
+    'IFTTTHandler',
+    'CustomHandler',
+    'AutomationHandler',
+    'APIConfig',
+    'APIMethod',
+    'APIAuthType'
 ] 

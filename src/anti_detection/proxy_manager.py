@@ -26,7 +26,7 @@ from pathlib import Path
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 
-from ..utils.logger import setup_logger
+from src.core.utils.logger import setup_logger
 from ..utils.error_handler import retry_on_exception, handle_exception
 
 

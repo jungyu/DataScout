@@ -2,42 +2,115 @@
 # -*- coding: utf-8 -*-
 
 """
-處理器模組
+處理器包
 
-此模組提供各種數據提取和處理的處理器，包括：
-- 驗證碼處理
-- 分頁處理
-- API 處理
-- 存儲處理
+此包提供了一系列數據提取處理器，包括：
+1. 網頁處理器 - 用於提取網頁內容
+2. API處理器 - 用於處理API請求
+3. 分頁處理器 - 用於處理分頁內容
+
+主要組件：
+- WebHandler: 網頁處理器，提供網頁內容提取功能
+- APIHandler: API處理器，提供API請求處理功能
+- PaginationHandler: 分頁處理器，提供分頁內容處理功能
+
+使用示例：
+```python
+from selenium import webdriver
+from src.extractors.handlers import (
+    WebHandler,
+    APIHandler,
+    PaginationHandler
+)
+from src.core.data_processor import DataProcessor, DataProcessorConfig
+
+# 創建網頁處理器
+web_config = {
+    "url": "https://example.com",
+    "extract_rules": {
+        "title": {
+            "selector": "h1",
+            "type": "text"
+        }
+    }
+}
+web_handler = WebHandler(web_config, driver=webdriver.Chrome())
+
+# 創建API處理器
+api_config = {
+    "base_url": "https://api.example.com",
+    "endpoints": {
+        "users": "/users"
+    }
+}
+api_handler = APIHandler(api_config)
+
+# 創建分頁處理器
+pagination_config = {
+    "type": "button_click",
+    "next_button_selector": ".next-page"
+}
+pagination_handler = PaginationHandler(pagination_config, driver=webdriver.Chrome())
+
+# 創建數據處理器
+data_processor = DataProcessor({
+    "remove_html": True,
+    "remove_extra_spaces": True,
+    "normalize_whitespace": True
+})
+```
 """
 
-from .captcha_handler import CaptchaHandler, CaptchaType, CaptchaDetectionResult
-from .pagination_handler import PaginationHandler, PaginationType, PaginationConfig
-from .api_handler import ApiHandler, ApiType, ApiConfig
-from .storage_handler import StorageHandler, StorageType, StorageConfig
+from .web import (
+    WebHandler,
+    WebConfig,
+    WebLoadStrategy
+)
 
-# 導出所有處理器類和相關類型
+from .api import (
+    APIHandler,
+    APIConfig,
+    APIMethod,
+    APIAuthType
+)
+
+from .pagination_handler import (
+    PaginationHandler,
+    PaginationConfig,
+    PaginationType
+)
+
+# 從核心模組導入數據處理器
+from src.core.data_processor import (
+    DataProcessor,
+    DataProcessorConfig
+)
+
 __all__ = [
-    # 驗證碼處理
-    'CaptchaHandler',
-    'CaptchaType',
-    'CaptchaDetectionResult',
+    # 網頁處理器
+    "WebHandler",
+    "WebConfig",
+    "WebLoadStrategy",
     
-    # 分頁處理
-    'PaginationHandler',
-    'PaginationType',
-    'PaginationConfig',
+    # API處理器
+    "APIHandler",
+    "APIConfig",
+    "APIMethod",
+    "APIAuthType",
     
-    # API 處理
-    'ApiHandler',
-    'ApiType',
-    'ApiConfig',
+    # 分頁處理器
+    "PaginationHandler",
+    "PaginationConfig",
+    "PaginationType",
     
-    # 存儲處理
-    'StorageHandler',
-    'StorageType',
-    'StorageConfig'
+    # 數據處理器（從核心模組導入）
+    "DataProcessor",
+    "DataProcessorConfig"
 ]
+
+__version__ = "1.0.0"
+__author__ = "Your Name"
+__license__ = "MIT"
 
 # 處理器工廠函數
 def create_handler(handler_type: str, **kwargs):
@@ -190,6 +263,3 @@ def search_notion(query: str, filter_params: dict = None, sort_params: dict = No
     """
     handler = create_api_handler(**kwargs)
     return handler.search_notion(query, filter_params, sort_params, page_size)
-
-# 版本信息
-__version__ = '0.1.0'

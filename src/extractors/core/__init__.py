@@ -2,50 +2,60 @@
 # -*- coding: utf-8 -*-
 
 """
-提取器核心模組 (core/__init__.py)
+爬蟲核心模組
 
-提供網頁數據提取的核心功能，包含各種專門的提取器類。
-
-主要組件：
-- BaseExtractor: 基礎提取器，提供共享功能和抽象接口
-- DataExtractor: 通用數據提取器，處理各種類型的數據提取
-- ListExtractor: 列表提取器，專門處理列表頁面的數據提取
-- DetailExtractor: 詳情提取器，專門處理詳情頁面的數據提取
-- CompoundExtractor: 複合提取器，處理複雜的嵌套數據結構
-
-使用示例：
-    from src.extractors.core import DataExtractor, ListExtractor, DetailExtractor
-    
-    # 創建提取器
-    data_extractor = DataExtractor(driver, base_url="https://example.com")
-    list_extractor = ListExtractor(driver, base_url="https://example.com")
-    detail_extractor = DetailExtractor(driver, base_url="https://example.com")
-    
-    # 提取數據
-    list_data = list_extractor.extract(list_config)
-    for item in list_data:
-        detail_data = detail_extractor.extract(item['url'], detail_config)
-        # 處理提取的數據
+提供爬蟲的核心功能，包括：
+1. 基礎提取器
+2. 數據提取器
+3. 工具函數
 """
 
-# 導出核心提取器類
-from .base_extractor import BaseExtractor
+from .base import BaseExtractor
 from .data_extractor import DataExtractor
-from .list_extractor import ListExtractor
-from .detail_extractor import DetailExtractor
-from .compound_extractor import CompoundExtractor
 
-# 定義可以直接從包中導入的類
+# 從 src.core.utils 導入工具類
+from src.core.utils import (
+    # 瀏覽器工具
+    BrowserUtils,
+    
+    # 配置工具
+    ConfigUtils,
+    
+    # 路徑工具
+    PathUtils,
+    
+    # 日誌工具
+    Logger,
+    
+    # URL 工具
+    URLUtils,
+    
+    # 數據處理工具
+    DataProcessor,
+    
+    # 錯誤處理工具
+    ErrorHandler,
+    
+    # Cookie 管理工具
+    CookieManager
+)
+
 __all__ = [
+    # 提取器
     'BaseExtractor',
     'DataExtractor',
-    'ListExtractor',
-    'DetailExtractor',
-    'CompoundExtractor'
+    
+    # 工具類
+    'BrowserUtils',
+    'ConfigUtils',
+    'PathUtils',
+    'Logger',
+    'URLUtils',
+    'DataProcessor',
+    'ErrorHandler',
+    'CookieManager'
 ]
 
-# 版本信息
-__version__ = '0.1.0'
-__author__ = 'Crawler Team'
+__version__ = '1.0.0'
+__author__ = 'Your Name'
 __license__ = 'MIT'
-__copyright__ = 'Copyright 2023 Crawler Team'

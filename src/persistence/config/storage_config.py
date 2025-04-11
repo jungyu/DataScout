@@ -7,14 +7,17 @@
 """
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, InitVar
 from typing import List, Dict, Optional, Any
 from pathlib import Path
+
+from ..utils.core_mixin import CoreMixin
 
 
 @dataclass
 class StorageConfig:
     """存儲配置類"""
+    # 基本配置
     storage_mode: str = "local"  # local, mongodb, notion
     data_dir: str = "data"
     default_collection: str = "crawl_data"
@@ -52,9 +55,36 @@ class StorageConfig:
     notion_database_id: str = ""
     notion_page_size: int = 100
     
+    # 混入 CoreMixin
+    core_mixin: InitVar[CoreMixin] = field(default_factory=CoreMixin)
+    
+    def __post_init__(self, core_mixin: CoreMixin):
+        """
+        初始化後處理
+        
+        Args:
+            core_mixin: CoreMixin 實例
+        """
+        # 初始化核心工具類
+        self.core_mixin = core_mixin
+        self.core_mixin.init_core_utils()
+        
+        # 複製核心工具類的屬性
+        for attr in dir(core_mixin):
+            if not attr.startswith('_'):
+                setattr(self, attr, getattr(core_mixin, attr))
+    
     @classmethod
     def from_credentials(cls, credentials_path: str = "config/credentials.json") -> "StorageConfig":
-        """從 credentials.json 創建配置"""
+        """
+        從 credentials.json 創建配置
+        
+        Args:
+            credentials_path: credentials.json 路徑
+            
+        Returns:
+            StorageConfig: 配置實例
+        """
         try:
             # 讀取 credentials.json
             cred_path = Path(credentials_path)
@@ -92,46 +122,70 @@ class StorageConfig:
             return config
             
         except Exception as e:
-            print(f"從 credentials.json 讀取配置失敗: {str(e)}")
-            return cls()
+            config = cls()
+            config.log_error(f"從 credentials.json 讀取配置失敗: {str(e)}")
+            return config
     
     def validate(self) -> bool:
-        """驗證配置是否有效"""
+        """
+        驗證配置是否有效
+        
+        Returns:
+            bool: 是否有效
+        """
         try:
             # 驗證存儲模式
             if self.storage_mode not in ["local", "mongodb", "notion"]:
-                print(f"不支持的存儲模式: {self.storage_mode}")
+                self.log_error(f"不支持的存儲模式: {self.storage_mode}")
                 return False
             
             # 驗證數據目錄
-            data_path = Path(self.data_dir)
+            data_path = self.get_path(self.data_dir)
             if not data_path.exists():
                 data_path.mkdir(parents=True, exist_ok=True)
             
             # 驗證 MongoDB 配置
             if self.storage_mode == "mongodb":
                 if not self.mongodb_host or not self.mongodb_port:
-                    print("MongoDB 配置不完整")
+                    self.log_error("MongoDB 配置不完整")
                     return False
+                
+                # 驗證敏感信息
+                if self.mongodb_username and self.mongodb_password:
+                    self.mongodb_password = self.encrypt_data(self.mongodb_password)
             
             # 驗證 Notion 配置
             if self.storage_mode == "notion":
                 if not self.notion_token or not self.notion_database_id:
-                    print("Notion 配置不完整")
+                    self.log_error("Notion 配置不完整")
                     return False
+                
+                # 驗證敏感信息
+                self.notion_token = self.encrypt_data(self.notion_token)
             
             return True
             
         except Exception as e:
-            print(f"配置驗證失敗: {str(e)}")
+            self.log_error(f"配置驗證失敗: {str(e)}")
             return False
     
     def get_mongodb_uri(self) -> str:
-        """獲取 MongoDB 連接 URI"""
+        """
+        獲取 MongoDB 連接 URI
+        
+        Returns:
+            str: MongoDB URI
+        """
         if self.mongodb_username and self.mongodb_password:
-            return f"mongodb://{self.mongodb_username}:{self.mongodb_password}@{self.mongodb_host}:{self.mongodb_port}"
+            password = self.decrypt_data(self.mongodb_password)
+            return f"mongodb://{self.mongodb_username}:{password}@{self.mongodb_host}:{self.mongodb_port}"
         return f"mongodb://{self.mongodb_host}:{self.mongodb_port}"
     
     def get_storage_path(self) -> Path:
-        """獲取存儲路徑"""
-        return Path(self.data_dir) 
+        """
+        獲取存儲路徑
+        
+        Returns:
+            Path: 存儲路徑
+        """
+        return Path(self.get_path(self.data_dir)) 

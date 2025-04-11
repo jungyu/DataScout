@@ -25,7 +25,7 @@ sys.path.append(str(project_root))
 
 from src.config.paths import OUTPUT_DIR, DEBUG_DIR, SCREENSHOTS_DIR
 from src.core.crawler_engine import CrawlerEngine
-from src.utils.logger import setup_logger
+from src.core.utils.logger import setup_logger
 from src.utils.config_loader import ConfigLoader
 from src.anti_detection.stealth_manager import StealthManager
 from src.captcha.captcha_manager import CaptchaManager

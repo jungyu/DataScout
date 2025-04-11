@@ -1,497 +1,276 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
+"""
+基礎驗證碼求解器模組
+
+提供驗證碼求解的基礎功能。
+包括：
+1. 驗證碼圖片處理
+2. 驗證碼文本識別
+3. 驗證碼結果驗證
+4. 第三方服務整合
+"""
+
+from typing import Dict, Any, Optional, List, Union, Tuple
+from pathlib import Path
 import time
-import logging
+import json
+import base64
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Union
+from dataclasses import dataclass, field
+from datetime import datetime
+import os
 
-from selenium import webdriver
+from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
+from selenium.common.exceptions import (
+    TimeoutException,
+    NoSuchElementException,
+    StaleElementReferenceException
+)
 
-from ...utils.logger import setup_logger
+from src.core.utils import (
+    BrowserUtils,
+    Logger,
+    URLUtils,
+    DataProcessor,
+    ErrorHandler,
+    ConfigUtils,
+    PathUtils,
+    ImageUtils,
+    CookieManager
+)
+
+from ..types import CaptchaType, CaptchaConfig, CaptchaResult
 
 
-class BaseCaptchaSolver(ABC):
-    """
-    驗證碼解決器基類，定義了所有驗證碼解決器的共同介面
-    """
+class BaseSolver(ABC):
+    """基礎驗證碼求解器"""
     
-    def __init__(self, driver=None, config: Dict = None, log_level: int = logging.INFO):
+    def __init__(self, browser: WebDriver, config: Dict[str, Any]):
         """
-        初始化驗證碼解決器
+        初始化求解器
         
         Args:
-            driver: WebDriver實例
+            browser: WebDriver 實例
             config: 配置字典
-            log_level: 日誌級別
         """
-        self.driver = driver
-        self.logger = setup_logger(f"{__name__}.{self.__class__.__name__}", log_level)
-        self.config = config or {}
+        self.browser = browser
+        self.config = config
         
-        # 是否使用外部服務
-        self.use_external_service = self.config.get("use_external_service", False)
+        # 初始化工具類
+        self.logger = Logger(__name__)
+        self.error_handler = ErrorHandler()
+        self.config_utils = ConfigUtils()
+        self.browser_utils = BrowserUtils(self.browser)
+        self.url_utils = URLUtils()
+        self.data_processor = DataProcessor()
+        self.image_utils = ImageUtils()
+        self.cookie_manager = CookieManager()
         
-        # 外部服務配置
-        self.service_config = self.config.get("service_config", {})
-        
-        # 模型配置
-        self.model_config = self.config.get("model_config", {})
-        
-        # 重試設置
-        self.max_retries = self.config.get("max_retries", 3)
-        self.retry_delay = self.config.get("retry_delay", 2)
-        
-        # 樣本目錄
-        self.sample_dir = self.config.get("sample_dir", os.path.join("captchas", self._get_captcha_type()))
-        
-        # 統計資料
-        self.success_count = 0
-        self.failure_count = 0
-        
-        # 初始化解決器特定的設置
+        # 初始化配置
         self._init_solver()
-    
+        
     def _init_solver(self):
-        """
-        初始化解決器特定的設置，
-        子類可以覆蓋此方法以進行自定義初始化
-        """
-        pass
-    
-    def setup(self):
-        """設置解決器，可由子類覆寫"""
-        pass
-    
-    @abstractmethod
-    def _get_captcha_type(self) -> str:
-        """
-        獲取驗證碼類型
-        
-        Returns:
-            驗證碼類型字符串
-        """
-        pass
-    
-    @abstractmethod
-    def detect(self) -> bool:
-        """
-        檢測頁面上是否存在此類型的驗證碼
-        
-        Returns:
-            bool: 是否檢測到驗證碼
-        """
-        pass
-    
-    @abstractmethod
-    def solve(self, driver: webdriver.Remote = None) -> bool:
-        """
-        解決驗證碼
-        
-        Args:
-            driver: WebDriver實例
-            
-        Returns:
-            是否成功解決
-        """
-        driver = driver or self.driver
-        pass
-    
-    def report_result(self, success: bool):
-        """
-        報告驗證碼解決結果，用於統計和學習
-        
-        Args:
-            success: 是否成功解決
-        """
-        if success:
-            self.success_count += 1
-        else:
-            self.failure_count += 1
-        
-        self.logger.info(
-            f"驗證碼解決結果: {success}, 成功率: "
-            f"{self.success_count/(self.success_count+self.failure_count):.2%}"
-        )
-    
-    def _save_sample(self, driver: webdriver.Remote, sample_data: Dict = None) -> str:
-        """
-        保存驗證碼樣本
-        
-        Args:
-            driver: WebDriver實例
-            sample_data: 樣本數據
-            
-        Returns:
-            樣本文件路徑
-        """
-        # 確保樣本目錄存在
-        os.makedirs(self.sample_dir, exist_ok=True)
-        
-        # 生成樣本文件路徑
-        timestamp = int(time.time())
-        sample_path = os.path.join(self.sample_dir, f"{self._get_captcha_type()}_{timestamp}")
-        
+        """初始化求解器配置"""
         try:
-            # 保存樣本截圖
-            captcha_element = self._locate_captcha_element(driver)
-            if captcha_element:
-                captcha_element.screenshot(f"{sample_path}.png")
-                self.logger.debug(f"樣本截圖已保存: {sample_path}.png")
+            # 設置超時和重試
+            self.timeout = self.config.get('timeout', 30)
+            self.retry_count = self.config.get('retry_count', 3)
             
-            # 保存樣本數據
-            if sample_data:
-                import json
-                with open(f"{sample_path}.json", "w", encoding="utf-8") as f:
-                    json.dump(sample_data, f, indent=2)
-                self.logger.debug(f"樣本數據已保存: {sample_path}.json")
+            # 設置目錄
+            self.screenshot_dir = self.config.get('screenshot_dir', 'screenshots')
+            self.temp_dir = self.config.get('temp_dir', 'temp')
+            self.sample_dir = self.config.get('sample_dir', 'samples')
             
-            return sample_path
-        
+            # 創建目錄
+            for dir_path in [self.screenshot_dir, self.temp_dir, self.sample_dir]:
+                os.makedirs(dir_path, exist_ok=True)
+                
+            # 初始化狀態
+            self.solving_status = {
+                'current_type': None,
+                'retry_count': 0,
+                'success_count': 0,
+                'failure_count': 0,
+                'start_time': None,
+                'end_time': None,
+                'duration': None
+            }
+            
+            # 初始化緩存
+            self.result_cache = {}
+            self.sample_cache = {}
+            
         except Exception as e:
-            self.logger.error(f"保存樣本失敗: {str(e)}")
-            return ""
-    
-    def _locate_captcha_element(self, driver: webdriver.Remote) -> Optional[webdriver.remote.webelement.WebElement]:
+            self.logger.error(f"初始化求解器失敗: {str(e)}")
+            raise
+            
+    @abstractmethod
+    def solve(self, element: WebElement) -> CaptchaResult:
         """
-        定位驗證碼元素
+        求解驗證碼
         
         Args:
-            driver: WebDriver實例
+            element: 驗證碼元素
             
         Returns:
-            驗證碼元素或None
+            CaptchaResult: 驗證碼求解結果
         """
-        # 此方法需要在子類中實現
-        return None
-    
-    def _call_external_service(self, service_type: str, service_api: str, service_key: str, data: Dict) -> Dict:
-        """
-        調用外部驗證碼解決服務
+        pass
         
-        Args:
-            service_type: 服務類型
-            service_api: 服務API URL
-            service_key: 服務API密鑰
-            data: 請求數據
-            
-        Returns:
-            響應數據
-        """
-        try:
-            import requests
-            
-            # 根據服務類型設置請求
-            if service_type == "2captcha":
-                # 2Captcha API
-                response = requests.post(f"{service_api}/in.php", data=data)
-                response_data = response.json()
-                
-                if response_data.get("status") != 1:
-                    self.logger.error(f"2Captcha API錯誤: {response_data.get('request')}")
-                    return {"success": False, "error": response_data.get("request")}
-                
-                # 獲取請求ID
-                request_id = response_data.get("request")
-                
-                # 等待結果
-                for _ in range(30):  # 最多等待30次，每次5秒
-                    time.sleep(5)
-                    
-                    # 查詢結果
-                    result_params = {
-                        "key": service_key,
-                        "action": "get",
-                        "id": request_id,
-                        "json": 1
-                    }
-                    
-                    result_response = requests.get(f"{service_api}/res.php", params=result_params)
-                    result_data = result_response.json()
-                    
-                    if result_data.get("status") == 1:
-                        return {"success": True, "result": result_data.get("request")}
-                    
-                    if result_data.get("request") != "CAPCHA_NOT_READY":
-                        return {"success": False, "error": result_data.get("request")}
-                
-                return {"success": False, "error": "Timeout waiting for result"}
-            
-            elif service_type == "anti-captcha":
-                # Anti-Captcha API
-                # 實現Anti-Captcha的API調用邏輯
-                self.logger.warning("Anti-Captcha服務尚未實現")
-                return {"success": False, "error": "Anti-Captcha service not implemented"}
-            
-            else:
-                self.logger.error(f"不支持的服務類型: {service_type}")
-                return {"success": False, "error": f"Unsupported service type: {service_type}"}
-        
-        except Exception as e:
-            self.logger.error(f"調用外部服務失敗: {str(e)}")
-            return {"success": False, "error": str(e)}
-    
-    def _load_model(self, model_path: str) -> Any:
-        """
-        載入驗證碼識別模型
-        
-        Args:
-            model_path: 模型文件路徑
-            
-        Returns:
-            載入的模型
-        """
-        try:
-            # 根據模型類型載入
-            model_type = self.model_config.get("type", "")
-            
-            if model_type == "tensorflow":
-                try:
-                    import tensorflow as tf
-                    return tf.keras.models.load_model(model_path)
-                except ImportError:
-                    self.logger.error("未安裝TensorFlow，無法載入模型")
-                    return None
-            
-            elif model_type == "pytorch":
-                try:
-                    import torch
-                    return torch.load(model_path)
-                except ImportError:
-                    self.logger.error("未安裝PyTorch，無法載入模型")
-                    return None
-            
-            elif model_type == "opencv":
-                try:
-                    import cv2
-                    import pickle
-                    with open(model_path, "rb") as f:
-                        return pickle.load(f)
-                except ImportError:
-                    self.logger.error("未安裝OpenCV，無法載入模型")
-                    return None
-            
-            else:
-                self.logger.error(f"不支持的模型類型: {model_type}")
-                return None
-        
-        except Exception as e:
-            self.logger.error(f"載入模型失敗: {str(e)}")
-            return None
-    
-    def _preprocess_image(self, image_path: str) -> Any:
+    def preprocess_image(self, image_path: Union[str, Path]) -> Optional[str]:
         """
         預處理驗證碼圖片
         
         Args:
-            image_path: 圖片文件路徑
+            image_path: 圖片路徑
             
         Returns:
-            預處理後的圖片
+            Optional[str]: 處理後的圖片路徑
         """
         try:
-            # 根據模型類型進行預處理
-            model_type = self.model_config.get("type", "")
-            
-            if model_type == "tensorflow" or model_type == "pytorch":
-                try:
-                    import numpy as np
-                    from PIL import Image
-                    
-                    # 讀取圖片
-                    img = Image.open(image_path)
-                    
-                    # 調整大小
-                    target_size = self.model_config.get("image_size", (100, 40))
-                    img = img.resize(target_size)
-                    
-                    # 轉換為灰度圖
-                    if self.model_config.get("grayscale", True):
-                        img = img.convert("L")
-                    
-                    # 轉換為numpy數組
-                    img_array = np.array(img)
-                    
-                    # 正規化
-                    if self.model_config.get("normalize", True):
-                        img_array = img_array / 255.0
-                    
-                    # 擴展維度
-                    if model_type == "tensorflow":
-                        img_array = np.expand_dims(img_array, axis=0)
-                        if self.model_config.get("grayscale", True):
-                            img_array = np.expand_dims(img_array, axis=-1)
-                    
-                    return img_array
-                
-                except ImportError as e:
-                    self.logger.error(f"缺少必要的庫: {str(e)}")
-                    return None
-            
-            elif model_type == "opencv":
-                try:
-                    import cv2
-                    import numpy as np
-                    
-                    # 讀取圖片
-                    img = cv2.imread(image_path)
-                    
-                    # 轉換為灰度圖
-                    if self.model_config.get("grayscale", True):
-                        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                    
-                    # 調整大小
-                    target_size = self.model_config.get("image_size", (100, 40))
-                    img = cv2.resize(img, target_size)
-                    
-                    # 閾值處理
-                    if self.model_config.get("threshold", True):
-                        _, img = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
-                    
-                    return img
-                
-                except ImportError:
-                    self.logger.error("未安裝OpenCV，無法預處理圖片")
-                    return None
-            
-            else:
-                self.logger.error(f"不支持的模型類型: {model_type}")
+            # 讀取圖片
+            image = self.image_utils.read_image(image_path)
+            if image is None:
+                self.logger.error("無法讀取圖片")
                 return None
-        
+                
+            # 圖片預處理
+            processed = self.image_utils.preprocess_image(image)
+            if processed is None:
+                self.logger.error("圖片預處理失敗")
+                return None
+                
+            # 保存處理後的圖片
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            output_path = Path(self.temp_dir) / f"processed_{timestamp}.png"
+            self.image_utils.save_image(processed, output_path)
+            
+            self.logger.info(f"圖片預處理完成: {output_path}")
+            return str(output_path)
+            
         except Exception as e:
             self.logger.error(f"預處理圖片失敗: {str(e)}")
             return None
-    
-    def _predict(self, model: Any, preprocessed_image: Any) -> str:
+            
+    def extract_text(self, image_path: Union[str, Path]) -> Optional[str]:
         """
-        使用模型預測驗證碼
+        從圖片中提取文本
         
         Args:
-            model: 載入的模型
-            preprocessed_image: 預處理後的圖片
+            image_path: 圖片路徑
             
         Returns:
-            預測的驗證碼文本
+            Optional[str]: 提取的文本
         """
         try:
-            # 根據模型類型進行預測
-            model_type = self.model_config.get("type", "")
+            # 讀取圖片
+            image = self.image_utils.read_image(image_path)
+            if image is None:
+                return None
             
-            if model_type == "tensorflow":
-                # TensorFlow模型預測
-                predictions = model.predict(preprocessed_image)
-                return self._decode_predictions(predictions)
+            # 文本識別
+            text = self.image_utils.extract_text(image)
+            if not text:
+                return None
             
-            elif model_type == "pytorch":
-                # PyTorch模型預測
-                import torch
-                with torch.no_grad():
-                    model.eval()
-                    tensor_image = torch.FloatTensor(preprocessed_image)
-                    predictions = model(tensor_image)
-                    return self._decode_predictions(predictions.numpy())
+            # 文本處理
+            text = self.data_processor.clean_text(text)
             
-            elif model_type == "opencv":
-                # OpenCV模型預測
-                import cv2
-                result = model.predict(preprocessed_image)
-                return str(result)
-            
-            else:
-                self.logger.error(f"不支持的模型類型: {model_type}")
-                return ""
-        
+            return text
         except Exception as e:
-            self.logger.error(f"模型預測失敗: {str(e)}")
-            return ""
+            self.error_handler.handle_error(e, "從圖片中提取文本失敗")
+            return None
     
-    def _decode_predictions(self, predictions: Any) -> str:
+    def validate_solution(self, solution: str) -> bool:
         """
-        解碼模型預測結果為文本
+        驗證求解結果
         
         Args:
-            predictions: 模型的預測結果
+            solution: 求解結果
             
         Returns:
-            解碼後的驗證碼文本
+            bool: 結果是否有效
         """
-        # 此方法需要根據具體的模型輸出格式來實現
-        # 對於文本驗證碼，通常是將每個字符的預測結果合併
-        # 以下是一個簡單的示例，實際情況可能更複雜
-        
         try:
-            import numpy as np
+            # 檢查結果是否為空
+            if not solution:
+                return False
             
-            # 獲取字符集
-            charset = self.model_config.get("charset", "0123456789abcdefghijklmnopqrstuvwxyz")
-            charset = list(charset)
+            # 檢查結果長度
+            if len(solution) < self.config.text_min_length:
+                return False
             
-            # 驗證碼長度
-            captcha_length = self.model_config.get("captcha_length", 4)
+            # 檢查結果格式
+            if not self.data_processor.validate_text(solution):
+                return False
             
-            # 解碼預測結果
-            result = []
-            
-            # 如果預測結果是二維數組，每行對應一個字符
-            if len(predictions.shape) == 2 and predictions.shape[0] == captcha_length:
-                for i in range(captcha_length):
-                    char_idx = np.argmax(predictions[i])
-                    if char_idx < len(charset):
-                        result.append(charset[char_idx])
-            
-            # 如果預測結果是三維數組，第一維是batch，第二維是字符位置
-            elif len(predictions.shape) == 3 and predictions.shape[1] == captcha_length:
-                for i in range(captcha_length):
-                    char_idx = np.argmax(predictions[0][i])
-                    if char_idx < len(charset):
-                        result.append(charset[char_idx])
-            
-            # 如果預測結果是其他格式，需要在子類中實現特定的解碼邏輯
-            else:
-                self.logger.warning(f"未知的預測結果格式: {predictions.shape}")
-                return ""
-            
-            return "".join(result)
-        
+            return True
         except Exception as e:
-            self.logger.error(f"解碼預測結果失敗: {str(e)}")
-            return ""
+            self.error_handler.handle_error(e, "驗證求解結果失敗")
+            return False
     
-    def save_sample(self, data: Any, success: bool = False):
+    def save_sample(
+        self,
+        image_path: Union[str, Path],
+        result: CaptchaResult,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """
-        保存驗證碼樣本以供將來分析或訓練
+        保存驗證碼樣本
         
         Args:
-            data: 驗證碼數據（通常是圖像）
-            success: 樣本是否為成功解決的樣本
-        """
-        if not self.config.get('save_samples', False):
-            return
+            image_path: 圖片路徑
+            result: 驗證碼結果
+            metadata: 元數據
             
-        import os
-        import time
-        
-        # 決定保存路徑
-        base_dir = self.config.get('sample_dir', '../captchas')
-        solver_type = self.__class__.__name__.lower().replace('solver', '')
-        status = 'success' if success else 'failed'
-        
-        # 創建目錄
-        save_dir = os.path.join(base_dir, solver_type, status)
-        os.makedirs(save_dir, exist_ok=True)
-        
-        # 保存樣本
-        filename = f"{int(time.time())}_{hash(str(data))}.png"
-        file_path = os.path.join(save_dir, filename)
-        
+        Returns:
+            bool: 是否保存成功
+        """
         try:
-            if hasattr(data, 'save'):  # PIL Image
-                data.save(file_path)
-            elif isinstance(data, bytes):  # Bytes data
-                with open(file_path, 'wb') as f:
-                    f.write(data)
-            else:
-                self.logger.warning(f"無法保存未知格式的驗證碼樣本: {type(data)}")
+            # 生成樣本ID
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            sample_id = f"sample_{timestamp}"
+            
+            # 複製圖片到樣本目錄
+            sample_path = Path(self.sample_dir) / f"{sample_id}.png"
+            self.image_utils.copy_image(image_path, sample_path)
+            
+            # 保存結果和元數據
+            metadata = metadata or {}
+            metadata.update({
+                'timestamp': timestamp,
+                'url': self.browser.current_url,
+                'success': result.success,
+                'solution': result.solution,
+                'duration': result.duration
+            })
+            
+            metadata_path = Path(self.sample_dir) / f"{sample_id}.json"
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, ensure_ascii=False, indent=2)
+                
+            # 更新緩存
+            self.sample_cache[sample_id] = {
+                'image_path': str(sample_path),
+                'metadata_path': str(metadata_path),
+                'timestamp': timestamp
+            }
+            
+            self.logger.info(f"已保存驗證碼樣本: {sample_id}")
+            return True
+            
         except Exception as e:
             self.logger.error(f"保存驗證碼樣本失敗: {str(e)}")
+            return False
+            
+    def clear_cache(self):
+        """清理緩存"""
+        try:
+            self.result_cache = {}
+            self.sample_cache = {}
+            self.logger.info("求解器緩存已清理")
+        except Exception as e:
+            self.logger.error(f"清理緩存失敗: {str(e)}")

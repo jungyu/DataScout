@@ -31,7 +31,7 @@ project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
 from src.config.paths import OUTPUT_DIR
-from src.utils.logger import setup_logger
+from src.core.utils.logger import setup_logger
 
 class DataAnalyzer:
     """數據分析器"""

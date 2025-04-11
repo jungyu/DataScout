@@ -12,26 +12,31 @@
 """
 
 import time
-import logging
+import os
 from typing import Optional, Dict, Any, List, Union
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from ..utils.image import ImageProcessor, ImageProcessResult
-from ..utils.audio import AudioProcessor, AudioProcessResult
-from ..utils.text import TextProcessor, TextProcessResult
-from ..utils.error import (
-    CaptchaError,
-    ImageProcessError,
-    AudioProcessError,
-    TextProcessError,
-    ValidationError,
-    handle_error
+from src.core.utils import (
+    BrowserUtils,
+    Logger,
+    URLUtils,
+    DataProcessor,
+    ErrorHandler,
+    ConfigUtils,
+    ImageUtils,
+    AudioUtils,
+    TextUtils
 )
+
+from ..types import CaptchaResult
 
 @dataclass
 class CaptchaResult:
@@ -45,244 +50,243 @@ class CaptchaResult:
 class CaptchaService:
     """驗證碼服務類"""
     
-    def __init__(
-        self,
-        driver: WebDriver,
-        logger: Optional[logging.Logger] = None,
-        wait_timeout: int = 10,
-        retry_count: int = 3,
-        retry_delay: float = 1.0
-    ):
+    def __init__(self, browser: WebDriver, config: Dict[str, Any]):
         """
         初始化驗證碼服務
         
         Args:
-            driver: WebDriver實例
-            logger: 日誌記錄器
-            wait_timeout: 等待超時時間（秒）
-            retry_count: 重試次數
-            retry_delay: 重試延遲時間（秒）
+            browser: WebDriver 實例
+            config: 配置字典
         """
-        self.driver = driver
-        self.logger = logger or logging.getLogger(__name__)
-        self.wait_timeout = wait_timeout
-        self.retry_count = retry_count
-        self.retry_delay = retry_delay
+        self.browser = browser
+        self.config = config
         
-        # 初始化處理器
-        self.image_processor = ImageProcessor(logger=self.logger)
-        self.audio_processor = AudioProcessor(logger=self.logger)
-        self.text_processor = TextProcessor(logger=self.logger)
+        # 初始化工具類
+        self.logger = Logger(__name__)
+        self.error_handler = ErrorHandler()
+        self.config_utils = ConfigUtils()
+        self.browser_utils = BrowserUtils(self.browser)
+        self.url_utils = URLUtils()
+        self.data_processor = DataProcessor()
+        self.image_utils = ImageUtils()
+        self.audio_utils = AudioUtils()
+        self.text_utils = TextUtils()
         
-    @handle_error(error_types=(CaptchaError,))
-    def detect_captcha(
-        self,
-        selectors: List[str],
-        timeout: Optional[int] = None
-    ) -> Optional[WebElement]:
+        # 初始化配置
+        self._init_service()
+        
+    def _init_service(self):
+        """初始化服務配置"""
+        try:
+            # 設置超時和重試
+            self.timeout = self.config.get('timeout', 30)
+            self.retry_count = self.config.get('retry_count', 3)
+            
+            # 設置目錄
+            self.temp_dir = self.config.get('temp_dir', 'temp')
+            self.result_dir = self.config.get('result_dir', 'results')
+            
+            # 創建目錄
+            for dir_path in [self.temp_dir, self.result_dir]:
+                os.makedirs(dir_path, exist_ok=True)
+                
+            # 初始化狀態
+            self.service_status = {
+                'current_type': None,
+                'retry_count': 0,
+                'success_count': 0,
+                'failure_count': 0,
+                'start_time': None,
+                'end_time': None,
+                'duration': None
+            }
+            
+            # 初始化緩存
+            self.result_cache = {}
+            
+        except Exception as e:
+            self.logger.error(f"初始化服務失敗: {str(e)}")
+            raise
+            
+    def detect_captcha(self, selectors: List[str]) -> Optional[WebElement]:
         """
         檢測驗證碼元素
         
         Args:
             selectors: 選擇器列表
-            timeout: 超時時間（秒）
             
         Returns:
-            驗證碼元素或None
+            Optional[WebElement]: 驗證碼元素
         """
         try:
-            timeout = timeout or self.wait_timeout
-            wait = WebDriverWait(self.driver, timeout)
-            
             for selector in selectors:
-                try:
-                    element = wait.until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-                    )
+                element = self.browser_utils.find_element(
+                    self.browser,
+                    By.CSS_SELECTOR,
+                    selector,
+                    timeout=self.timeout
+                )
+                if element:
+                    self.logger.info(f"檢測到驗證碼元素: {selector}")
                     return element
-                except:
-                    continue
                     
+            self.logger.warning("未檢測到驗證碼元素")
             return None
             
         except Exception as e:
-            self.logger.error(f"驗證碼檢測失敗: {str(e)}")
-            raise CaptchaError(f"驗證碼檢測失敗: {str(e)}")
+            self.logger.error(f"檢測驗證碼失敗: {str(e)}")
+            return None
             
-    @handle_error(error_types=(ImageProcessError,))
-    def _get_image_data(self, element: WebElement) -> bytes:
-        """
-        獲取圖像數據
-        
-        Args:
-            element: 圖像元素
-            
-        Returns:
-            圖像數據
-        """
-        try:
-            # 獲取圖像源
-            src = element.get_attribute('src')
-            
-            if src.startswith('data:image'):
-                # Base64編碼的圖像
-                import base64
-                return base64.b64decode(src.split(',')[1])
-            else:
-                # URL圖像
-                import requests
-                response = requests.get(src)
-                return response.content
-                
-        except Exception as e:
-            self.logger.error(f"圖像數據獲取失敗: {str(e)}")
-            raise ImageProcessError(f"圖像數據獲取失敗: {str(e)}")
-            
-    @handle_error(error_types=(AudioProcessError,))
-    def _get_audio_data(self, element: WebElement) -> bytes:
-        """
-        獲取音頻數據
-        
-        Args:
-            element: 音頻元素
-            
-        Returns:
-            音頻數據
-        """
-        try:
-            # 獲取音頻源
-            src = element.get_attribute('src')
-            
-            if src.startswith('data:audio'):
-                # Base64編碼的音頻
-                import base64
-                return base64.b64decode(src.split(',')[1])
-            else:
-                # URL音頻
-                import requests
-                response = requests.get(src)
-                return response.content
-                
-        except Exception as e:
-            self.logger.error(f"音頻數據獲取失敗: {str(e)}")
-            raise AudioProcessError(f"音頻數據獲取失敗: {str(e)}")
-            
-    @handle_error(error_types=(CaptchaError,))
-    def solve_image_captcha(
-        self,
-        element: WebElement,
-        min_confidence: float = 0.8
-    ) -> CaptchaResult:
+    def solve_image_captcha(self, element: WebElement) -> CaptchaResult:
         """
         處理圖像驗證碼
         
         Args:
             element: 驗證碼元素
-            min_confidence: 最小可信度
             
         Returns:
-            處理結果
+            CaptchaResult: 處理結果
         """
         try:
-            # 獲取圖像數據
-            image_data = self._get_image_data(element)
+            # 更新狀態
+            self.service_status['current_type'] = 'image'
+            self.service_status['start_time'] = datetime.now()
             
-            # 處理圖像
-            result = self.image_processor.process_image(image_data)
+            # 獲取圖像
+            image = self.browser_utils.get_element_screenshot(element)
+            if not image:
+                raise Exception("無法獲取驗證碼圖像")
+                
+            # 保存原始圖像
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            raw_path = Path(self.temp_dir) / f"raw_{timestamp}.png"
+            self.image_utils.save_image(image, raw_path)
             
-            if not result.success:
-                return CaptchaResult(
-                    success=False,
-                    error=result.error
-                )
+            # 預處理圖像
+            processed = self.image_utils.preprocess_image(image)
+            if not processed:
+                raise Exception("圖像預處理失敗")
                 
-            # 處理文本
-            text_result = self.text_processor.process_text(result.text)
+            # 保存處理後的圖像
+            processed_path = Path(self.temp_dir) / f"processed_{timestamp}.png"
+            self.image_utils.save_image(processed, processed_path)
             
-            if not text_result.success:
-                return CaptchaResult(
-                    success=False,
-                    error=text_result.error
-                )
+            # 識別文本
+            text = self.text_utils.recognize_text(processed)
+            if not text:
+                raise Exception("文本識別失敗")
                 
-            # 驗證結果
-            if text_result.confidence < min_confidence:
-                return CaptchaResult(
-                    success=False,
-                    error=f"可信度過低: {text_result.confidence}"
-                )
-                
-            return CaptchaResult(
+            # 更新狀態
+            self.service_status['end_time'] = datetime.now()
+            self.service_status['duration'] = (
+                self.service_status['end_time'] - 
+                self.service_status['start_time']
+            ).total_seconds()
+            
+            # 返回結果
+            result = CaptchaResult(
                 success=True,
-                text=text_result.text,
-                confidence=text_result.confidence
+                solution=text,
+                duration=self.service_status['duration'],
+                metadata={
+                    'raw_image': str(raw_path),
+                    'processed_image': str(processed_path),
+                    'timestamp': timestamp
+                }
             )
             
+            # 更新緩存
+            self.result_cache[timestamp] = result
+            
+            self.logger.info(f"圖像驗證碼處理成功: {text}")
+            return result
+            
         except Exception as e:
-            self.logger.error(f"圖像驗證碼處理失敗: {str(e)}")
+            self.logger.error(f"處理圖像驗證碼失敗: {str(e)}")
             return CaptchaResult(
                 success=False,
                 error=str(e)
             )
             
-    @handle_error(error_types=(CaptchaError,))
-    def solve_audio_captcha(
-        self,
-        element: WebElement,
-        min_confidence: float = 0.8
-    ) -> CaptchaResult:
+    def solve_audio_captcha(self, element: WebElement) -> CaptchaResult:
         """
         處理音頻驗證碼
         
         Args:
             element: 驗證碼元素
-            min_confidence: 最小可信度
             
         Returns:
-            處理結果
+            CaptchaResult: 處理結果
         """
         try:
-            # 獲取音頻數據
-            audio_data = self._get_audio_data(element)
+            # 更新狀態
+            self.service_status['current_type'] = 'audio'
+            self.service_status['start_time'] = datetime.now()
             
-            # 處理音頻
-            result = self.audio_processor.process_audio(audio_data)
+            # 獲取音頻
+            audio = self.browser_utils.get_element_audio(element)
+            if not audio:
+                raise Exception("無法獲取驗證碼音頻")
+                
+            # 保存原始音頻
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            raw_path = Path(self.temp_dir) / f"raw_{timestamp}.mp3"
+            self.audio_utils.save_audio(audio, raw_path)
             
-            if not result.success:
-                return CaptchaResult(
-                    success=False,
-                    error=result.error
-                )
+            # 預處理音頻
+            processed = self.audio_utils.preprocess_audio(audio)
+            if not processed:
+                raise Exception("音頻預處理失敗")
                 
-            # 處理文本
-            text_result = self.text_processor.process_text(result.text)
+            # 保存處理後的音頻
+            processed_path = Path(self.temp_dir) / f"processed_{timestamp}.wav"
+            self.audio_utils.save_audio(processed, processed_path)
             
-            if not text_result.success:
-                return CaptchaResult(
-                    success=False,
-                    error=text_result.error
-                )
+            # 識別文本
+            text = self.audio_utils.recognize_speech(processed)
+            if not text:
+                raise Exception("語音識別失敗")
                 
-            # 驗證結果
-            if text_result.confidence < min_confidence:
-                return CaptchaResult(
-                    success=False,
-                    error=f"可信度過低: {text_result.confidence}"
-                )
-                
-            return CaptchaResult(
+            # 更新狀態
+            self.service_status['end_time'] = datetime.now()
+            self.service_status['duration'] = (
+                self.service_status['end_time'] - 
+                self.service_status['start_time']
+            ).total_seconds()
+            
+            # 返回結果
+            result = CaptchaResult(
                 success=True,
-                text=text_result.text,
-                confidence=text_result.confidence
+                solution=text,
+                duration=self.service_status['duration'],
+                metadata={
+                    'raw_audio': str(raw_path),
+                    'processed_audio': str(processed_path),
+                    'timestamp': timestamp
+                }
             )
             
+            # 更新緩存
+            self.result_cache[timestamp] = result
+            
+            self.logger.info(f"音頻驗證碼處理成功: {text}")
+            return result
+            
         except Exception as e:
-            self.logger.error(f"音頻驗證碼處理失敗: {str(e)}")
+            self.logger.error(f"處理音頻驗證碼失敗: {str(e)}")
             return CaptchaResult(
                 success=False,
                 error=str(e)
             )
             
+    def clear_cache(self):
+        """清理緩存"""
+        try:
+            self.result_cache = {}
+            self.logger.info("服務緩存已清理")
+        except Exception as e:
+            self.logger.error(f"清理緩存失敗: {str(e)}")
+
     @handle_error(error_types=(ValidationError,))
     def validate_result(
         self,

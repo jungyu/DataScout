@@ -1,243 +1,241 @@
-# API 模組說明
-
-本文檔詳細說明了爬蟲系統的 API 模組及其功能。
-
-## 目錄
-
-1. [概述](#概述)
-2. [API 類型](#api-類型)
-3. [認證類型](#認證類型)
-4. [API 配置](#api-配置)
-5. [API 處理器](#api-處理器)
-6. [使用示例](#使用示例)
-7. [最佳實踐](#最佳實踐)
+# API 文檔
 
 ## 概述
 
-API 模組提供了與外部服務進行交互的功能，支持多種 API 類型和認證方式。該模組設計為可擴展的架構，允許輕鬆添加新的 API 處理器。
+本文檔提供系統 API 的詳細說明，包括接口定義、參數說明和使用示例。
 
-主要功能包括：
-- 多種 API 類型的支持（REST、Webhook、自動化平台等）
-- 靈活的認證機制
-- 錯誤處理和重試機制
-- 請求/響應數據結構標準化
+## 目錄
 
-## API 類型
+1. [API 概述](#api-概述)
+2. [API 接口](#api-接口)
+3. [請求和響應格式](#請求和響應格式)
+4. [錯誤處理](#錯誤處理)
+5. [使用示例](#使用示例)
 
-系統支持以下 API 類型：
+## API 概述
 
-| 類型 | 說明 | 適用場景 |
-|------|------|----------|
-| REST | 標準 RESTful API | 與大多數 Web 服務交互 |
-| WEBHOOK | Webhook 接收和發送 | 事件驅動的數據交換 |
-| N8N | n8n 自動化平台 | 工作流程自動化 |
-| MAKE | Make (原 Integromat) 平台 | 複雜工作流程自動化 |
-| ZAPIER | Zapier 自動化平台 | 應用程序集成 |
-| IFTTT | IFTTT 自動化平台 | 簡單自動化任務 |
-| CUSTOM | 自定義 API | 特殊需求的 API 交互 |
-| AUTOMATION | 自動化任務管理 | 任務調度和執行 |
+系統提供 RESTful API，用於與外部系統進行交互。API 支持 JSON 格式的請求和響應。
 
-## 認證類型
+## API 接口
 
-系統支持以下認證類型：
+### 1. 數據存儲接口
 
-| 類型 | 說明 | 配置參數 |
-|------|------|----------|
-| NONE | 無認證 | 無需額外參數 |
-| API_KEY | API 密鑰認證 | `api_key` |
-| OAUTH | OAuth 認證 | `client_id`, `client_secret`, `token_url` |
-| BASIC | 基本認證 | `username`, `password` |
-| JWT | JWT 認證 | `token` |
-| CUSTOM | 自定義認證 | 根據需求自定義 |
+#### 1.1 保存數據
 
-## API 配置
+- **URL**: `/api/data/save`
+- **方法**: `POST`
+- **描述**: 保存數據到存儲系統。
+- **請求體**:
+  ```json
+  {
+    "data": {
+      "title": "示例標題",
+      "content": "示例內容",
+      "url": "https://example.com"
+    }
+  }
+  ```
+- **響應**:
+  ```json
+  {
+    "success": true,
+    "message": "數據保存成功"
+  }
+  ```
 
-API 配置通過 `APIConfig` 類進行管理，包含以下主要參數：
+#### 1.2 加載數據
 
-```python
+- **URL**: `/api/data/load`
+- **方法**: `GET`
+- **描述**: 從存儲系統加載數據。
+- **查詢參數**:
+  - `query`: 查詢條件（可選）
+- **響應**:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "title": "示例標題",
+        "content": "示例內容",
+        "url": "https://example.com"
+      }
+    ]
+  }
+  ```
+
+#### 1.3 刪除數據
+
+- **URL**: `/api/data/delete`
+- **方法**: `DELETE`
+- **描述**: 從存儲系統刪除數據。
+- **請求體**:
+  ```json
+  {
+    "query": {
+      "title": "示例標題"
+    }
+  }
+  ```
+- **響應**:
+  ```json
+  {
+    "success": true,
+    "message": "數據刪除成功"
+  }
+  ```
+
+### 2. 備份接口
+
+#### 2.1 創建備份
+
+- **URL**: `/api/backup/create`
+- **方法**: `POST`
+- **描述**: 創建數據備份。
+- **響應**:
+  ```json
+  {
+    "success": true,
+    "message": "備份創建成功",
+    "backup_name": "backup_20230101_120000"
+  }
+  ```
+
+#### 2.2 恢復備份
+
+- **URL**: `/api/backup/restore`
+- **方法**: `POST`
+- **描述**: 從備份恢復數據。
+- **請求體**:
+  ```json
+  {
+    "backup_name": "backup_20230101_120000"
+  }
+  ```
+- **響應**:
+  ```json
+  {
+    "success": true,
+    "message": "備份恢復成功"
+  }
+  ```
+
+#### 2.3 列出備份
+
+- **URL**: `/api/backup/list`
+- **方法**: `GET`
+- **描述**: 列出所有備份。
+- **響應**:
+  ```json
+  {
+    "success": true,
+    "backups": [
+      "backup_20230101_120000",
+      "backup_20230102_120000"
+    ]
+  }
+  ```
+
+#### 2.4 刪除備份
+
+- **URL**: `/api/backup/delete`
+- **方法**: `DELETE`
+- **描述**: 刪除指定備份。
+- **請求體**:
+  ```json
+  {
+    "backup_name": "backup_20230101_120000"
+  }
+  ```
+- **響應**:
+  ```json
+  {
+    "success": true,
+    "message": "備份刪除成功"
+  }
+  ```
+
+## 請求和響應格式
+
+### 請求格式
+
+所有請求應使用 JSON 格式，並設置 `Content-Type` 為 `application/json`。
+
+### 響應格式
+
+所有響應應使用 JSON 格式，包含以下字段：
+
+- `success`: 布爾值，表示操作是否成功。
+- `message`: 字符串，提供操作結果的描述。
+- `data`: 對象或數組，包含請求的數據（如果適用）。
+
+## 錯誤處理
+
+API 使用標準的 HTTP 狀態碼來表示請求的結果：
+
+- `200 OK`: 請求成功。
+- `400 Bad Request`: 請求格式錯誤或參數無效。
+- `404 Not Found`: 請求的資源不存在。
+- `500 Internal Server Error`: 服務器內部錯誤。
+
+錯誤響應示例：
+
+```json
 {
-    "api_type": "rest",  # API 類型
-    "base_url": "https://api.example.com",  # 基礎 URL
-    "auth_type": "api_key",  # 認證類型
-    "api_key": "your-api-key",  # API 密鑰（如果適用）
-    "username": "username",  # 用戶名（如果適用）
-    "password": "password",  # 密碼（如果適用）
-    "headers": {},  # 自定義請求頭
-    "timeout": 30,  # 超時時間（秒）
-    "retry_count": 3,  # 重試次數
-    "retry_delay": 1,  # 重試延遲（秒）
-    "user_agent": "Crawler/1.0",  # 用戶代理
-    "options": {}  # 其他選項
+  "success": false,
+  "message": "無效的請求參數"
 }
 ```
-
-## API 處理器
-
-系統提供以下 API 處理器：
-
-### 基礎 API 處理器
-
-`BaseAPIHandler` 是所有 API 處理器的基類，提供了通用的功能：
-
-- 請求準備和發送
-- 響應處理
-- 錯誤處理
-- 重試機制
-- HTTP 方法封裝（GET、POST、PUT、DELETE）
-
-### REST API 處理器
-
-`RESTAPIHandler` 用於處理標準的 RESTful API 請求：
-
-- 支持所有 HTTP 方法
-- 自動處理 JSON 數據
-- 標準的錯誤處理
-- 會話管理
-
-### Webhook API 處理器
-
-`WebhookAPIHandler` 用於處理 Webhook 相關的請求：
-
-- 接收 Webhook 事件
-- 發送 Webhook 通知
-- 事件驗證和處理
-
-### 自動化平台處理器
-
-系統支持多種自動化平台的 API 處理器：
-
-- `N8NAPIHandler`：n8n 平台
-- `MakeAPIHandler`：Make (原 Integromat) 平台
-- `ZapierAPIHandler`：Zapier 平台
-- `IFTTTAPIHandler`：IFTTT 平台
-
-這些處理器提供了任務管理、工作流程執行等功能。
-
-### 自動化 API 處理器
-
-`AutomationAPIHandler` 提供了任務管理和執行的功能：
-
-- 任務創建、更新、刪除
-- 任務激活和停用
-- 任務執行和監控
-- 任務調度管理
-- 自定義任務處理器註冊
-
-### 自定義 API 處理器
-
-`CustomAPIHandler` 允許用戶根據特定需求實現自定義的 API 處理邏輯。
 
 ## 使用示例
 
-### REST API 示例
+### 使用 Python 請求庫
 
 ```python
-from src.api.config import APIConfig, APIType, AuthType
-from src.api.handlers import RESTAPIHandler
+import requests
 
-# 創建 API 配置
-config = APIConfig(
-    api_type=APIType.REST,
-    base_url="https://api.example.com",
-    auth_type=AuthType.API_KEY,
-    api_key="your-api-key"
-)
-
-# 創建 API 處理器
-with RESTAPIHandler(config) as api:
-    # 發送 GET 請求
-    response = api.get("users", params={"page": 1, "limit": 10})
-    
-    # 發送 POST 請求
-    user_data = {"name": "John Doe", "email": "john@example.com"}
-    response = api.post("users", data=user_data)
-    
-    # 處理響應
-    if response.status_code == 200:
-        users = response.data
-        print(f"獲取到 {len(users)} 個用戶")
-```
-
-### 自動化 API 示例
-
-```python
-from src.api.config import APIConfig, APIType, AuthType
-from src.api.handlers import AutomationAPIHandler
-
-# 創建 API 配置
-config = APIConfig(
-    api_type=APIType.AUTOMATION,
-    base_url="https://automation.example.com",
-    auth_type=AuthType.API_KEY,
-    api_key="your-api-key"
-)
-
-# 創建 API 處理器
-api = AutomationAPIHandler(config)
-
-# 創建任務
-task_data = {
-    "name": "數據抓取任務",
-    "type": "crawler",
-    "schedule": "0 0 * * *",  # 每天執行
-    "config": {
-        "url": "https://example.com",
-        "selectors": {
-            "title": "h1",
-            "content": "article"
+# 保存數據
+response = requests.post(
+    'http://localhost:5000/api/data/save',
+    json={
+        'data': {
+            'title': '示例標題',
+            'content': '示例內容',
+            'url': 'https://example.com'
         }
     }
-}
-task = api.create_task(task_data)
+)
+print(response.json())
 
-# 激活任務
-api.activate_task(task["id"])
+# 加載數據
+response = requests.get('http://localhost:5000/api/data/load')
+print(response.json())
 
-# 執行任務
-result = api.execute_task(task["id"], {"param": "value"})
-
-# 獲取執行結果
-executions = api.get_executions(task["id"])
+# 刪除數據
+response = requests.delete(
+    'http://localhost:5000/api/data/delete',
+    json={
+        'query': {
+            'title': '示例標題'
+        }
+    }
+)
+print(response.json())
 ```
 
-## 最佳實踐
+### 使用 curl 命令行工具
 
-1. **錯誤處理**：始終檢查響應狀態碼和錯誤信息
-   ```python
-   response = api.get("endpoint")
-   if response.error:
-       print(f"錯誤: {response.error}")
-   ```
+```bash
+# 保存數據
+curl -X POST http://localhost:5000/api/data/save \
+  -H "Content-Type: application/json" \
+  -d '{"data": {"title": "示例標題", "content": "示例內容", "url": "https://example.com"}}'
 
-2. **資源管理**：使用上下文管理器（with 語句）確保資源正確釋放
-   ```python
-   with RESTAPIHandler(config) as api:
-       # API 操作
-   ```
+# 加載數據
+curl http://localhost:5000/api/data/load
 
-3. **配置管理**：將敏感信息（如 API 密鑰）存儲在環境變數或安全的配置文件中
-   ```python
-   import os
-   config = APIConfig(
-       api_type=APIType.REST,
-       base_url="https://api.example.com",
-       auth_type=AuthType.API_KEY,
-       api_key=os.environ.get("API_KEY")
-   )
-   ```
-
-4. **重試策略**：根據 API 的特性調整重試次數和延遲
-   ```python
-   config = APIConfig(
-       # 其他配置...
-       retry_count=5,
-       retry_delay=2
-   )
-   ```
-
-5. **日誌記錄**：使用內置的日誌功能記錄 API 操作
-   ```python
-   api.logger.info("開始 API 請求")
-   response = api.get("endpoint")
-   api.logger.info(f"請求完成，狀態碼: {response.status_code}")
-   ``` 
+# 刪除數據
+curl -X DELETE http://localhost:5000/api/data/delete \
+  -H "Content-Type: application/json" \
+  -d '{"query": {"title": "示例標題"}}'
+``` 

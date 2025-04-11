@@ -1,3 +1,101 @@
+# 配置文檔
+
+## 概述
+
+配置管理是系統的重要組成部分，負責加載和管理各種配置。該模組依賴於核心模組，並使用 `ConfigUtils` 進行配置管理。
+
+## 目錄結構
+
+```
+config/
+├── storage.json
+├── logging.json
+└── security.json
+```
+
+## 配置工具
+
+### 配置工具類 (`ConfigUtils`)
+
+配置工具類提供配置加載和保存的功能。
+
+#### 主要方法
+
+- `load_config(config_name)`: 加載指定名稱的配置文件。
+- `save_config(config, config_name)`: 保存配置到指定名稱的配置文件。
+
+## 配置文件
+
+### 存儲配置 (`storage.json`)
+
+存儲配置用於設置存儲處理器的參數。
+
+```json
+{
+  "mode": "local",
+  "local": {
+    "path": "data",
+    "backup_path": "backups"
+  },
+  "mongodb": {
+    "uri": "",
+    "database": "",
+    "collection": ""
+  },
+  "notion": {
+    "token": "",
+    "database_id": "",
+    "parent_page_id": ""
+  }
+}
+```
+
+### 日誌配置 (`logging.json`)
+
+日誌配置用於設置日誌記錄的參數。
+
+```json
+{
+  "level": "INFO",
+  "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+  "file": "logs/app.log"
+}
+```
+
+### 安全配置 (`security.json`)
+
+安全配置用於設置安全相關的參數。
+
+```json
+{
+  "encryption_key": "",
+  "jwt_secret": "",
+  "allowed_origins": []
+}
+```
+
+## 配置加載
+
+配置通過 `ConfigUtils` 加載，例如：
+
+```python
+config_utils = ConfigUtils()
+storage_config = config_utils.load_config("storage.json")
+```
+
+## 配置保存
+
+配置通過 `ConfigUtils` 保存，例如：
+
+```python
+config_utils = ConfigUtils()
+config_utils.save_config(storage_config, "storage.json")
+```
+
+## 配置驗證
+
+配置驗證通過 `ValidationUtils` 執行，確保配置的正確性和完整性。
+
 # 系統配置說明
 
 本文檔詳細說明了爬蟲系統的主要配置文件及其功能。

@@ -2,58 +2,43 @@
 # -*- coding: utf-8 -*-
 
 """
-爬蟲系統核心模組
-提供配置載入、WebDriver管理、模板爬蟲和爬蟲引擎功能
+核心模組
 
-主要組件：
-- ConfigLoader: 配置載入器，負責讀取和驗證配置文件
-- WebDriverManager: WebDriver管理器，處理瀏覽器實例的創建和管理
-- TemplateCrawler: 模板爬蟲，基於配置模板執行爬蟲任務
-- CrawlerEngine: 爬蟲引擎，協調和管理爬蟲任務的執行
-
-使用示例：
-    from src.core import ConfigLoader, WebDriverManager, TemplateCrawler
-    
-    # 載入配置
-    config = ConfigLoader().load_config('config.json')
-    
-    # 初始化WebDriver
-    driver_manager = WebDriverManager(config)
-    driver = driver_manager.create_driver()
-    
-    # 創建爬蟲實例
-    crawler = TemplateCrawler(config, driver)
-    
-    # 執行爬蟲
-    results = crawler.start()
+提供爬蟲系統的基礎功能，包括：
+- 配置管理
+- 異常處理
+- 基礎爬蟲類
+- 通用工具
+- 狀態管理
 """
 
-__version__ = '1.0.0'
-__author__ = 'Aaron'
-__license__ = 'MIT'
+from .config_loader import ConfigLoader, BaseConfig
+from .crawler_state_manager import CrawlerStateManager
+from .crawler_engine import CrawlerEngine
+from .exceptions import (
+    CrawlerException,
+    ConfigError,
+    BrowserError,
+    NavigationError,
+    ExtractionError,
+    StateError
+)
+from .data_processor import DataProcessor
+from .webdriver_manager import WebDriverManager
+from .template_crawler import TemplateCrawler
 
 __all__ = [
     'ConfigLoader',
-    'WebDriverManager',
-    'TemplateCrawler',
-    'CrawlerEngine'
-]
-
-from .config_loader import ConfigLoader
-from .webdriver_manager import WebDriverManager
-from .template_crawler import TemplateCrawler
-from .crawler_engine import CrawlerEngine
-
-from .crawler_state_manager import (
-    CrawlerStateManager,
-    CrawlerState,
-    CrawlerStateConfig,
-    StorageFormat
-)
-
-__all__ = [
+    'BaseConfig',
     'CrawlerStateManager',
-    'CrawlerState',
-    'CrawlerStateConfig',
-    'StorageFormat'
+    'CrawlerEngine',
+    'CrawlerException',
+    'ConfigError',
+    'BrowserError',
+    'NavigationError',
+    'ExtractionError',
+    'StateError',
+    'DataProcessor',
+    'WebDriverManager',
+    'TemplateCrawler'
 ]

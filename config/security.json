@@ -1,0 +1,48 @@
+{
+    "encryption": {
+        "enabled": true,
+        "algorithm": "AES-256",
+        "key_file": "security.key",
+        "key_derivation": {
+            "algorithm": "PBKDF2",
+            "iterations": 100000,
+            "key_length": 32
+        }
+    },
+    "api_keys": {
+        "shopee": {
+            "enabled": false,
+            "key": "",
+            "secret": "",
+            "encrypt": true
+        },
+        "notion": {
+            "enabled": false,
+            "token": "",
+            "encrypt": true
+        }
+    },
+    "proxy": {
+        "enabled": false,
+        "type": "http",
+        "host": "",
+        "port": "",
+        "username": "",
+        "password": "",
+        "encrypt": true
+    },
+    "headers": {
+        "rotate_user_agent": true,
+        "custom_headers": {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Connection": "keep-alive"
+        }
+    },
+    "rate_limiting": {
+        "enabled": true,
+        "requests_per_second": 1,
+        "max_retries": 3,
+        "retry_delay": 5
+    }
+} 

@@ -4,494 +4,683 @@
 """
 驗證碼檢測模組
 
-提供驗證碼檢測功能，包括：
-1. 頁面元素檢測
-2. 文本內容檢測
-3. 圖像特徵檢測
-4. 音頻特徵檢測
+提供驗證碼檢測相關功能。
+包括：
+1. 驗證碼類型檢測
+2. 驗證碼元素定位
+3. 驗證碼狀態檢查
+4. 驗證碼處理結果驗證
 """
 
-import os
-import time
-import logging
-import base64
-import re
-from typing import Dict, List, Optional, Any, Union, Tuple, Set
-from pathlib import Path
-from dataclasses import dataclass, field
-from enum import Enum, auto
-
-from selenium import webdriver
+from typing import Dict, Any, Optional, List, Union, Tuple
+from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
+from selenium.common.exceptions import (
+    NoSuchElementException,
+    TimeoutException,
+    StaleElementReferenceException
+)
 
-from .config import CaptchaType, CaptchaConfig
-from .utils.logger import setup_logger
-from .utils.error_handler import retry_on_exception, handle_exception
+# 從 src.core.utils 導入工具類
+from src.core.utils import (
+    BrowserUtils,
+    Logger,
+    URLUtils,
+    DataProcessor,
+    ErrorHandler,
+    ConfigUtils,
+    PathUtils,
+    ImageUtils
+)
 
-
-@dataclass
-class CaptchaDetectionResult:
-    """驗證碼檢測結果"""
-    detected: bool
-    captcha_type: CaptchaType
-    element: Optional[Any] = None
-    text: Optional[str] = None
-    confidence: float = 0.0
-    details: Dict[str, Any] = field(default_factory=dict)
+from .types import CaptchaType, CaptchaConfig, CaptchaResult
 
 
 class CaptchaDetector:
-    """
-    驗證碼檢測器，用於檢測頁面上的驗證碼元素。
-    支持多種驗證碼類型的檢測，包括圖像、音頻、reCAPTCHA等。
-    """
+    """驗證碼檢測器"""
     
-    def __init__(
-        self,
-        driver: webdriver.Remote,
-        config: Optional[CaptchaConfig] = None,
-        logger: Optional[logging.Logger] = None,
-        timeout: int = 10,
-        screenshot_dir: str = "captcha_screenshots"
-    ):
+    def __init__(self, browser: WebDriver, config: Dict[str, Any]):
         """
         初始化驗證碼檢測器
         
         Args:
-            driver: Selenium WebDriver實例
-            config: 驗證碼配置
-            logger: 日誌記錄器
-            timeout: 等待超時時間（秒）
-            screenshot_dir: 截圖保存目錄
+            browser: WebDriver 實例
+            config: 配置字典
         """
-        self.driver = driver
-        self.config = config or CaptchaConfig()
-        self.logger = logger or logging.getLogger(__name__)
-        self.timeout = timeout
-        self.screenshot_dir = Path(screenshot_dir)
-        self.screenshot_dir.mkdir(parents=True, exist_ok=True)
+        self.browser = browser
+        self.config = config
         
-        # 初始化選擇器
-        self._init_selectors()
+        # 初始化工具類
+        self.logger = Logger(__name__)
+        self.error_handler = ErrorHandler()
+        self.config_utils = ConfigUtils()
+        self.browser_utils = BrowserUtils(self.browser)
+        self.url_utils = URLUtils()
+        self.data_processor = DataProcessor()
+        self.image_utils = ImageUtils()
         
-        self.logger.info("驗證碼檢測器初始化完成")
-    
-    def _init_selectors(self) -> None:
-        """初始化選擇器"""
-        # 圖像驗證碼選擇器
-        self.image_selectors = [
-            "//img[contains(@src, 'captcha')]",
-            "//img[contains(@src, 'verify')]",
-            "//img[contains(@src, 'code')]",
-            "//img[contains(@id, 'captcha')]",
-            "//img[contains(@id, 'verify')]",
-            "//img[contains(@id, 'code')]",
-            "//img[contains(@class, 'captcha')]",
-            "//img[contains(@class, 'verify')]",
-            "//img[contains(@class, 'code')]",
-            "//div[contains(@class, 'captcha')]//img",
-            "//div[contains(@class, 'verify')]//img",
-            "//div[contains(@class, 'code')]//img"
-        ]
+        # 初始化配置
+        self._init_detector()
         
-        # 音頻驗證碼選擇器
-        self.audio_selectors = [
-            "//audio[contains(@src, 'captcha')]",
-            "//audio[contains(@src, 'verify')]",
-            "//audio[contains(@src, 'code')]",
-            "//audio[contains(@id, 'captcha')]",
-            "//audio[contains(@id, 'verify')]",
-            "//audio[contains(@id, 'code')]",
-            "//audio[contains(@class, 'captcha')]",
-            "//audio[contains(@class, 'verify')]",
-            "//audio[contains(@class, 'code')]",
-            "//div[contains(@class, 'captcha')]//audio",
-            "//div[contains(@class, 'verify')]//audio",
-            "//div[contains(@class, 'code')]//audio"
-        ]
-        
-        # reCAPTCHA 選擇器
-        self.recaptcha_selectors = [
-            "//iframe[contains(@src, 'recaptcha')]",
-            "//div[contains(@class, 'g-recaptcha')]",
-            "//div[contains(@class, 'recaptcha')]"
-        ]
-        
-        # hCaptcha 選擇器
-        self.hcaptcha_selectors = [
-            "//iframe[contains(@src, 'hcaptcha')]",
-            "//div[contains(@class, 'h-captcha')]",
-            "//div[contains(@class, 'hcaptcha')]"
-        ]
-        
-        # 滑塊驗證碼選擇器
-        self.slider_selectors = [
-            "//div[contains(@class, 'slider')]",
-            "//div[contains(@class, 'slider-captcha')]",
-            "//div[contains(@class, 'verify-slider')]",
-            "//div[contains(@class, 'verify-move')]"
-        ]
-        
-        # 旋轉驗證碼選擇器
-        self.rotate_selectors = [
-            "//div[contains(@class, 'rotate')]",
-            "//div[contains(@class, 'rotate-captcha')]",
-            "//div[contains(@class, 'verify-rotate')]"
-        ]
-        
-        # 點擊驗證碼選擇器
-        self.click_selectors = [
-            "//div[contains(@class, 'click')]",
-            "//div[contains(@class, 'click-captcha')]",
-            "//div[contains(@class, 'verify-click')]",
-            "//div[contains(@class, 'verify-img')]"
-        ]
-        
-        # 文字驗證碼選擇器
-        self.text_selectors = [
-            "//input[contains(@name, 'captcha')]",
-            "//input[contains(@name, 'verify')]",
-            "//input[contains(@name, 'code')]",
-            "//input[contains(@id, 'captcha')]",
-            "//input[contains(@id, 'verify')]",
-            "//input[contains(@id, 'code')]",
-            "//input[contains(@class, 'captcha')]",
-            "//input[contains(@class, 'verify')]",
-            "//input[contains(@class, 'code')]"
-        ]
-        
-        # 驗證碼關鍵詞
-        self.captcha_keywords = {
-            "captcha": 1.0,
-            "verify": 0.9,
-            "code": 0.8,
-            "security": 0.7,
-            "robot": 0.6,
-            "human": 0.5,
-            "check": 0.4,
-            "validation": 0.3
-        }
-    
-    def detect(self, check_text: bool = True) -> CaptchaDetectionResult:
-        """
-        檢測頁面上是否存在驗證碼
-        
-        Args:
-            check_text: 是否檢查頁面文本
-            
-        Returns:
-            驗證碼檢測結果
-        """
-        self.logger.info("開始檢測驗證碼")
-        
-        # 檢查圖像驗證碼
-        result = self._detect_image_captcha()
-        if result.detected:
-            return result
-        
-        # 檢查音頻驗證碼
-        result = self._detect_audio_captcha()
-        if result.detected:
-            return result
-        
-        # 檢查 reCAPTCHA
-        result = self._detect_recaptcha()
-        if result.detected:
-            return result
-        
-        # 檢查 hCaptcha
-        result = self._detect_hcaptcha()
-        if result.detected:
-            return result
-        
-        # 檢查滑塊驗證碼
-        result = self._detect_slider_captcha()
-        if result.detected:
-            return result
-        
-        # 檢查旋轉驗證碼
-        result = self._detect_rotate_captcha()
-        if result.detected:
-            return result
-        
-        # 檢查點擊驗證碼
-        result = self._detect_click_captcha()
-        if result.detected:
-            return result
-        
-        # 檢查文字驗證碼
-        result = self._detect_text_captcha()
-        if result.detected:
-            return result
-        
-        # 檢查頁面文本
-        if check_text:
-            result = self._detect_by_text()
-            if result.detected:
-                return result
-        
-        self.logger.info("未檢測到驗證碼")
-        return CaptchaDetectionResult(
-            detected=False,
-            captcha_type=CaptchaType.NONE
-        )
-    
-    def _detect_image_captcha(self) -> CaptchaDetectionResult:
-        """檢測圖像驗證碼"""
-        self.logger.debug("檢測圖像驗證碼")
-        
-        for selector in self.image_selectors:
-            try:
-                elements = self.driver.find_elements(By.XPATH, selector)
-                if elements:
-                    element = elements[0]
-                    self.logger.info(f"檢測到圖像驗證碼: {selector}")
-                    return CaptchaDetectionResult(
-                        detected=True,
-                        captcha_type=CaptchaType.IMAGE,
-                        element=element,
-                        confidence=0.9
-                    )
-            except Exception as e:
-                self.logger.debug(f"檢測圖像驗證碼時發生錯誤: {str(e)}")
-        
-        return CaptchaDetectionResult(
-            detected=False,
-            captcha_type=CaptchaType.IMAGE
-        )
-    
-    def _detect_audio_captcha(self) -> CaptchaDetectionResult:
-        """檢測音頻驗證碼"""
-        self.logger.debug("檢測音頻驗證碼")
-        
-        for selector in self.audio_selectors:
-            try:
-                elements = self.driver.find_elements(By.XPATH, selector)
-                if elements:
-                    element = elements[0]
-                    self.logger.info(f"檢測到音頻驗證碼: {selector}")
-                    return CaptchaDetectionResult(
-                        detected=True,
-                        captcha_type=CaptchaType.AUDIO,
-                        element=element,
-                        confidence=0.9
-                    )
-            except Exception as e:
-                self.logger.debug(f"檢測音頻驗證碼時發生錯誤: {str(e)}")
-        
-        return CaptchaDetectionResult(
-            detected=False,
-            captcha_type=CaptchaType.AUDIO
-        )
-    
-    def _detect_recaptcha(self) -> CaptchaDetectionResult:
-        """檢測 reCAPTCHA"""
-        self.logger.debug("檢測 reCAPTCHA")
-        
-        for selector in self.recaptcha_selectors:
-            try:
-                elements = self.driver.find_elements(By.XPATH, selector)
-                if elements:
-                    element = elements[0]
-                    self.logger.info(f"檢測到 reCAPTCHA: {selector}")
-                    return CaptchaDetectionResult(
-                        detected=True,
-                        captcha_type=CaptchaType.RECAPTCHA,
-                        element=element,
-                        confidence=0.95
-                    )
-            except Exception as e:
-                self.logger.debug(f"檢測 reCAPTCHA 時發生錯誤: {str(e)}")
-        
-        return CaptchaDetectionResult(
-            detected=False,
-            captcha_type=CaptchaType.RECAPTCHA
-        )
-    
-    def _detect_hcaptcha(self) -> CaptchaDetectionResult:
-        """檢測 hCaptcha"""
-        self.logger.debug("檢測 hCaptcha")
-        
-        for selector in self.hcaptcha_selectors:
-            try:
-                elements = self.driver.find_elements(By.XPATH, selector)
-                if elements:
-                    element = elements[0]
-                    self.logger.info(f"檢測到 hCaptcha: {selector}")
-                    return CaptchaDetectionResult(
-                        detected=True,
-                        captcha_type=CaptchaType.HCAPTCHA,
-                        element=element,
-                        confidence=0.95
-                    )
-            except Exception as e:
-                self.logger.debug(f"檢測 hCaptcha 時發生錯誤: {str(e)}")
-        
-        return CaptchaDetectionResult(
-            detected=False,
-            captcha_type=CaptchaType.HCAPTCHA
-        )
-    
-    def _detect_slider_captcha(self) -> CaptchaDetectionResult:
-        """檢測滑塊驗證碼"""
-        self.logger.debug("檢測滑塊驗證碼")
-        
-        for selector in self.slider_selectors:
-            try:
-                elements = self.driver.find_elements(By.XPATH, selector)
-                if elements:
-                    element = elements[0]
-                    self.logger.info(f"檢測到滑塊驗證碼: {selector}")
-                    return CaptchaDetectionResult(
-                        detected=True,
-                        captcha_type=CaptchaType.SLIDER,
-                        element=element,
-                        confidence=0.9
-                    )
-            except Exception as e:
-                self.logger.debug(f"檢測滑塊驗證碼時發生錯誤: {str(e)}")
-        
-        return CaptchaDetectionResult(
-            detected=False,
-            captcha_type=CaptchaType.SLIDER
-        )
-    
-    def _detect_rotate_captcha(self) -> CaptchaDetectionResult:
-        """檢測旋轉驗證碼"""
-        self.logger.debug("檢測旋轉驗證碼")
-        
-        for selector in self.rotate_selectors:
-            try:
-                elements = self.driver.find_elements(By.XPATH, selector)
-                if elements:
-                    element = elements[0]
-                    self.logger.info(f"檢測到旋轉驗證碼: {selector}")
-                    return CaptchaDetectionResult(
-                        detected=True,
-                        captcha_type=CaptchaType.ROTATE,
-                        element=element,
-                        confidence=0.9
-                    )
-            except Exception as e:
-                self.logger.debug(f"檢測旋轉驗證碼時發生錯誤: {str(e)}")
-        
-        return CaptchaDetectionResult(
-            detected=False,
-            captcha_type=CaptchaType.ROTATE
-        )
-    
-    def _detect_click_captcha(self) -> CaptchaDetectionResult:
-        """檢測點擊驗證碼"""
-        self.logger.debug("檢測點擊驗證碼")
-        
-        for selector in self.click_selectors:
-            try:
-                elements = self.driver.find_elements(By.XPATH, selector)
-                if elements:
-                    element = elements[0]
-                    self.logger.info(f"檢測到點擊驗證碼: {selector}")
-                    return CaptchaDetectionResult(
-                        detected=True,
-                        captcha_type=CaptchaType.CLICK,
-                        element=element,
-                        confidence=0.9
-                    )
-            except Exception as e:
-                self.logger.debug(f"檢測點擊驗證碼時發生錯誤: {str(e)}")
-        
-        return CaptchaDetectionResult(
-            detected=False,
-            captcha_type=CaptchaType.CLICK
-        )
-    
-    def _detect_text_captcha(self) -> CaptchaDetectionResult:
-        """檢測文字驗證碼"""
-        self.logger.debug("檢測文字驗證碼")
-        
-        for selector in self.text_selectors:
-            try:
-                elements = self.driver.find_elements(By.XPATH, selector)
-                if elements:
-                    element = elements[0]
-                    self.logger.info(f"檢測到文字驗證碼: {selector}")
-                    return CaptchaDetectionResult(
-                        detected=True,
-                        captcha_type=CaptchaType.TEXT,
-                        element=element,
-                        confidence=0.8
-                    )
-            except Exception as e:
-                self.logger.debug(f"檢測文字驗證碼時發生錯誤: {str(e)}")
-        
-        return CaptchaDetectionResult(
-            detected=False,
-            captcha_type=CaptchaType.TEXT
-        )
-    
-    def _detect_by_text(self) -> CaptchaDetectionResult:
-        """通過頁面文本檢測驗證碼"""
-        self.logger.debug("通過頁面文本檢測驗證碼")
-        
+    def _init_detector(self):
+        """初始化檢測器配置"""
         try:
-            page_text = self.driver.find_element(By.TAG_NAME, "body").text.lower()
+            # 設置超時和重試
+            self.timeout = self.config.get('timeout', 30)
+            self.retry_count = self.config.get('retry_count', 3)
             
-            # 計算關鍵詞匹配度
-            max_confidence = 0.0
-            matched_keyword = None
+            # 設置檢測配置
+            self.detection_config = {
+                'recaptcha': {
+                    'iframe_selector': 'iframe[src*="recaptcha"]',
+                    'checkbox_selector': '.recaptcha-checkbox-border'
+                },
+                'hcaptcha': {
+                    'iframe_selector': 'iframe[src*="hcaptcha"]',
+                    'checkbox_selector': '#checkbox'
+                },
+                'image_captcha': {
+                    'image_selector': 'img[alt*="captcha"]'
+                },
+                'slider_captcha': {
+                    'slider_selector': '.slider-captcha'
+                },
+                'rotate_captcha': {
+                    'rotate_selector': '.rotate-captcha'
+                },
+                'click_captcha': {
+                    'click_selector': '.click-captcha'
+                },
+                'text_captcha': {
+                    'input_selector': 'input[name*="captcha"]'
+                },
+                'shopee': {
+                    'slider_selector': '.shopee-captcha'
+                }
+            }
             
-            for keyword, weight in self.captcha_keywords.items():
-                if keyword in page_text:
-                    if weight > max_confidence:
-                        max_confidence = weight
-                        matched_keyword = keyword
+            # 初始化狀態
+            self.detection_status = {
+                'current_type': None,
+                'retry_count': 0,
+                'success_count': 0,
+                'failure_count': 0
+            }
             
-            if matched_keyword and max_confidence > 0.5:
-                self.logger.info(f"通過文本檢測到驗證碼，關鍵詞: {matched_keyword}, 置信度: {max_confidence}")
-                return CaptchaDetectionResult(
-                    detected=True,
-                    captcha_type=CaptchaType.UNKNOWN,
-                    text=matched_keyword,
-                    confidence=max_confidence,
-                    details={"keyword": matched_keyword}
-                )
-        
         except Exception as e:
-            self.logger.debug(f"通過文本檢測驗證碼時發生錯誤: {str(e)}")
-        
-        return CaptchaDetectionResult(
-            detected=False,
-            captcha_type=CaptchaType.UNKNOWN
-        )
-    
-    def take_screenshot(self, element: Optional[Any] = None, filename: Optional[str] = None) -> Optional[str]:
+            self.logger.error(f"初始化檢測器失敗: {str(e)}")
+            raise
+            
+    def detect_captcha(self, driver: WebDriver) -> Tuple[bool, Optional[str]]:
         """
-        截取驗證碼圖片
+        檢測頁面中的驗證碼
         
         Args:
-            element: 要截圖的元素，如果為None則截取整個頁面
-            filename: 文件名，如果為None則自動生成
+            driver: WebDriver 實例
             
         Returns:
-            截圖文件路徑
+            Tuple[bool, Optional[str]]: (是否存在驗證碼, 驗證碼類型)
         """
         try:
-            if filename is None:
-                timestamp = int(time.time() * 1000)
-                filename = f"captcha_{timestamp}.png"
+            # 檢查 reCAPTCHA
+            if self._detect_recaptcha(driver):
+                return True, 'recaptcha'
+                
+            # 檢查 hCaptcha
+            if self._detect_hcaptcha(driver):
+                return True, 'hcaptcha'
+                
+            # 檢查圖片驗證碼
+            if self._detect_image_captcha(driver):
+                return True, 'image_captcha'
+                
+            # 檢查滑塊驗證碼
+            if self._detect_slider_captcha(driver):
+                return True, 'slider_captcha'
+                
+            # 檢查旋轉驗證碼
+            if self._detect_rotate_captcha(driver):
+                return True, 'rotate_captcha'
+                
+            # 檢查點擊驗證碼
+            if self._detect_click_captcha(driver):
+                return True, 'click_captcha'
+                
+            # 檢查文本驗證碼
+            if self._detect_text_captcha(driver):
+                return True, 'text_captcha'
+                
+            # 檢查 Shopee 驗證碼
+            if self._detect_shopee_slider(driver):
+                return True, 'shopee'
+                
+            return False, None
             
-            filepath = self.screenshot_dir / filename
+        except Exception as e:
+            self.logger.error(f"檢測驗證碼失敗: {str(e)}")
+            return False, None
             
+    def _detect_recaptcha(self, driver: WebDriver) -> bool:
+        """
+        檢測 reCAPTCHA
+        
+        Args:
+            driver: WebDriver 實例
+            
+        Returns:
+            bool: 是否存在 reCAPTCHA
+        """
+        try:
+            config = self.detection_config['recaptcha']
+            iframe = self.browser_utils.find_element(
+                driver,
+                By.CSS_SELECTOR,
+                config['iframe_selector']
+            )
+            
+            if not iframe:
+                return False
+                
+            driver.switch_to.frame(iframe)
+            checkbox = self.browser_utils.find_element(
+                driver,
+                By.CSS_SELECTOR,
+                config['checkbox_selector']
+            )
+            driver.switch_to.default_content()
+            
+            return bool(checkbox)
+            
+        except Exception as e:
+            self.logger.error(f"檢測 reCAPTCHA 失敗: {str(e)}")
+            driver.switch_to.default_content()
+            return False
+            
+    def _detect_hcaptcha(self, driver: WebDriver) -> bool:
+        """
+        檢測 hCaptcha
+        
+        Args:
+            driver: WebDriver 實例
+            
+        Returns:
+            bool: 是否存在 hCaptcha
+        """
+        try:
+            config = self.detection_config['hcaptcha']
+            iframe = self.browser_utils.find_element(
+                driver,
+                By.CSS_SELECTOR,
+                config['iframe_selector']
+            )
+            
+            if not iframe:
+                return False
+                
+            driver.switch_to.frame(iframe)
+            checkbox = self.browser_utils.find_element(
+                driver,
+                By.CSS_SELECTOR,
+                config['checkbox_selector']
+            )
+            driver.switch_to.default_content()
+            
+            return bool(checkbox)
+            
+        except Exception as e:
+            self.logger.error(f"檢測 hCaptcha 失敗: {str(e)}")
+            driver.switch_to.default_content()
+            return False
+            
+    def _detect_image_captcha(self, driver: WebDriver) -> bool:
+        """
+        檢測圖片驗證碼
+        
+        Args:
+            driver: WebDriver 實例
+            
+        Returns:
+            bool: 是否存在圖片驗證碼
+        """
+        try:
+            config = self.detection_config['image_captcha']
+            image = self.browser_utils.find_element(
+                driver,
+                By.CSS_SELECTOR,
+                config['image_selector']
+            )
+            
+            return bool(image)
+            
+        except Exception as e:
+            self.logger.error(f"檢測圖片驗證碼失敗: {str(e)}")
+            return False
+            
+    def _detect_slider_captcha(self, driver: WebDriver) -> bool:
+        """
+        檢測滑塊驗證碼
+        
+        Args:
+            driver: WebDriver 實例
+            
+        Returns:
+            bool: 是否存在滑塊驗證碼
+        """
+        try:
+            config = self.detection_config['slider_captcha']
+            slider = self.browser_utils.find_element(
+                driver,
+                By.CSS_SELECTOR,
+                config['slider_selector']
+            )
+            
+            return bool(slider)
+            
+        except Exception as e:
+            self.logger.error(f"檢測滑塊驗證碼失敗: {str(e)}")
+            return False
+            
+    def _detect_rotate_captcha(self, driver: WebDriver) -> bool:
+        """
+        檢測旋轉驗證碼
+        
+        Args:
+            driver: WebDriver 實例
+            
+        Returns:
+            bool: 是否存在旋轉驗證碼
+        """
+        try:
+            config = self.detection_config['rotate_captcha']
+            rotate = self.browser_utils.find_element(
+                driver,
+                By.CSS_SELECTOR,
+                config['rotate_selector']
+            )
+            
+            return bool(rotate)
+            
+        except Exception as e:
+            self.logger.error(f"檢測旋轉驗證碼失敗: {str(e)}")
+            return False
+            
+    def _detect_click_captcha(self, driver: WebDriver) -> bool:
+        """
+        檢測點擊驗證碼
+        
+        Args:
+            driver: WebDriver 實例
+            
+        Returns:
+            bool: 是否存在點擊驗證碼
+        """
+        try:
+            config = self.detection_config['click_captcha']
+            click = self.browser_utils.find_element(
+                driver,
+                By.CSS_SELECTOR,
+                config['click_selector']
+            )
+            
+            return bool(click)
+            
+        except Exception as e:
+            self.logger.error(f"檢測點擊驗證碼失敗: {str(e)}")
+            return False
+            
+    def _detect_text_captcha(self, driver: WebDriver) -> bool:
+        """
+        檢測文本驗證碼
+        
+        Args:
+            driver: WebDriver 實例
+            
+        Returns:
+            bool: 是否存在文本驗證碼
+        """
+        try:
+            config = self.detection_config['text_captcha']
+            text = self.browser_utils.find_element(
+                driver,
+                By.CSS_SELECTOR,
+                config['input_selector']
+            )
+            
+            return bool(text)
+            
+        except Exception as e:
+            self.logger.error(f"檢測文本驗證碼失敗: {str(e)}")
+            return False
+            
+    def _detect_shopee_slider(self, driver: WebDriver) -> bool:
+        """
+        檢測 Shopee 滑塊驗證碼
+        
+        Args:
+            driver: WebDriver 實例
+            
+        Returns:
+            bool: 是否存在 Shopee 滑塊驗證碼
+        """
+        try:
+            config = self.detection_config['shopee']
+            slider = self.browser_utils.find_element(
+                driver,
+                By.CSS_SELECTOR,
+                config['slider_selector']
+            )
+            
+            return bool(slider)
+            
+        except Exception as e:
+            self.logger.error(f"檢測 Shopee 滑塊驗證碼失敗: {str(e)}")
+            return False
+    
+    def locate_captcha_element(self, driver: Any, captcha_type: CaptchaType) -> Optional[WebElement]:
+        """
+        定位驗證碼元素
+        
+        Args:
+            driver: WebDriver實例
+            captcha_type: 驗證碼類型
+            
+        Returns:
+            Optional[WebElement]: 驗證碼元素
+        """
+        try:
+            # 檢查緩存
+            cache_key = f"{captcha_type.value}_{driver.current_url}"
+            if cache_key in self.detection_cache['elements']:
+                return self.detection_cache['elements'][cache_key]
+            
+            # 根據驗證碼類型定位元素
+            element = None
+            if captcha_type == CaptchaType.RECAPTCHA:
+                element = self._locate_recaptcha_element(driver)
+            elif captcha_type == CaptchaType.HCAPTCHA:
+                element = self._locate_hcaptcha_element(driver)
+            elif captcha_type == CaptchaType.IMAGE_CAPTCHA:
+                element = self._locate_image_captcha_element(driver)
+            elif captcha_type == CaptchaType.SLIDER_CAPTCHA:
+                element = self._locate_slider_captcha_element(driver)
+            elif captcha_type == CaptchaType.ROTATE_CAPTCHA:
+                element = self._locate_rotate_captcha_element(driver)
+            elif captcha_type == CaptchaType.CLICK_CAPTCHA:
+                element = self._locate_click_captcha_element(driver)
+            elif captcha_type == CaptchaType.TEXT_CAPTCHA:
+                element = self._locate_text_captcha_element(driver)
+            
+            # 更新緩存
             if element:
-                element.screenshot(str(filepath))
-            else:
-                self.driver.save_screenshot(str(filepath))
+                self.detection_cache['elements'][cache_key] = element
             
-            self.logger.info(f"驗證碼截圖已保存: {filepath}")
-            return str(filepath)
-        
+            return element
         except Exception as e:
-            self.logger.error(f"截取驗證碼圖片時發生錯誤: {str(e)}")
-            return None 
+            self.error_handler.handle_error(e, "定位驗證碼元素失敗")
+            return None
+    
+    def _locate_recaptcha_element(self, driver: Any) -> Optional[WebElement]:
+        """定位 reCAPTCHA 元素"""
+        try:
+            # 查找 reCAPTCHA iframe
+            iframes = driver.find_elements(By.CSS_SELECTOR, "iframe[src*='recaptcha']")
+            if iframes:
+                return iframes[0]
+            
+            # 查找 reCAPTCHA 元素
+            elements = driver.find_elements(By.CSS_SELECTOR, ".g-recaptcha")
+            if elements:
+                return elements[0]
+            
+            return None
+        except Exception:
+            return None
+    
+    def _locate_hcaptcha_element(self, driver: Any) -> Optional[WebElement]:
+        """定位 hCaptcha 元素"""
+        try:
+            # 查找 hCaptcha iframe
+            iframes = driver.find_elements(By.CSS_SELECTOR, "iframe[src*='hcaptcha']")
+            if iframes:
+                return iframes[0]
+            
+            # 查找 hCaptcha 元素
+            elements = driver.find_elements(By.CSS_SELECTOR, ".h-captcha")
+            if elements:
+                return elements[0]
+            
+            return None
+        except Exception:
+            return None
+    
+    def _locate_image_captcha_element(self, driver: Any) -> Optional[WebElement]:
+        """定位圖片驗證碼元素"""
+        try:
+            # 查找圖片驗證碼元素
+            elements = driver.find_elements(By.CSS_SELECTOR, "img[src*='captcha']")
+            if elements:
+                return elements[0]
+            
+            # 查找驗證碼輸入框
+            inputs = driver.find_elements(By.CSS_SELECTOR, "input[name*='captcha']")
+            if inputs:
+                return inputs[0]
+            
+            return None
+        except Exception:
+            return None
+    
+    def _locate_slider_captcha_element(self, driver: Any) -> Optional[WebElement]:
+        """定位滑塊驗證碼元素"""
+        try:
+            # 查找滑塊元素
+            elements = driver.find_elements(By.CSS_SELECTOR, ".slider-captcha")
+            if elements:
+                return elements[0]
+            
+            # 查找滑塊按鈕
+            buttons = driver.find_elements(By.CSS_SELECTOR, ".slider-button")
+            if buttons:
+                return buttons[0]
+            
+            return None
+        except Exception:
+            return None
+    
+    def _locate_rotate_captcha_element(self, driver: WebDriver) -> Optional[WebElement]:
+        """定位旋轉驗證碼元素"""
+        try:
+            # 查找旋轉驗證碼元素
+            elements = self.browser_utils.find_elements(
+                driver,
+                By.CSS_SELECTOR,
+                ".rotate-captcha"
+            )
+            if elements:
+                self.logger.info("已定位到旋轉驗證碼元素")
+                return elements[0]
+            
+            # 查找旋轉按鈕
+            buttons = self.browser_utils.find_elements(
+                driver,
+                By.CSS_SELECTOR,
+                ".rotate-button"
+            )
+            if buttons:
+                self.logger.info("已定位到旋轉按鈕")
+                return buttons[0]
+            
+            return None
+        except Exception as e:
+            self.error_handler.handle_error(e, "定位旋轉驗證碼元素失敗")
+            return None
+    
+    def _locate_click_captcha_element(self, driver: WebDriver) -> Optional[WebElement]:
+        """定位點擊驗證碼元素"""
+        try:
+            # 查找點擊驗證碼元素
+            elements = self.browser_utils.find_elements(
+                driver,
+                By.CSS_SELECTOR,
+                ".click-captcha"
+            )
+            if elements:
+                self.logger.info("已定位到點擊驗證碼元素")
+                return elements[0]
+            
+            # 查找點擊區域
+            areas = self.browser_utils.find_elements(
+                driver,
+                By.CSS_SELECTOR,
+                ".click-area"
+            )
+            if areas:
+                self.logger.info("已定位到點擊區域")
+                return areas[0]
+            
+            return None
+        except Exception as e:
+            self.error_handler.handle_error(e, "定位點擊驗證碼元素失敗")
+            return None
+    
+    def _locate_text_captcha_element(self, driver: WebDriver) -> Optional[WebElement]:
+        """定位文字驗證碼元素"""
+        try:
+            # 查找文字驗證碼元素
+            elements = self.browser_utils.find_elements(
+                driver,
+                By.CSS_SELECTOR,
+                ".text-captcha"
+            )
+            if elements:
+                self.logger.info("已定位到文字驗證碼元素")
+                return elements[0]
+            
+            # 查找問題文本
+            questions = self.browser_utils.find_elements(
+                driver,
+                By.CSS_SELECTOR,
+                ".captcha-question"
+            )
+            if questions:
+                self.logger.info("已定位到驗證碼問題文本")
+                return questions[0]
+            
+            return None
+        except Exception as e:
+            self.error_handler.handle_error(e, "定位文字驗證碼元素失敗")
+            return None
+    
+    def check_captcha_status(self, driver: WebDriver, captcha_type: CaptchaType) -> bool:
+        """
+        檢查驗證碼狀態
+        
+        Args:
+            driver: WebDriver實例
+            captcha_type: 驗證碼類型
+            
+        Returns:
+            bool: 驗證碼是否有效
+        """
+        try:
+            # 檢查緩存
+            cache_key = f"{captcha_type.value}_{driver.current_url}"
+            if cache_key in self.detection_cache['results']:
+                return self.detection_cache['results'][cache_key]
+            
+            # 定位驗證碼元素
+            element = self.locate_captcha_element(driver, captcha_type)
+            if not element:
+                self.logger.warning("未找到驗證碼元素")
+                return False
+            
+            # 檢查元素狀態
+            is_valid = self._check_element_status(element)
+            
+            # 更新緩存
+            self.detection_cache['results'][cache_key] = is_valid
+            
+            # 更新統計信息
+            if is_valid:
+                self.detection_status['success_count'] += 1
+            else:
+                self.detection_status['failure_count'] += 1
+            
+            return is_valid
+        except Exception as e:
+            self.error_handler.handle_error(e, "檢查驗證碼狀態失敗")
+            return False
+    
+    def _check_element_status(self, element: WebElement) -> bool:
+        """
+        檢查元素狀態
+        
+        Args:
+            element: WebElement實例
+            
+        Returns:
+            bool: 元素是否有效
+        """
+        try:
+            # 檢查元素是否可見
+            if not element.is_displayed():
+                self.logger.warning("元素不可見")
+                return False
+            
+            # 檢查元素是否啟用
+            if not element.is_enabled():
+                self.logger.warning("元素未啟用")
+                return False
+            
+            # 檢查元素是否可交互
+            if not self.browser_utils.is_element_interactable(element):
+                self.logger.warning("元素不可交互")
+                return False
+            
+            return True
+        except Exception as e:
+            self.error_handler.handle_error(e, "檢查元素狀態失敗")
+            return False
+    
+    def validate_result(self, result: CaptchaResult) -> bool:
+        """
+        驗證處理結果
+        
+        Args:
+            result: 驗證碼處理結果
+            
+        Returns:
+            bool: 結果是否有效
+        """
+        try:
+            # 檢查結果是否為空
+            if not result:
+                self.logger.warning("驗證碼結果為空")
+                return False
+            
+            # 檢查結果類型
+            if not isinstance(result, CaptchaResult):
+                self.logger.warning("驗證碼結果類型錯誤")
+                return False
+            
+            # 檢查必要字段
+            if not hasattr(result, 'success') or not hasattr(result, 'captcha_type'):
+                self.logger.warning("驗證碼結果缺少必要字段")
+                return False
+            
+            # 檢查結果狀態
+            if not result.success:
+                self.logger.warning("驗證碼處理失敗")
+                return False
+            
+            # 檢查結果詳情
+            if not result.details:
+                self.logger.warning("驗證碼結果缺少詳情")
+                return False
+            
+            self.logger.info("驗證碼結果驗證通過")
+            return True
+        except Exception as e:
+            self.error_handler.handle_error(e, "驗證處理結果失敗")
+            return False 

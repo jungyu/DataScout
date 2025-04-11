@@ -14,7 +14,7 @@ REST API 處理器模組
 import requests
 from typing import Dict, Any, Optional
 from .base import BaseAPIHandler, APIRequest, APIResponse, APIError
-from ..config import APIConfig, APIType, AuthType
+from src.extractors.handlers.api.api_handler import APIConfig, APIType, APIAuthType
 
 
 class RESTAPIHandler(BaseAPIHandler):
@@ -28,16 +28,18 @@ class RESTAPIHandler(BaseAPIHandler):
     
     def _prepare_request(self, method: str, endpoint: str, **kwargs) -> APIRequest:
         """準備請求"""
-        url = f"{self.config.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        # 使用 URLUtils 處理 URL
+        url = self.url_utils.normalize_url(f"{self.config.base_url.rstrip('/')}/{endpoint.lstrip('/')}")
+        
         headers = kwargs.get('headers', {}).copy()
         params = kwargs.get('params', {}).copy()
         data = kwargs.get('data')
         timeout = kwargs.get('timeout', self.config.timeout)
         
         # 添加認證信息
-        if self.config.auth_type == AuthType.API_KEY:
+        if self.config.auth_type == APIAuthType.API_KEY:
             headers['Authorization'] = f"Bearer {self.config.api_key}"
-        elif self.config.auth_type == AuthType.BASIC:
+        elif self.config.auth_type == APIAuthType.BASIC:
             headers['Authorization'] = f"Basic {self.config.username}:{self.config.password}"
         
         # 添加通用請求頭
@@ -59,7 +61,8 @@ class RESTAPIHandler(BaseAPIHandler):
     def _handle_response(self, response: requests.Response) -> APIResponse:
         """處理響應"""
         try:
-            data = response.json()
+            # 使用 DataProcessor 處理響應數據
+            data = self.data_processor.format_for_json(response.json())
         except ValueError:
             data = response.text
         

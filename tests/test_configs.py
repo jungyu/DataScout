@@ -13,7 +13,7 @@
 
 import unittest
 from datetime import datetime
-from anti_detection.configs import (
+from src.anti_detection.configs import (
     # Cookie 配置
     CookieConfig,
     CookiePoolConfig,

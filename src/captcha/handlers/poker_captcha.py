@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 import io
 import base64
-from ...utils.logger import setup_logger
+from src.core.utils.logger import setup_logger
 
 class PokerCaptchaSolver:
     """撲克牌驗證碼解決器"""

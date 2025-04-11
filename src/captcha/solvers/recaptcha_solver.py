@@ -1,439 +1,396 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 """
-reCAPTCHA 驗證碼解決器 (reCAPTCHA Solver)
-Copyright (c) 2024 Aaron-Yu, Claude AI
-Author: Aaron-Yu <jungyuyu@gmail.com>
-License: MIT License
-版本: 1.0.0
+reCAPTCHA 驗證碼解決器模組
+
+提供 reCAPTCHA 驗證碼的解決功能，支持：
+1. reCAPTCHA v2 勾選框
+2. reCAPTCHA v2 隱形
+3. reCAPTCHA v3
 """
 
 import time
-import logging
-import random
-import json
 import os
-import base64
-import requests
+from typing import Dict, Any, Optional, List, Union, Tuple
+from datetime import datetime
+from pathlib import Path
+
+from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import (
+    TimeoutException,
+    NoSuchElementException,
+    StaleElementReferenceException
+)
 
-from .base_solver import BaseCaptchaSolver  # 修改繼承類
+from src.core.utils import (
+    BrowserUtils,
+    Logger,
+    URLUtils,
+    DataProcessor,
+    ErrorHandler,
+    ConfigUtils,
+    ImageUtils,
+    AudioUtils,
+    TextUtils,
+    CookieManager
+)
+
+from .base_solver import BaseSolver
+from ..types import CaptchaResult
 
 
-class RecaptchaSolver(BaseCaptchaSolver):
-    """
-    reCAPTCHA 解決器，支援 reCAPTCHA v2 和 v3
-    """
+class RecaptchaSolver(BaseSolver):
+    """reCAPTCHA 驗證碼解決器"""
     
-    def _init_solver(self):
-        """初始化解決器特定設置"""
-        # 自動檢測是否可以使用第三方服務
-        self.use_external_service = self.config.get("use_external_service", False)
-        
-        # 音頻解決模式
-        self.use_audio = self.config.get("use_audio", False)
-        
-        # 延遲設置
-        self.delay_after_solve = self.config.get("delay_after_solve", [0.5, 1.5])
-    
-    def _get_captcha_type(self) -> str:
-        """獲取驗證碼類型"""
-        return "recaptcha"
-    
-    def detect(self) -> bool:
-        """檢測頁面上是否存在 reCAPTCHA"""
-        try:
-            if not self.driver:
-                self.logger.error("未提供WebDriver實例")
-                return False
-                
-            # ReCAPTCHA選擇器
-            recaptcha_selectors = [
-                "iframe[src*='google.com/recaptcha']",
-                "div.g-recaptcha",
-                "div[class*='recaptcha']",
-                "iframe[title='reCAPTCHA']"
-            ]
-            
-            for selector in recaptcha_selectors:
-                elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                if elements:
-                    return True
-            
-            # 查找非標準嵌入的 reCAPTCHA
-            scripts = self.driver.find_elements(By.CSS_SELECTOR, "script[src*='google.com/recaptcha/api.js']")
-            if scripts:
-                return True
-                
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"檢測 reCAPTCHA 時出錯: {str(e)}")
-            return False
-    
-    def solve(self, driver: webdriver.Remote = None) -> bool:
+    def __init__(self, browser: WebDriver, config: Dict[str, Any]):
         """
-        解決 reCAPTCHA
+        初始化 reCAPTCHA 解決器
         
         Args:
-            driver: WebDriver實例
+            browser: WebDriver 實例
+            config: 配置字典
+        """
+        super().__init__(browser, config)
+        
+        # 初始化特定配置
+        self._init_recaptcha()
+        
+    def _init_recaptcha(self):
+        """初始化 reCAPTCHA 特定配置"""
+        try:
+            # 設置超時和重試
+            self.timeout = self.config.get('timeout', 30)
+            self.retry_count = self.config.get('retry_count', 3)
+            self.retry_delay = self.config.get('retry_delay', 1.0)
+            
+            # 設置目錄
+            self.temp_dir = self.config.get('temp_dir', 'temp')
+            self.result_dir = self.config.get('result_dir', 'results')
+            self.audio_dir = self.config.get('audio_dir', 'audio')
+            
+            # 創建目錄
+            for dir_path in [self.temp_dir, self.result_dir, self.audio_dir]:
+                os.makedirs(dir_path, exist_ok=True)
+                
+            # 設置選擇器
+            self.selectors = {
+                'v2_checkbox': [
+                    "iframe[src*='google.com/recaptcha']",
+                    "div.g-recaptcha",
+                    "div[class*='recaptcha']",
+                    "iframe[title='reCAPTCHA']"
+                ],
+                'v2_invisible': [
+                    "div.g-recaptcha[data-size='invisible']",
+                    "div[class*='recaptcha'][data-size='invisible']"
+                ],
+                'v3': [
+                    "script[src*='google.com/recaptcha/api.js']"
+                ]
+            }
+            
+            # 初始化狀態
+            self.solver_status = {
+                'current_version': None,
+                'retry_count': 0,
+                'success_count': 0,
+                'failure_count': 0,
+                'start_time': None,
+                'end_time': None,
+                'duration': None
+            }
+            
+        except Exception as e:
+            self.logger.error(f"初始化 reCAPTCHA 失敗: {str(e)}")
+            raise
+            
+    def solve(self, element: WebElement) -> CaptchaResult:
+        """
+        解決 reCAPTCHA 驗證碼
+        
+        Args:
+            element: 驗證碼元素
             
         Returns:
-            bool: 是否成功解決
+            CaptchaResult: 驗證碼結果
         """
-        driver = driver or self.driver
-        if not driver:
-            self.logger.error("未提供WebDriver實例")
-            return False
-            
         try:
-            # 找到 reCAPTCHA 元素
-            captcha_element = self._find_recaptcha()
-            if not captcha_element:
-                self.logger.error("無法找到 reCAPTCHA 元素")
-                return False
+            # 更新狀態
+            self.solver_status['start_time'] = datetime.now()
             
-            # 檢測 reCAPTCHA 版本
-            version = self._detect_version(captcha_element)
+            # 檢測版本
+            version = self._detect_version(element)
+            self.solver_status['current_version'] = version
             self.logger.info(f"檢測到 reCAPTCHA 版本: {version}")
             
-            # 根據版本解決驗證碼
-            if version == "v2_checkbox":
-                return self._solve_v2_checkbox(captcha_element)
-            elif version == "v2_invisible":
-                return self._solve_v2_invisible(captcha_element)
-            elif version == "v3":
-                return self._solve_v3(captcha_element)
+            # 根據版本解決
+            if version == 'v2_checkbox':
+                result = self._solve_v2_checkbox(element)
+            elif version == 'v2_invisible':
+                result = self._solve_v2_invisible(element)
+            elif version == 'v3':
+                result = self._solve_v3(element)
             else:
-                self.logger.error(f"不支援的 reCAPTCHA 版本: {version}")
-                return False
+                raise Exception(f"不支持的 reCAPTCHA 版本: {version}")
                 
+            # 更新狀態
+            self.solver_status['end_time'] = datetime.now()
+            self.solver_status['duration'] = (
+                self.solver_status['end_time'] - 
+                self.solver_status['start_time']
+            ).total_seconds()
+            
+            if result.success:
+                self.solver_status['success_count'] += 1
+            else:
+                self.solver_status['failure_count'] += 1
+                
+            return result
+            
         except Exception as e:
-            self.logger.error(f"解決 reCAPTCHA 時發生錯誤: {str(e)}")
-            return False
-    
-    def _find_recaptcha(self):
-        """
-        尋找頁面上的 reCAPTCHA 元素
-        
-        Returns:
-            WebElement: reCAPTCHA 元素，未找到時返回 None
-        """
-        # 尋找常見的 reCAPTCHA 元素
-        selectors = [
-            ".g-recaptcha",
-            "[data-sitekey]",
-            "iframe[src*='google.com/recaptcha']",
-            "iframe[src*='recaptcha.net']"
-        ]
-        
-        for selector in selectors:
-            try:
-                element = self.driver.find_element(By.CSS_SELECTOR, selector)
-                return element
-            except NoSuchElementException:
-                continue
-        
-        return None
-    
-    def _detect_version(self, element):
+            self.logger.error(f"解決 reCAPTCHA 失敗: {str(e)}")
+            return CaptchaResult(
+                success=False,
+                error=str(e)
+            )
+            
+    def _detect_version(self, element: WebElement) -> str:
         """
         檢測 reCAPTCHA 版本
         
         Args:
-            element: reCAPTCHA 元素
+            element: 驗證碼元素
             
         Returns:
-            str: 'v2_checkbox', 'v2_invisible', 或 'v3'
+            str: 版本類型
         """
         try:
             # 檢查元素屬性
-            if 'data-size' in element.get_attribute('outerHTML') and element.get_attribute('data-size') == 'invisible':
-                return "v2_invisible"
-            
+            if element.get_attribute('data-size') == 'invisible':
+                return 'v2_invisible'
+                
             # 檢查是否有 checkbox
-            iframes = self.driver.find_elements(By.CSS_SELECTOR, "iframe[src*='google.com/recaptcha']")
+            iframes = self.browser_utils.find_elements(
+                self.browser,
+                By.CSS_SELECTOR,
+                "iframe[src*='google.com/recaptcha']"
+            )
+            
             if iframes:
                 # 未處於 iframe 內
-                main_frame = self.driver.current_window_handle
+                main_frame = self.browser.current_window_handle
                 for iframe in iframes:
                     try:
-                        self.driver.switch_to.frame(iframe)
-                        checkbox = self.driver.find_elements(By.CSS_SELECTOR, ".recaptcha-checkbox-border")
+                        self.browser.switch_to.frame(iframe)
+                        checkbox = self.browser_utils.find_elements(
+                            self.browser,
+                            By.CSS_SELECTOR,
+                            ".recaptcha-checkbox-border"
+                        )
                         if checkbox:
-                            self.driver.switch_to.window(main_frame)
-                            return "v2_checkbox"
+                            self.browser.switch_to.window(main_frame)
+                            return 'v2_checkbox'
                     except:
                         pass
                     finally:
-                        self.driver.switch_to.window(main_frame)
-            
+                        self.browser.switch_to.window(main_frame)
+                        
             # 檢查是否為 v3
-            # v3 通常只有一個腳本加載，沒有用戶界面
-            scripts = self.driver.find_elements(By.CSS_SELECTOR, "script[src*='google.com/recaptcha/api.js']")
-            for script in scripts:
-                src = script.get_attribute("src")
-                if "render=" in src:
-                    return "v3"
+            scripts = self.browser_utils.find_elements(
+                self.browser,
+                By.CSS_SELECTOR,
+                "script[src*='google.com/recaptcha/api.js']"
+            )
             
+            for script in scripts:
+                src = script.get_attribute('src')
+                if 'render=' in src:
+                    return 'v3'
+                    
             # 預設為 v2 checkbox
-            return "v2_checkbox"
+            return 'v2_checkbox'
             
         except Exception as e:
-            self.logger.error(f"檢測 reCAPTCHA 版本時發生錯誤: {e}")
-            return "v2_checkbox"  # 假設為最常見的版本
-    
-    def _solve_v2_checkbox(self, captcha_element, frame_element=None):
+            self.logger.error(f"檢測 reCAPTCHA 版本失敗: {str(e)}")
+            return 'v2_checkbox'
+            
+    def _solve_v2_checkbox(self, element: WebElement) -> CaptchaResult:
         """
         解決 reCAPTCHA v2 勾選框版本
         
         Args:
-            captcha_element: reCAPTCHA 元素
-            frame_element: 包含驗證碼的 iframe 元素 (可選)
+            element: 驗證碼元素
             
         Returns:
-            bool: 是否成功解決
+            CaptchaResult: 驗證碼結果
         """
-        # 獲取網站密鑰
-        site_key = captcha_element.get_attribute("data-sitekey")
-        if not site_key:
-            self.logger.error("無法獲取 reCAPTCHA 網站密鑰")
-            return False
-        
-        # 使用第三方服務
-        if self.config["service"] and self.config["api_key"]:
-            token = self._solve_with_external_service(site_key, "v2")
-            if token:
-                return self._apply_token(token)
-        
-        # 備用：嘗試使用音頻解決方案
-        if self.config["use_audio"]:
-            return self._solve_with_audio()
-        
-        self.logger.error("無法解決 reCAPTCHA v2")
-        return False
-    
-    def _solve_v2_invisible(self, captcha_element):
+        try:
+            # 獲取網站密鑰
+            site_key = element.get_attribute('data-sitekey')
+            if not site_key:
+                raise Exception("無法獲取網站密鑰")
+                
+            # 獲取 iframe
+            iframe = self.browser_utils.find_element(
+                self.browser,
+                By.CSS_SELECTOR,
+                "iframe[src*='google.com/recaptcha']"
+            )
+            if not iframe:
+                raise Exception("無法找到 reCAPTCHA iframe")
+                
+            # 切換到 iframe
+            self.browser.switch_to.frame(iframe)
+            
+            # 點擊勾選框
+            checkbox = self.browser_utils.find_element(
+                self.browser,
+                By.CSS_SELECTOR,
+                ".recaptcha-checkbox-border"
+            )
+            if not checkbox:
+                raise Exception("無法找到勾選框")
+                
+            checkbox.click()
+            
+            # 切換回主框架
+            self.browser.switch_to.default_content()
+            
+            # 等待驗證完成
+            for _ in range(self.retry_count):
+                time.sleep(self.retry_delay)
+                
+                # 檢查是否驗證成功
+                if self._check_success(element):
+                    return CaptchaResult(
+                        success=True,
+                        solution="v2_checkbox_solved",
+                        duration=time.time() - self.solver_status['start_time'].timestamp()
+                    )
+                    
+            raise Exception("驗證超時")
+            
+        except Exception as e:
+            self.logger.error(f"解決 reCAPTCHA v2 勾選框失敗: {str(e)}")
+            return CaptchaResult(
+                success=False,
+                error=str(e)
+            )
+            
+    def _solve_v2_invisible(self, element: WebElement) -> CaptchaResult:
         """
-        解決 reCAPTCHA v2 不可見版本
+        解決 reCAPTCHA v2 隱形版本
         
         Args:
-            captcha_element: reCAPTCHA 元素
+            element: 驗證碼元素
             
         Returns:
-            bool: 是否成功解決
+            CaptchaResult: 驗證碼結果
         """
-        # 獲取網站密鑰
-        site_key = captcha_element.get_attribute("data-sitekey")
-        if not site_key:
-            self.logger.error("無法獲取 reCAPTCHA 網站密鑰")
-            return False
-        
-        # 使用第三方服務
-        if self.config["service"] and self.config["api_key"]:
-            token = self._solve_with_external_service(site_key, "v2")
-            if token:
-                return self._apply_token(token)
-        
-        self.logger.error("無法解決 reCAPTCHA v2 invisible")
-        return False
-    
-    def _solve_v3(self, captcha_element):
+        try:
+            # 獲取網站密鑰
+            site_key = element.get_attribute('data-sitekey')
+            if not site_key:
+                raise Exception("無法獲取網站密鑰")
+                
+            # 觸發驗證
+            self.browser.execute_script(
+                "document.querySelector('[data-sitekey]').click()"
+            )
+            
+            # 等待驗證完成
+            for _ in range(self.retry_count):
+                time.sleep(self.retry_delay)
+                
+                # 檢查是否驗證成功
+                if self._check_success(element):
+                    return CaptchaResult(
+                        success=True,
+                        solution="v2_invisible_solved",
+                        duration=time.time() - self.solver_status['start_time'].timestamp()
+                    )
+                    
+            raise Exception("驗證超時")
+            
+        except Exception as e:
+            self.logger.error(f"解決 reCAPTCHA v2 隱形失敗: {str(e)}")
+            return CaptchaResult(
+                success=False,
+                error=str(e)
+            )
+            
+    def _solve_v3(self, element: WebElement) -> CaptchaResult:
         """
         解決 reCAPTCHA v3
         
         Args:
-            captcha_element: reCAPTCHA 元素
+            element: 驗證碼元素
             
         Returns:
-            bool: 是否成功解決
-        """
-        # 嘗試從腳本獲取網站密鑰
-        site_key = None
-        scripts = self.driver.find_elements(By.CSS_SELECTOR, "script[src*='google.com/recaptcha/api.js']")
-        for script in scripts:
-            src = script.get_attribute("src")
-            if "render=" in src:
-                parts = src.split("render=")
-                if len(parts) > 1:
-                    site_key = parts[1].split("&")[0]
-                    break
-        
-        if not site_key:
-            self.logger.error("無法獲取 reCAPTCHA v3 網站密鑰")
-            return False
-        
-        # 使用第三方服務
-        if self.config["service"] and self.config["api_key"]:
-            token = self._solve_with_external_service(site_key, "v3")
-            if token:
-                return self._apply_token(token)
-        
-        self.logger.error("無法解決 reCAPTCHA v3")
-        return False
-    
-    def _solve_with_audio(self):
-        """
-        使用音頻識別解決 reCAPTCHA
-        
-        Returns:
-            bool: 是否成功解決
+            CaptchaResult: 驗證碼結果
         """
         try:
-            # 尋找 reCAPTCHA iframe
-            main_frame = self.driver.current_window_handle
+            # 獲取網站密鑰
+            site_key = element.get_attribute('data-sitekey')
+            if not site_key:
+                raise Exception("無法獲取網站密鑰")
+                
+            # 觸發驗證
+            self.browser.execute_script(
+                "grecaptcha.execute(arguments[0], {action: 'verify'})",
+                site_key
+            )
             
-            # 查找 reCAPTCHA iframe
-            wait = WebDriverWait(self.driver, 10)
-            iframe = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "iframe[src*='google.com/recaptcha/api2/anchor']")))
+            # 等待驗證完成
+            for _ in range(self.retry_count):
+                time.sleep(self.retry_delay)
+                
+                # 檢查是否驗證成功
+                if self._check_success(element):
+                    return CaptchaResult(
+                        success=True,
+                        solution="v3_solved",
+                        duration=time.time() - self.solver_status['start_time'].timestamp()
+                    )
+                    
+            raise Exception("驗證超時")
             
-            # 切換到 reCAPTCHA iframe
-            self.driver.switch_to.frame(iframe)
+        except Exception as e:
+            self.logger.error(f"解決 reCAPTCHA v3 失敗: {str(e)}")
+            return CaptchaResult(
+                success=False,
+                error=str(e)
+            )
             
-            # 點擊驗證碼勾選框
-            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".recaptcha-checkbox-border"))).click()
+    def _check_success(self, element: WebElement) -> bool:
+        """
+        檢查驗證是否成功
+        
+        Args:
+            element: 驗證碼元素
             
-            # 切回主框架
-            self.driver.switch_to.default_content()
-            
-            # 等待挑戰 iframe 出現
-            time.sleep(2)
-            challenge_iframe = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "iframe[src*='google.com/recaptcha/api2/bframe']")))
-            
-            # 切換到挑戰 iframe
-            self.driver.switch_to.frame(challenge_iframe)
-            
-            # 點擊音頻圖標
-            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#recaptcha-audio-button"))).click()
-            
-            # 等待音頻挑戰加載
-            try:
-                # 如果出現 "多次嘗試失敗" 訊息，則退出
-                if len(self.driver.find_elements(By.CSS_SELECTOR, ".rc-doscaptcha-body-text")) > 0:
-                    self.logger.error("reCAPTCHA 音頻挑戰不可用 (多次嘗試失敗)")
-                    self.driver.switch_to.default_content()
-                    return False
-                
-                # 等待音頻加載完成
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".rc-audiochallenge-tdownload-link")))
-                
-                # 下載音頻文件
-                audio_link = self.driver.find_element(By.CSS_SELECTOR, ".rc-audiochallenge-tdownload-link").get_attribute("href")
-                
-                # 這裡應該使用合適的音頻轉文字服務
-                # 示例：使用 Google Cloud Speech-to-Text 或其他語音識別服務
-                audio_text = self._audio_to_text(audio_link)
-                
-                if not audio_text:
-                    self.logger.error("無法識別音頻內容")
-                    self.driver.switch_to.default_content()
-                    return False
-                
-                # 輸入識別結果
-                audio_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#audio-response")))
-                audio_input.clear()
-                audio_input.send_keys(audio_text)
-                
-                # 點擊驗證按鈕
-                self.driver.find_element(By.CSS_SELECTOR, "#recaptcha-verify-button").click()
-                
-                # 等待驗證結果
-                time.sleep(3)
-                
-                # 檢查是否成功
-                if len(self.driver.find_elements(By.CSS_SELECTOR, ".rc-audiochallenge-error-message")) > 0 and \
-                   self.driver.find_element(By.CSS_SELECTOR, ".rc-audiochallenge-error-message").get_attribute("innerHTML") != "":
-                    self.logger.error("音頻識別結果不正確")
-                    self.driver.switch_to.default_content()
-                    return False
-                
-                # 驗證成功
-                self.driver.switch_to.default_content()
+        Returns:
+            bool: 是否成功
+        """
+        try:
+            # 檢查是否有成功標記
+            if element.get_attribute('data-success'):
                 return True
                 
-            except TimeoutException:
-                self.logger.error("等待音頻挑戰超時")
-                self.driver.switch_to.default_content()
-                return False
+            # 檢查是否有 token
+            if self.browser.execute_script(
+                "return grecaptcha.getResponse(arguments[0])",
+                element.get_attribute('data-sitekey')
+            ):
+                return True
                 
-        except Exception as e:
-            self.logger.error(f"使用音頻解決 reCAPTCHA 時發生錯誤: {e}")
-            try:
-                self.driver.switch_to.default_content()
-            except:
-                pass
             return False
-    
-    def _audio_to_text(self, audio_url):
-        """
-        將音頻轉換為文字
-        
-        Args:
-            audio_url: 音頻URL
-            
-        Returns:
-            str: 識別出的文字，失敗時返回 None
-        """
-        try:
-            # 下載音頻
-            audio_data = requests.get(audio_url).content
-            
-            # 這裡是示例，實際應用中需要使用真正的語音識別服務
-            # 例如 Google Cloud Speech-to-Text, Azure Speech Service 等
-            
-            # 模擬識別結果（在實際應用中替換為真正的 API 調用）
-            # 真實場景下，這裡應該實現與語音識別服務的集成
-            
-            # 由於無法實現真正的語音識別，此處返回 None
-            self.logger.warning("未實現音頻識別功能，需要集成實際的語音識別服務")
-            return None
             
         except Exception as e:
-            self.logger.error(f"音頻轉文字失敗: {e}")
-            return None
-    
-    def _apply_token(self, token):
-        """
-        將解決令牌應用到頁面
-        
-        Args:
-            token: reCAPTCHA 解決令牌
-            
-        Returns:
-            bool: 是否成功應用令牌
-        """
-        try:
-            # 注入 token
-            script = f"""
-            document.querySelector('[name="g-recaptcha-response"]').innerHTML = "{token}";
-            
-            // 對於 v2 invisible 和 v3
-            if (typeof ___grecaptcha_cfg !== 'undefined') {{
-                // 嘗試觸發回調
-                try {{
-                    for (let key in ___grecaptcha_cfg.clients) {{
-                        if (___grecaptcha_cfg.clients[key].hasOwnProperty('callback')) {{
-                            ___grecaptcha_cfg.clients[key]['callback']('{token}');
-                        }}
-                    }}
-                }} catch (e) {{
-                    console.error("觸發回調失敗:", e);
-                }}
-            }}
-            """
-            
-            self.driver.execute_script(script)
-            
-            # 等待一段時間讓令牌生效
-            delay = random.uniform(
-                self.config["delay_after_solve"][0],
-                self.config["delay_after_solve"][1]
-            )
-            time.sleep(delay)
-            
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"應用 reCAPTCHA 令牌時發生錯誤: {e}")
+            self.logger.error(f"檢查驗證結果失敗: {str(e)}")
             return False

@@ -1,0 +1,50 @@
+{
+    "base_url": "https://shopee.tw",
+    "search_parameters": {
+        "keyword": {
+            "default": "honda eu22i",
+            "input_selector": "//input[@class='shopee-searchbar-input__input']",
+            "submit_selector": "//button[@class='btn btn-solid-primary btn--s btn--inline shopee-searchbar__search-button']",
+            "wait_after_submit": 5
+        }
+    },
+    "search_page": {
+        "container_xpath": "//div[contains(@class, 'shop-search-result-view')]",
+        "item_xpath": "//div[contains(@class, 'shop-search-result-view__item')]/a",
+        "fields": {
+            "title": {
+                "xpath": ".//div[contains(@class, 'shop-search-result-view__item__name')]",
+                "type": "text"
+            },
+            "price": {
+                "xpath": ".//div[contains(@class, 'shop-search-result-view__item__price')]",
+                "type": "text"
+            },
+            "detail_link": {
+                "xpath": ".",
+                "type": "attribute",
+                "attribute": "href"
+            },
+            "image": {
+                "xpath": ".//img",
+                "type": "attribute",
+                "attribute": "src"
+            }
+        }
+    },
+    "advanced_settings": {
+        "scroll_behavior": {
+            "scroll_pause": 1.5,
+            "max_scrolls": 5
+        },
+        "load_images": true,
+        "use_debug_port": false
+    },
+    "captcha": {
+        "selectors": {
+            "slider": "//div[contains(@class, 'slider-captcha')]",
+            "image": "//div[contains(@class, 'image-captcha')]",
+            "recaptcha": "//div[contains(@class, 'g-recaptcha')]"
+        }
+    }
+} 

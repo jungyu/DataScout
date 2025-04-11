@@ -14,9 +14,17 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List
-import logging
 import time
-from ..config import APIConfig, APIType, AuthType
+
+# 從 src.core.utils 導入工具類
+from src.core.utils import (
+    ConfigUtils,
+    Logger,
+    URLUtils,
+    DataProcessor
+)
+
+from src.extractors.handlers.api.api_handler import APIConfig, APIMethod, APIAuthType
 
 
 @dataclass
@@ -52,7 +60,12 @@ class BaseAPIHandler(ABC):
     
     def __init__(self, config: APIConfig):
         self.config = config
-        self.logger = logging.getLogger(self.__class__.__name__)
+        
+        # 初始化工具類
+        self.config_utils = ConfigUtils()
+        self.logger = Logger.get_logger("BaseAPIHandler")
+        self.url_utils = URLUtils()
+        self.data_processor = DataProcessor()
         
         if not config.validate():
             raise ValueError("無效的 API 配置")
@@ -94,16 +107,16 @@ class BaseAPIHandler(ABC):
     
     def get(self, endpoint: str, **kwargs) -> APIResponse:
         """GET 請求"""
-        return this.request("GET", endpoint, **kwargs)
+        return this.request(APIMethod.GET.value, endpoint, **kwargs)
     
     def post(self, endpoint: str, **kwargs) -> APIResponse:
         """POST 請求"""
-        return this.request("POST", endpoint, **kwargs)
+        return this.request(APIMethod.POST.value, endpoint, **kwargs)
     
     def put(self, endpoint: str, **kwargs) -> APIResponse:
         """PUT 請求"""
-        return this.request("PUT", endpoint, **kwargs)
+        return this.request(APIMethod.PUT.value, endpoint, **kwargs)
     
     def delete(self, endpoint: str, **kwargs) -> APIResponse:
         """DELETE 請求"""
-        return this.request("DELETE", endpoint, **kwargs) 
+        return this.request(APIMethod.DELETE.value, endpoint, **kwargs) 
