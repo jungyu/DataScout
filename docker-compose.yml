@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3'
 
 services:
   # 爬蟲主服務
@@ -73,6 +73,16 @@ services:
     restart: unless-stopped
     networks:
       - crawler-network
+
+  datascout:
+    build: .
+    container_name: datascout
+    volumes:
+      - ./data:/app/data
+      - ./templates:/app/templates
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python examples/prototype/google/search.py
 
 volumes:
   mongodb_data:

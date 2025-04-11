@@ -16,8 +16,8 @@
 1. 克隆項目到本地：
 
    ```bash
-   git clone https://github.com/yourusername/yourproject.git
-   cd yourproject
+   git clone https://github.com/yourusername/DataScout.git
+   cd DataScout
    ```
 
 2. 安裝依賴：

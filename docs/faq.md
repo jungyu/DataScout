@@ -319,8 +319,8 @@ ENTRYPOINT ["python", "main.py"]
 
 2. 運行容器：
 ```bash
-docker build -t crawler-selenium .
-docker run -v $(pwd)/data:/app/data -v $(pwd)/templates:/app/templates crawler-selenium -t templates/your_template.json
+docker build -t datascout .
+docker run -v $(pwd)/data:/app/data -v $(pwd)/templates:/app/templates datascout -t templates/your_template.json
 ```
 
 ### Q: 如何處理大型數據集？
