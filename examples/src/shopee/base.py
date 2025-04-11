@@ -3,7 +3,13 @@
 
 """
 蝦皮爬蟲基礎類
-提供基本的爬蟲功能和配置管理
+
+提供基本的爬蟲功能和配置管理，包括：
+- 瀏覽器管理
+- 配置管理
+- 存儲管理
+- 反檢測管理
+- 驗證碼處理
 """
 
 import os
@@ -13,50 +19,95 @@ import time
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 from datetime import datetime
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from src.anti_detection.base_scraper import BaseScraper
-from src.anti_detection.anti_detection_manager import AntiDetectionManager
-from src.anti_detection.utils.human_behavior import HumanBehaviorSimulator
-from src.anti_detection.cookie_manager import CookieManager
-from src.anti_detection.browser_fingerprint import BrowserFingerprint
-from src.core.utils.url_utils import URLUtils
-from src.core.utils.data_processor import DataProcessor
-from src.core.utils import BrowserUtils, ConfigUtils, PathUtils, Logger
-from src.core.utils.security_utils import SecurityUtils
-from src.persistence.handlers import StorageHandler, LocalStorageHandler, MongoDBHandler, NotionHandler
-from src.captcha.types import CaptchaType
-from src.captcha import CaptchaManager
-from src.persistence.handlers import CaptchaHandler, CaptchaDetectionResult
+# 核心模組
+from src.core import (
+    ConfigLoader,
+    CrawlerEngine,
+    CrawlerStateManager,
+    CrawlerException,
+    ConfigError,
+    BrowserError,
+    NavigationError,
+    ExtractionError,
+    StateError
+)
 
-class ScraperError(Exception):
+# 核心工具
+from src.core.utils import (
+    ConfigUtils,
+    Logger,
+    PathUtils,
+    BrowserUtils,
+    URLUtils,
+    DataProcessor,
+    SecurityUtils
+)
+
+# 反檢測
+from src.anti_detection import (
+    BaseScraper,
+    AntiDetectionManager,
+    HumanBehaviorSimulator,
+    CookieManager,
+    BrowserFingerprint
+)
+
+# 存儲
+from src.persistence import (
+    Storage,
+    LocalStorageHandler,
+    MongoDBHandler,
+    NotionHandler
+)
+
+# 驗證碼
+from src.captcha import (
+    CaptchaType,
+    CaptchaManager,
+    CaptchaHandler,
+    CaptchaDetectionResult
+)
+
+class ScraperError(CrawlerException):
     """爬蟲錯誤"""
-    pass
-
-class ConfigError(Exception):
-    """配置錯誤"""
     pass
 
 class ShopeeCrawler:
     """蝦皮爬蟲基礎類"""
     
-    def __init__(self):
-        """初始化爬蟲"""
+    def __init__(self, config_path: Optional[str] = None):
+        """
+        初始化爬蟲
+        
+        Args:
+            config_path: 配置文件路徑，如果為 None 則使用默認配置
+        """
+        # 初始化核心引擎
+        self.engine = CrawlerEngine()
+        self.state_manager = CrawlerStateManager()
+        
         # 初始化工具類
         self.config_utils = ConfigUtils()
         self.path_utils = PathUtils()
         self.logger = Logger()
+        self.browser_utils = BrowserUtils()
+        self.url_utils = URLUtils()
+        self.data_processor = DataProcessor()
         self.security_utils = SecurityUtils()
         
         # 加載配置
-        self.crawler_config = self.config_utils.get_config('crawler')
-        self.storage_config = self.config_utils.get_config('storage')
-        self.security_config = self.config_utils.get_config('security')
-        self.logging_config = self.config_utils.get_config('logging')
+        self.config = self._load_config(config_path)
+        self.crawler_config = self.config.get('crawler', {})
+        self.storage_config = self.config.get('storage', {})
+        self.security_config = self.config.get('security', {})
+        self.logging_config = self.config.get('logging', {})
         
         # 初始化存儲處理器
         self.storage = self._init_storage()
@@ -65,93 +116,73 @@ class ShopeeCrawler:
         self.driver = None
         self.setup_browser()
         
-    def _init_storage(self) -> StorageHandler:
+    def _load_config(self, config_path: Optional[str]) -> Dict:
+        """
+        加載配置文件
+        
+        Args:
+            config_path: 配置文件路徑
+            
+        Returns:
+            Dict: 配置字典
+        """
+        try:
+            if config_path:
+                return self.config_utils.load_config(config_path)
+            return self.config_utils.get_default_config()
+        except Exception as e:
+            raise ConfigError(f"加載配置失敗: {str(e)}")
+        
+    def _init_storage(self) -> Storage:
         """
         初始化存儲處理器
         
         Returns:
-            StorageHandler: 存儲處理器實例
+            Storage: 存儲處理器實例
         """
-        storage_type = self.storage_config.get('default_storage', 'local')
-        storage_config = self.storage_config['storage_types'][storage_type]
-        
-        if storage_type == 'local':
-            return LocalStorageHandler(
-                base_path=storage_config['base_path'],
-                file_format=storage_config['file_format']
-            )
-        elif storage_type == 'mongodb':
-            return MongoDBHandler(
-                host=storage_config['host'],
-                port=storage_config['port'],
-                database=storage_config['database'],
-                username=storage_config['username'],
-                password=storage_config['password']
-            )
-        elif storage_type == 'notion':
-            return NotionHandler(
-                token=storage_config['token'],
-                database_id=storage_config['database_id']
-            )
-        else:
-            raise ValueError(f"不支持的存儲類型: {storage_type}")
+        try:
+            storage_type = self.storage_config.get('default_storage', 'local')
+            storage_config = self.storage_config.get('storage_types', {}).get(storage_type, {})
+            
+            if storage_type == 'local':
+                return LocalStorageHandler(
+                    base_path=storage_config.get('base_path', 'data'),
+                    file_format=storage_config.get('file_format', 'json')
+                )
+            elif storage_type == 'mongodb':
+                return MongoDBHandler(
+                    host=storage_config.get('host', 'localhost'),
+                    port=storage_config.get('port', 27017),
+                    database=storage_config.get('database', 'crawler'),
+                    username=storage_config.get('username'),
+                    password=storage_config.get('password')
+                )
+            elif storage_type == 'notion':
+                return NotionHandler(
+                    token=storage_config.get('token'),
+                    database_id=storage_config.get('database_id')
+                )
+            else:
+                raise ValueError(f"不支持的存儲類型: {storage_type}")
+        except Exception as e:
+            raise ScraperError(f"初始化存儲失敗: {str(e)}")
             
     def setup_browser(self):
         """設置瀏覽器"""
-        browser_config = self.crawler_config.get('browser', {})
-        
-        options = Options()
-        if browser_config.get('headless', True):
-            options.add_argument('--headless')
+        try:
+            options = self.browser_utils.create_chrome_options(
+                headless=self.crawler_config.get('headless', False),
+                proxy=self.security_config.get('proxy'),
+                user_agent=self.security_config.get('user_agent')
+            )
             
-        options.add_argument(f'--window-size={browser_config["window_size"]["width"]},{browser_config["window_size"]["height"]}')
-        
-        self.driver = webdriver.Chrome(options=options)
-        self.driver.set_page_load_timeout(browser_config.get('page_load_timeout', 30))
-        self.driver.implicitly_wait(browser_config.get('implicit_wait', 10))
-        
-    def setup_proxy(self):
-        """設置代理"""
-        proxy_config = self.security_config.get('proxy', {})
-        if not proxy_config.get('enabled', False):
-            return
-            
-        proxy_type = proxy_config['type']
-        proxy_host = proxy_config['host']
-        proxy_port = proxy_config['port']
-        
-        if proxy_config.get('username') and proxy_config.get('password'):
-            auth = f"{proxy_config['username']}:{proxy_config['password']}@"
-        else:
-            auth = ""
-            
-        proxy_url = f"{proxy_type}://{auth}{proxy_host}:{proxy_port}"
-        self.driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": self._get_random_user_agent()})
-        self.driver.execute_cdp_cmd('Network.enable', {})
-        self.driver.execute_cdp_cmd('Network.setExtraHTTPHeaders', {'headers': self._get_headers()})
-        
-    def _get_random_user_agent(self) -> str:
-        """
-        獲取隨機用戶代理
-        
-        Returns:
-            str: 用戶代理字符串
-        """
-        headers_config = self.security_config.get('headers', {})
-        if not headers_config.get('rotate_user_agent', True):
-            return self.driver.execute_script("return navigator.userAgent")
-            
-        # TODO: 實現用戶代理輪換邏輯
-        return self.driver.execute_script("return navigator.userAgent")
-        
-    def _get_headers(self) -> Dict[str, str]:
-        """
-        獲取請求頭
-        
-        Returns:
-            Dict[str, str]: 請求頭字典
-        """
-        return self.security_config.get('headers', {}).get('custom_headers', {})
+            self.driver = self.browser_utils.create_driver(options)
+            self.driver.set_window_size(
+                self.crawler_config.get('window_width', 1920),
+                self.crawler_config.get('window_height', 1080)
+            )
+        except Exception as e:
+            raise BrowserError(f"設置瀏覽器失敗: {str(e)}")
         
     def wait_for_element(self, by: By, value: str, timeout: Optional[int] = None) -> Any:
         """
@@ -165,28 +196,32 @@ class ShopeeCrawler:
         Returns:
             Any: 元素對象
         """
-        if timeout is None:
-            timeout = self.crawler_config.get('browser', {}).get('timeout', 30)
-            
-        return WebDriverWait(self.driver, timeout).until(
-            EC.presence_of_element_located((by, value))
-        )
+        try:
+            timeout = timeout or self.crawler_config.get('timeout', 10)
+            return WebDriverWait(self.driver, timeout).until(
+                EC.presence_of_element_located((by, value))
+            )
+        except Exception as e:
+            raise NavigationError(f"等待元素失敗: {str(e)}")
         
     def scroll_to_bottom(self):
         """滾動到頁面底部"""
-        scroll_config = self.crawler_config.get('shopee', {}).get('scroll', {})
-        pause_time = scroll_config.get('pause_time', 2)
-        max_attempts = scroll_config.get('max_attempts', 10)
+        try:
+            self.driver.execute_script(
+                "window.scrollTo(0, document.body.scrollHeight);"
+            )
+            time.sleep(self.crawler_config.get('scroll_delay', 1))
+        except Exception as e:
+            raise NavigationError(f"滾動頁面失敗: {str(e)}")
         
-        for _ in range(max_attempts):
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(pause_time)
-            
     def close(self):
         """關閉瀏覽器"""
         if self.driver:
-            self.driver.quit()
-            self.driver = None
+            try:
+                self.driver.quit()
+                self.driver = None
+            except Exception as e:
+                self.logger.error(f"關閉瀏覽器失敗: {str(e)}")
 
 class ShopeeBaseScraper(BaseScraper):
     """蝦皮爬蟲基礎類"""
