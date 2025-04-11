@@ -817,11 +817,11 @@ def main() -> None:
     driver = None
     
     try:
-        # 1. 載入配置
-        config_path = "../../../config/ubereats/basic/order.json"
+        # 步驟1：載入配置檔案
+        config_path = "examples/config/ubereats/prototype/order.json"
         config = load_config(config_path)
         
-        # 2. 設置WebDriver
+        # 步驟2：設置WebDriver
         driver = setup_webdriver(config)
         
         # 獲取參數

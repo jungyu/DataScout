@@ -1509,11 +1509,11 @@ def main() -> None:
     """主函數"""
     driver = None
     try:
-        # 載入配置
-        config_path = "examples/config/price_house/basic/query.json"
+        # 步驟1：載入配置檔案
+        config_path = "examples/config/price_house/prototype/query.json"
         config = load_config(config_path)
         
-        # 設置WebDriver
+        # 步驟2：設置WebDriver
         driver = setup_webdriver(config)
         
         # 構建搜尋URL

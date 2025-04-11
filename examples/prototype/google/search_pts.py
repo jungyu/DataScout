@@ -802,7 +802,7 @@ def main() -> None:
     
     try:
         # 步驟1：載入配置檔案
-        config_path = "examples/config/google/basic/search_pts.json"
+        config_path = "examples/config/google/prototype/search_pts.json"
         config = load_config(config_path)
         
         # 步驟2：設置WebDriver

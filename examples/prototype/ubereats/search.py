@@ -1521,11 +1521,11 @@ def extract_list_items(page_source: str, config: Dict) -> List[Dict]:
 def main() -> None:
     """主程式"""
     try:
-        # 載入配置
-        config_path = "examples/config/ubereats/basic/search.json"
+        # 步驟1：載入配置檔案
+        config_path = "examples/config/ubereats/prototype/search.json"
         config = load_config(config_path)
         
-        # 設置 WebDriver
+        # 步驟2：設置WebDriver
         driver = setup_webdriver(config)
         
         try:

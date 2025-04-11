@@ -1,7 +1,7 @@
 """
-政府電子採購網-招標公告查詢爬蟲程式
-基於配置文件的政府電子採購網資料爬取工具
-支援標案名稱、公告日期範圍、採購性質等條件搜尋
+政府電子採購網-決標公告查詢爬蟲程式
+基於配置文件的政府電子採購網決標資料爬取工具
+支援標案名稱、決標日期範圍、採購性質等條件搜尋
 """
 
 import os
@@ -145,25 +145,39 @@ def build_search_url(config: Dict, params: Dict = None) -> str:
     base_url = config.get("search_url")
     url_format = config.get("advanced_settings", {}).get("url_format", {})
     pattern = url_format.get("pattern", "")
-    parameter_mapping = url_format.get("parameter_mapping", {})
-    value_mapping = url_format.get("value_mapping", {})
     
     # 準備參數
-    search_params = {}
+    search_params = {
+        "orgName": "",
+        "orgId": "",
+        "tenderName": config.get("search_parameters", {}).get("tenderName", {}).get("default", ""),
+        "tenderId": "",
+        "tenderStatus": "TENDER_STATUS_1",  # 決標公告
+        "tenderWay": "TENDER_WAY_1",  # 公開招標
+        "awardAnnounceStartDate": config.get("search_parameters", {}).get("awardAnnounceStartDate", {}).get("default", ""),
+        "awardAnnounceEndDate": config.get("search_parameters", {}).get("awardAnnounceEndDate", {}).get("default", ""),
+        "radProctrgCate": "",
+        "tenderRange": "TENDER_RANGE_ALL",
+        "pageSize": "100",
+        "firstSearch": "true",
+        "isQuery": "true",
+        "isBinding": "N",
+        "isLogIn": "N"
+    }
+    
     if params:
-        for key, value in params.items():
-            if key in parameter_mapping:
-                param_name = parameter_mapping[key]
-                if key in value_mapping and value in value_mapping[key]:
-                    search_params[param_name] = value_mapping[key][value]
-                else:
-                    search_params[param_name] = value
+        search_params.update(params)
     
     # 使用 pattern 格式化 URL
     try:
-        url = pattern.format(**search_params)
+        if pattern:
+            url = pattern.format(**search_params)
+        else:
+            # 如果沒有pattern，則基於 base_url 和 search_params 構建 URL
+            url = f"{base_url}?{urlencode(search_params)}"
+            
+        # 處理參數編碼
         if url_format.get("encode_parameters", True):
-            # 對參數進行編碼
             parsed = urllib.parse.urlparse(url)
             query = urllib.parse.parse_qs(parsed.query)
             encoded_query = {k: encode_url_parameter(v[0]) for k, v in query.items()}
@@ -195,38 +209,6 @@ def execute_search(driver: webdriver.Chrome, config: Dict) -> bool:
     except Exception as e:
         print(f"執行搜尋時發生錯誤: {str(e)}")
         return False
-
-
-def get_total_records_count(driver: webdriver.Chrome, config: Dict) -> int:
-    """獲取總記錄數"""
-    try:
-        print("\n獲取總記錄數...")
-        
-        # 等待總記錄數元素出現
-        total_count_xpath = config.get("list_page", {}).get("total_count_xpath")
-        if not total_count_xpath:
-            print("未配置總記錄數XPath")
-            return 0
-            
-        total_count_element = wait_for_element(driver, By.XPATH, total_count_xpath)
-        if not total_count_element:
-            print("找不到總記錄數元素")
-            return 0
-            
-        # 提取數字
-        total_count_text = total_count_element.text
-        match = re.search(r'(\d+)', total_count_text)
-        if match:
-            total_count = int(match.group(1))
-            print(f"總記錄數: {total_count}")
-            return total_count
-        else:
-            print(f"無法從文本中提取數字: {total_count_text}")
-            return 0
-            
-    except Exception as e:
-        print(f"獲取總記錄數時發生錯誤: {str(e)}")
-        return 0
 
 
 def extract_list_items(driver: webdriver.Chrome, config: Dict) -> List[Dict]:
@@ -262,7 +244,13 @@ def extract_list_items(driver: webdriver.Chrome, config: Dict) -> List[Dict]:
                     item_data["detail_pk"] = match.group(1)
                     print(f"  提取到 detail_pk: {item_data['detail_pk']}")
                 else:
-                    print(f"  無法從 href 中提取 detail_pk: {href}")
+                    # 嘗試尋找 pkAtmMain 參數，這是決標公告的主鍵格式
+                    match = re.search(r'pkAtmMain=([A-Za-z0-9+/=]+)', href)
+                    if match:
+                        item_data["detail_pk"] = match.group(1)
+                        print(f"  提取到 pkAtmMain: {item_data['detail_pk']}")
+                    else:
+                        print(f"  無法從 href 中提取 detail_pk 或 pkAtmMain: {href}")
             else:
                 print(f"  無法獲取有效的 href 或缺少 extract_pattern")
         except Exception as e:
@@ -382,13 +370,13 @@ def process_detail_pages(driver: webdriver.Chrome, items: List[Dict], config: Di
             driver.get(detail_url)
             time.sleep(config.get("delays", {}).get("page_load", 3))
             
-            # 提取詳細頁面資料
+            # 初始化詳細頁面資料結構（根據award.json配置）
             item_data = {
                 "機關資料": {},
-                "採購資料": {},
-                "招標資料": {},
-                "領投開標": {},
-                "其他": {}
+                "已公告資料": {},
+                "投標廠商": {},
+                "決標品項": {},
+                "決標資料": {}
             }
             
             # 提取各個分類的資料
@@ -473,19 +461,12 @@ def main():
     try:
         print("開始執行程式...")
         
-        # 載入配置
-        config_path = "examples/config/pcc/basic/tender.json"
+        # 步驟1：載入配置檔案
+        config_path = "examples/config/pcc/prototype/award.json"
         print(f"載入配置文件: {config_path}")
         config = load_config(config_path)
         
-        # 檢查必要的配置
-        required_configs = ["search_url", "list_page", "detail_page"]
-        for config_name in required_configs:
-            if config_name not in config:
-                print(f"錯誤：缺少必要的配置項 {config_name}")
-                return
-                
-        # 設置WebDriver
+        # 步驟2：設置WebDriver
         print("初始化 WebDriver...")
         driver = setup_webdriver(config)
         
@@ -513,7 +494,7 @@ def main():
                 print("跳過處理詳細頁面（已在配置中禁用）")
             
             # 保存結果
-            output_path = config.get("output", {}).get("path", "examples/data/output/tender_results.json")
+            output_path = config.get("output", {}).get("path", "examples/data/output/award_results.json")
             if save_results(results, output_path):
                 print("程式執行完成")
             else:

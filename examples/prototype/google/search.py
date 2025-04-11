@@ -352,7 +352,7 @@ def main():
     try:
         # 步驟1：載入配置檔案
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
-        config_path = os.path.join(project_root, "examples", "config", "google", "basic", "search.json")
+        config_path = os.path.join(project_root, "examples", "config", "google", "prototype", "search.json")
         config = load_config(config_path)
         
         # 步驟2：設置WebDriver
