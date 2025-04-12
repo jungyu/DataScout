@@ -48,14 +48,24 @@ class BrowserUtils:
         """
         self.driver = driver
         self.config = config or {}
-        self.logger = logger or setup_logger(
-            name=__name__,
-            level_name="INFO"
-        )
+        
+        # 初始化日誌記錄器
+        if logger:
+            self.logger = logger
+        else:
+            from src.core.utils.logger import setup_logger
+            self.logger = setup_logger(
+                name=__name__,
+                level_name="INFO",
+                log_dir="logs",
+                log_file="browser.log",
+                console_output=True,
+                file_output=True
+            )
         
         # 初始化其他工具類
-        self.data_processor = SimpleDataProcessor(logger)
-        self.path_utils = PathUtils(logger)
+        self.data_processor = SimpleDataProcessor(self.logger)
+        self.path_utils = PathUtils(self.logger)
         
         # 性能監控相關
         self.performance_stats = {

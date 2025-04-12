@@ -15,14 +15,23 @@ import os
 import sys
 import json
 import argparse
+import traceback
 from typing import List, Dict, Any
 from datetime import datetime
+from pathlib import Path
+import logging
 
 # 添加項目根目錄到 Python 路徑
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+sys.path.append(project_root)
 
-from examples.formal.shopee.crawler import ShopeeCrawler
-from src.captcha import CaptchaConfig, CaptchaType
+try:
+    from src.captcha.types import CaptchaConfig, CaptchaType
+    from examples.formal.shopee.crawler import ShopeeCrawler
+except ImportError as e:
+    print(f"匯入模組失敗: {e}")
+    sys.exit(1)
 
 def parse_args():
     """解析命令行參數"""
@@ -69,18 +78,32 @@ def parse_args():
         help="輸出文件路徑"
     )
     
+    # 瀏覽器參數
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="無頭模式"
+    )
+    
+    # 偵錯參數
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="偵錯模式"
+    )
+    
     return parser.parse_args()
 
-def save_results(results: List[Dict[str, Any]], output_path: str):
+def save_results(results: List[Dict[str, Any]], output_path: str = None):
     """保存爬取結果"""
     try:
-        # 確保輸出目錄存在
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
         # 生成文件名
         if not output_path:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_path = f"examples/data/shopee_products_{timestamp}.json"
+        
+        # 確保輸出目錄存在
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
             
         # 保存為JSON文件
         with open(output_path, "w", encoding="utf-8") as f:
@@ -92,65 +115,60 @@ def save_results(results: List[Dict[str, Any]], output_path: str):
     except Exception as e:
         print(f"保存結果失敗: {str(e)}")
 
-def main():
-    """主函數"""
+def load_config(config_path: str) -> Dict:
+    """載入配置文件"""
     try:
-        # 解析命令行參數
-        args = parse_args()
-        
-        # 載入配置文件
-        with open(args.config, "r", encoding="utf-8") as f:
-            config = json.load(f)
-            
-        # 初始化驗證碼配置
-        captcha_config = CaptchaConfig(
-            id="shopee_captcha",
-            enabled=True,
-            captcha_type=CaptchaType.IMAGE,
-            captcha_source="local",
-            max_retries=3,
-            retry_delay=1.0,
-            timeout=30.0,
-            **config.get("captcha", {})
-        )
+        if os.path.exists(config_path):
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            print(f"配置已從 {config_path} 載入")
+            return config
+        else:
+            print(f"配置文件 {config_path} 不存在，使用預設配置")
+            return {}
+    except Exception as e:
+        print(f"載入配置失敗: {str(e)}，使用預設配置")
+        return {}
+
+def main():
+    # 解析命令行參數
+    args = parse_args()
+    
+    # 設置日誌級別
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # 從配置文件路徑中獲取目錄和文件名
+        config_dir = str(Path(args.config).parent)
+        config_name = "search.json"  # 直接使用 search.json
         
         # 初始化爬蟲
-        crawler = ShopeeCrawler(args.config, args.data_dir, captcha_config)
+        crawler = ShopeeCrawler(
+            config_dir=config_dir,
+            config_name=config_name
+        )
         
-        results = []
+        # 設置關鍵字
+        keyword = args.keyword or "手機"
         
-        # 搜尋商品
-        if args.keyword:
-            print(f"開始搜尋關鍵字: {args.keyword}")
-            for product in crawler.search_products(args.keyword, args.max_pages):
-                results.append(product)
-                print(f"商品: {product['title']}")
-                
-                # 獲取產品詳情
-                details = crawler.get_product_details(product['id'])
-                results[-1].update(details)
-                print(f"詳情: {details}")
-                
-        # 爬取指定產品
-        elif args.product_ids:
-            product_ids = args.product_ids.split(",")
-            print(f"開始爬取產品: {product_ids}")
-            for product_id in product_ids:
-                details = crawler.get_product_details(product_id)
-                results.append(details)
-                print(f"產品: {details['title']}")
-                
+        # 搜索商品
+        results = crawler.search_products(keyword, args.max_pages)
+        
         # 保存結果
-        save_results(results, args.output)
+        if results:
+            save_results(results, args.output)
+            logger.info(f"已成功保存 {len(results)} 個商品資訊")
         
     except Exception as e:
-        print(f"執行失敗: {str(e)}")
-        sys.exit(1)
-        
-    finally:
-        # 清理資源
-        if 'crawler' in locals():
-            crawler.cleanup()
+        logger.error(f"執行過程中發生錯誤: {str(e)}")
+        return 1
+    
+    return 0
 
 if __name__ == "__main__":
-    main() 
+    main()

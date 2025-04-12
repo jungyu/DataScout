@@ -205,11 +205,11 @@ class WebDriverManager:
             WebDriver實例
         """
         try:
-            # 創建選項
+            # 創建Chrome選項
             options = self._create_options()
             
-            # 創建服務
-            service = Service(ChromeDriverManager().install())
+            # 創建Chrome服務
+            service = Service(executable_path="/opt/homebrew/bin/chromedriver")
             
             # 創建WebDriver
             driver = webdriver.Chrome(
@@ -217,17 +217,20 @@ class WebDriverManager:
                 options=options
             )
             
-            # 設置超時
+            # 設置超時時間
             driver.set_page_load_timeout(self.config.page_load_timeout)
             driver.set_script_timeout(self.config.script_timeout)
             driver.implicitly_wait(self.config.implicit_wait)
             
+            # 設置窗口大小
+            driver.set_window_size(*self.config.window_size)
+            
+            self.logger.info("WebDriver創建成功")
             return driver
             
         except Exception as e:
             self.logger.error(f"創建WebDriver失敗: {str(e)}")
             self.error_handler.handle_error(e)
-            self.stats["failed_drivers"] += 1
             return None
     
     def _create_options(self) -> Options:

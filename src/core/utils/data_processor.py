@@ -16,6 +16,7 @@ import json
 import logging
 from typing import Any, Dict, List, Union, Optional
 from datetime import datetime
+from .logger import setup_logger
 
 class DataValidator:
     """數據驗證工具類"""

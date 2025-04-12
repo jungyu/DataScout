@@ -63,4 +63,14 @@ class CoreMixin:
         
     def decrypt_data(self, data: str) -> str:
         """解密數據"""
-        return self.security_utils.decrypt(data) 
+        return self.security_utils.decrypt(data)
+        
+    def get_timestamp(self) -> float:
+        """
+        獲取當前時間戳
+        
+        Returns:
+            float: 時間戳
+        """
+        import time
+        return time.time() 

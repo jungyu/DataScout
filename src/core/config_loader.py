@@ -74,17 +74,18 @@ class BaseConfig:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'BaseConfig':
         """從字典創建配置"""
+        now = datetime.now()
         return cls(
-            id=data['id'],
-            created_at=datetime.fromisoformat(data['created_at']),
-            updated_at=datetime.fromisoformat(data['updated_at']),
-            total_uses=data['total_uses'],
-            success_count=data['success_count'],
-            failure_count=data['failure_count'],
-            last_used=datetime.fromisoformat(data['last_used']) if data['last_used'] else None,
-            last_success=datetime.fromisoformat(data['last_success']) if data['last_success'] else None,
-            last_failure=datetime.fromisoformat(data['last_failure']) if data['last_failure'] else None,
-            metadata=data['metadata']
+            id=data.get('id', 'default'),
+            created_at=data.get('created_at', now),
+            updated_at=data.get('updated_at', now),
+            total_uses=data.get('total_uses', 0),
+            success_count=data.get('success_count', 0),
+            failure_count=data.get('failure_count', 0),
+            last_used=data.get('last_used'),
+            last_success=data.get('last_success'),
+            last_failure=data.get('last_failure'),
+            metadata=data.get('metadata', {})
         )
     
     def update_stats(self, success: bool):

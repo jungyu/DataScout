@@ -120,9 +120,20 @@ class AntiDetectionConfig(BaseConfig):
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'AntiDetectionConfig':
         """從字典創建配置"""
-        config = super().from_dict(data)
+        now = datetime.now()
+        
+        # 處理延遲配置
+        delay_config_data = data.get('delay_config', {})
+        if isinstance(delay_config_data, dict) and 'id' not in delay_config_data:
+            delay_config_data['id'] = f"{data.get('id', 'default')}_delay"
+        
+        # 處理行為配置
+        behavior_config_data = data.get('behavior_config', {})
+        if isinstance(behavior_config_data, dict) and 'id' not in behavior_config_data:
+            behavior_config_data['id'] = f"{data.get('id', 'default')}_behavior"
+        
         return cls(
-            id=config.id,
+            id=data.get('id', 'default'),
             headless=data.get('headless', True),
             window_size=data.get('window_size', {"width": 1920, "height": 1080}),
             page_load_timeout=data.get('page_load_timeout', 30),
@@ -133,19 +144,19 @@ class AntiDetectionConfig(BaseConfig):
             use_random_user_agent=data.get('use_random_user_agent', True),
             user_agents=[UserAgentConfig.from_dict(ua) for ua in data.get('user_agents', [])],
             user_agent_rotation_strategy=data.get('user_agent_rotation_strategy', 'round_robin'),
-            delay_config=DelayConfig.from_dict(data.get('delay_config', {})),
+            delay_config=DelayConfig.from_dict(delay_config_data),
             max_retries=data.get('max_retries', 3),
             retry_delay=data.get('retry_delay', 5),
             detection_threshold=data.get('detection_threshold', 0.8),
-            created_at=config.created_at,
-            updated_at=config.updated_at,
-            total_uses=config.total_uses,
-            success_count=config.success_count,
-            failure_count=config.failure_count,
-            last_used=config.last_used,
-            last_success=config.last_success,
-            last_failure=config.last_failure,
-            metadata=config.metadata
+            created_at=data.get('created_at', now),
+            updated_at=data.get('updated_at', now),
+            total_uses=data.get('total_uses', 0),
+            success_count=data.get('success_count', 0),
+            failure_count=data.get('failure_count', 0),
+            last_used=data.get('last_used'),
+            last_success=data.get('last_success'),
+            last_failure=data.get('last_failure'),
+            metadata=data.get('metadata', {})
         )
     
     def get_next_proxy(self) -> Optional[ProxyConfig]:

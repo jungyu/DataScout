@@ -24,7 +24,16 @@ from .configs.anti_detection_config import AntiDetectionConfig
 
 class DetectionError(BaseError):
     """檢測錯誤"""
-    pass
+    
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        """
+        初始化檢測錯誤
+        
+        Args:
+            message: 錯誤信息
+            details: 詳細信息
+        """
+        super().__init__(code=400, message=message, details=details)
 
 class DetectionResult:
     """檢測結果"""
@@ -80,7 +89,9 @@ class DetectionHandler:
     def __init__(
         self,
         config: Optional[Dict[str, Any]] = None,
-        logger: Optional[logging.Logger] = None
+        logger: Optional[logging.Logger] = None,
+        max_retries: int = 3,
+        manager: Optional[Any] = None
     ):
         """
         初始化檢測處理器
@@ -88,12 +99,23 @@ class DetectionHandler:
         Args:
             config: 配置字典
             logger: 日誌記錄器
+            max_retries: 最大重試次數
+            manager: 反爬蟲管理器實例
         """
         self.logger = logger or logging.getLogger(__name__)
-        self.config = AntiDetectionConfig.from_dict(config or {})
+        
+        # 確保配置包含 id
+        if config is None:
+            config = {}
+        if "id" not in config:
+            config["id"] = "detection_handler"
+            
+        self.config = AntiDetectionConfig.from_dict(config)
         if not self.config.validate():
             raise DetectionError("無效的檢測配置")
         
+        self.max_retries = max_retries
+        self.manager = manager
         self.detection_history: List[DetectionResult] = []
         self.detection_stats: Dict[str, Dict[str, int]] = {}
     

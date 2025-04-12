@@ -35,7 +35,8 @@ from ..configs.human_behavior_config import HumanBehaviorConfig
 
 class HumanBehaviorError(BaseError):
     """人類行為模擬錯誤"""
-    pass
+    def __init__(self, message: str, code: int = 4000, details: Optional[Dict[str, Any]] = None):
+        super().__init__(code=code, message=message, details=details)
 
 class HumanBehaviorResult:
     """人類行為結果"""
@@ -96,7 +97,21 @@ class HumanBehaviorSimulator:
         self.id = id
         self.driver = driver
         self.logger = logger or logging.getLogger(__name__)
-        self.config = HumanBehaviorConfig.from_dict(config or {"id": self.id})
+        
+        # 確保配置包含 id
+        if config is None:
+            config = {}
+        if "id" not in config:
+            config["id"] = self.id
+            
+        try:
+            self.config = HumanBehaviorConfig.from_dict(config)
+            if not self.config.validate():
+                raise HumanBehaviorError("無效的人類行為配置")
+        except ValueError as e:
+            # 使用預設配置
+            self.config = HumanBehaviorConfig(id=self.id)
+            self.logger.warning(f"使用預設配置: {str(e)}")
         
         # 移動參數
         self.min_move_time = 0.5
@@ -326,27 +341,58 @@ class HumanBehavior:
     
     def __init__(
         self,
-        driver: WebDriver,
         id: str,
+        driver: WebDriver,
         config: Optional[Dict[str, Any]] = None,
         logger: Optional[logging.Logger] = None
     ):
         """
-        初始化
+        初始化人類行為模擬器
         
         Args:
-            driver: WebDriver 實例
             id: 唯一標識符
+            driver: WebDriver實例
             config: 配置字典
             logger: 日誌記錄器
         """
-        self.driver = driver
-        self.actions = ActionChains(driver)
-        self.logger = logger or logging.getLogger(__name__)
         self.id = id
-        self.config = HumanBehaviorConfig.from_dict(config or {})
-        if not self.config.validate():
-            raise HumanBehaviorError("無效的人類行為配置")
+        self.driver = driver
+        self.logger = logger or logging.getLogger(__name__)
+        
+        # 確保配置包含 id
+        if config is None:
+            config = {}
+        if "id" not in config:
+            config["id"] = self.id
+            
+        try:
+            self.config = HumanBehaviorConfig.from_dict(config)
+            if not self.config.validate():
+                raise HumanBehaviorError("無效的人類行為配置")
+        except ValueError as e:
+            # 使用預設配置
+            self.config = HumanBehaviorConfig(id=self.id)
+            self.logger.warning(f"使用預設配置: {str(e)}")
+        
+        # 移動參數
+        self.min_move_time = 0.5
+        self.max_move_time = 2.0
+        self.move_points = 50
+        
+        # 點擊參數
+        self.min_click_delay = 0.1
+        self.max_click_delay = 0.3
+        
+        # 滾動參數
+        self.min_scroll_delay = 0.5
+        self.max_scroll_delay = 1.5
+        self.scroll_step = 100
+        
+        # 輸入參數
+        self.min_type_delay = 0.1
+        self.max_type_delay = 0.3
+        
+        self.logger.info(f"人類行為模擬器 {self.id} 初始化完成")
         
         self.behavior_history: List[HumanBehaviorResult] = []
         self.behavior_stats: Dict[str, Dict[str, int]] = {}

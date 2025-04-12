@@ -136,7 +136,7 @@ class StorageConfig:
                 return False
             
             # 驗證數據目錄
-            data_path = self.get_path(self.data_dir)
+            data_path = Path(self.get_path(self.data_dir))
             if not data_path.exists():
                 data_path.mkdir(parents=True, exist_ok=True)
             
@@ -184,4 +184,33 @@ class StorageConfig:
         Returns:
             Path: 存儲路徑
         """
-        return Path(self.get_path(self.data_dir)) 
+        return Path(self.get_path(self.data_dir))
+        
+    def get_notion_token(self) -> str:
+        """
+        獲取 Notion API Token
+        
+        Returns:
+            str: Notion API Token
+        """
+        if self.notion_token:
+            return self.decrypt_data(self.notion_token)
+        return ""
+    
+    def get_path(self, path: str) -> Path:
+        """
+        獲取路徑
+        
+        Args:
+            path: 路徑字符串
+            
+        Returns:
+            Path: 路徑對象
+        """
+        try:
+            if Path(path).is_absolute():
+                return Path(path)
+            return Path(self.path_utils.get_absolute_path(path))
+        except Exception as e:
+            self.log_error(f"獲取路徑失敗: {str(e)}")
+            return Path(path) 

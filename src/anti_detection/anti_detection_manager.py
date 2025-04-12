@@ -48,8 +48,7 @@ class AntiDetectionManager:
         
         # WebDriver管理器
         self.webdriver_manager = WebDriverManager(
-            config=self.config.get("webdriver_config", {}),
-            log_level=log_level
+            config=self.config.get("webdriver_config", {})
         )
         
         # 默認延遲設置
@@ -79,20 +78,20 @@ class AntiDetectionManager:
             id=f"{self.id}_fingerprint",
             logger=self.logger
         )
-        self.behavior_simulator = HumanBehaviorSimulator(
+        self.behavior_simulator = HumanBehavior(
             id=f"{self.id}_behavior",
-            delays=self.delays,
+            driver=None,  # 稍後設置
+            config=self.config.get("behavior_config", {}),
             logger=self.logger
         )
         self.detection_handler = DetectionHandler(
-            id=f"{self.id}_detection",
             manager=self,
             config=self.config,
             logger=self.logger,
             max_retries=self.max_retries
         )
         self.honeypot_detector = HoneypotDetector(
-            id=f"{self.id}_honeypot",
+            config=self.config,
             logger=self.logger
         )
         

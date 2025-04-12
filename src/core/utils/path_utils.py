@@ -338,7 +338,7 @@ class PathUtils:
             
     def exists(self, filepath: str) -> bool:
         """
-        判斷路徑是否存在
+        檢查路徑是否存在
         
         Args:
             filepath: 文件路徑
@@ -349,5 +349,23 @@ class PathUtils:
         try:
             return os.path.exists(filepath)
         except Exception as e:
-            self.logger.error(f"判斷路徑是否存在失敗: {str(e)}")
-            return False 
+            self.logger.error(f"檢查路徑是否存在失敗: {str(e)}")
+            return False
+            
+    def get_absolute_path(self, path: str) -> str:
+        """
+        獲取絕對路徑
+        
+        Args:
+            path: 路徑字符串
+            
+        Returns:
+            絕對路徑
+        """
+        try:
+            if os.path.isabs(path):
+                return path
+            return os.path.abspath(path)
+        except Exception as e:
+            self.logger.error(f"獲取絕對路徑失敗: {str(e)}")
+            return path 

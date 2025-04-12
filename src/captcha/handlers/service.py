@@ -71,18 +71,18 @@ class CaptchaService:
         """初始化驗證碼服務"""
         # 初始化服務設置
         self.service_config = {
-            'timeout': self.config.timeout,
-            'retry_count': self.config.max_retries,
-            'retry_delay': self.config.retry_delay,
-            'captcha_type': self.config.captcha_type,
-            'captcha_source': self.config.captcha_source
+            'timeout': self.config.get('timeout', 30),
+            'retry_count': self.config.get('max_retries', 3),
+            'retry_delay': self.config.get('retry_delay', 1.0),
+            'captcha_type': self.config.get('captcha_type', 'image'),
+            'captcha_source': self.config.get('captcha_source', 'local')
         }
         
         # 初始化目錄
         self.dirs = {
-            'temp': os.path.join(self.config.data_dir, 'temp'),
-            'results': os.path.join(self.config.data_dir, 'results'),
-            'samples': os.path.join(self.config.data_dir, 'samples')
+            'temp': os.path.join(self.config['data_dir'], 'temp'),
+            'results': os.path.join(self.config['data_dir'], 'results'),
+            'samples': os.path.join(self.config['data_dir'], 'samples')
         }
         
         # 創建目錄
@@ -98,24 +98,24 @@ class CaptchaService:
         # 初始化驗證碼類型配置
         self.captcha_configs = {
             CaptchaType.IMAGE: {
-                'preprocessing': self.config.image_preprocessing,
-                'threshold': self.config.image_threshold,
-                **self.config.image_config
+                'preprocessing': self.config.get('image_preprocessing', True),
+                'threshold': self.config.get('image_threshold', 127),
+                **self.config.get('image_config', {})
             },
             CaptchaType.AUDIO: {
-                'preprocessing': self.config.audio_preprocessing,
-                'sample_rate': self.config.audio_sample_rate,
-                **self.config.audio_config
+                'preprocessing': self.config.get('audio_preprocessing', True),
+                'sample_rate': self.config.get('audio_sample_rate', 16000),
+                **self.config.get('audio_config', {})
             },
             CaptchaType.TEXT: {
-                'preprocessing': self.config.text_preprocessing,
-                'min_length': self.config.text_min_length,
-                **self.config.text_config
+                'preprocessing': self.config.get('text_preprocessing', True),
+                'min_length': self.config.get('text_min_length', 4),
+                **self.config.get('text_config', {})
             },
             CaptchaType.SLIDER: {
-                'move_delay': self.config.slider_move_delay,
-                'move_offset': self.config.slider_move_offset,
-                **self.config.slider_config
+                'move_delay': self.config.get('slider_move_delay', 0.1),
+                'move_offset': self.config.get('slider_move_offset', 5),
+                **self.config.get('slider_config', {})
             }
         }
         

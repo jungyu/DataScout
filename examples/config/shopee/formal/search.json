@@ -1,27 +1,67 @@
 {
+    "id": "shopee_crawler",
+    "enabled": true,
     "crawler": {
         "headless": false,
         "window_width": 1920,
         "window_height": 1080,
-        "timeout": 10,
-        "scroll_delay": 1
-    },
-    "storage": {
-        "default_storage": "local",
-        "storage_types": {
-            "local": {
-                "base_path": "examples/data/shopee",
-                "file_format": "json"
-            }
-        }
+        "data_dir": "examples/data/shopee"
     },
     "security": {
         "proxy": null,
-        "user_agent": null
+        "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    },
+    "anti_detection": {
+        "id": "shopee_crawler",
+        "enabled": true,
+        "max_retries": 3,
+        "retry_delay": 5,
+        "browser_fingerprint": {
+            "webgl": {
+                "noise": 0.15,
+                "vendor": "Google Inc.",
+                "renderer": "ANGLE (Intel)"
+            },
+            "canvas": {
+                "noise": 0.15,
+                "mode": "noise"
+            }
+        },
+        "human_behavior": {
+            "mouse_movement": true,
+            "keyboard_input": true,
+            "scroll_behavior": true,
+            "typing": {
+                "speed": {"min": 0.1, "max": 0.3},
+                "mistakes": true
+            },
+            "scrolling": {
+                "speed": "variable",
+                "pattern": "natural"
+            }
+        },
+        "proxy": {
+            "enabled": false,
+            "rotation": false
+        },
+        "request": {
+            "timeout": 60,
+            "headers": {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            }
+        }
+    },
+    "storage": {
+        "mode": "local",
+        "base_path": "examples/data/shopee",
+        "file_format": "json",
+        "backup_enabled": true,
+        "auto_save": true,
+        "auto_save_interval": 300,
+        "max_backups": 5
     },
     "logging": {
         "level": "INFO",
-        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        "file": "examples/logs/shopee.log"
+        "file": "shopee.log"
     }
 } 

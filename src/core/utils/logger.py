@@ -35,18 +35,20 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from collections import defaultdict
 
-def setup_logger(name: str, 
-                level_name: str = 'INFO',
-                log_dir: str = 'logs',
-                log_file: Optional[str] = None,
-                console_output: bool = True,
-                file_output: bool = True) -> 'Logger':
+def setup_logger(
+    name: str = "crawler", 
+    level_name: str = 'INFO',
+    log_dir: str = 'logs',
+    log_file: Optional[str] = None,
+    console_output: bool = True,
+    file_output: bool = True
+) -> logging.Logger:
     """
     設置並返回一個日誌記錄器
     
     Args:
         name: 日誌記錄器名稱
-        level_name: 日誌等級名稱
+        level_name: 日誌等級名稱或數字
         log_dir: 日誌目錄
         log_file: 日誌文件名
         console_output: 是否輸出到控制台
@@ -55,15 +57,52 @@ def setup_logger(name: str,
     Returns:
         配置好的日誌記錄器
     """
-    level = getattr(logging, level_name.upper())
-    config = LogConfig(
-        level_name=level_name,
-        log_dir=log_dir,
-        log_file=log_file,
-        console_output=console_output,
-        file_output=file_output
+    # 創建日誌記錄器
+    logger = logging.getLogger(name)
+    
+    # 設置日誌級別
+    if isinstance(level_name, int):
+        level = level_name
+    else:
+        level = getattr(logging, str(level_name).upper(), logging.INFO)
+    logger.setLevel(level)
+    
+    # 清除現有的處理器
+    logger.handlers.clear()
+    
+    # 創建格式化器
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        '%Y-%m-%d %H:%M:%S'
     )
-    return Logger(name, config)
+    
+    # 添加控制台處理器
+    if console_output:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+    
+    # 添加文件處理器
+    if file_output:
+        # 生成日誌文件名
+        if log_file is None:
+            log_file = f"{name}.log"
+        
+        # 確保日誌目錄存在
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # 創建文件處理器
+        file_path = os.path.join(log_dir, log_file)
+        file_handler = logging.handlers.RotatingFileHandler(
+            filename=file_path,
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=5,
+            encoding='utf-8'
+        )
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+    
+    return logger
 
 @dataclass
 class LogConfig:
@@ -160,16 +199,18 @@ class LogFormatter(logging.Formatter):
 class Logger:
     """日誌處理工具類"""
     
-    def __init__(self, name: str, config: Optional[LogConfig] = None):
+    def __init__(self, name: str = "crawler", config: Optional[LogConfig] = None, level: str = "INFO", log_dir: str = "logs"):
         """
         初始化日誌處理器
         
         Args:
             name: 日誌記錄器名稱
             config: 日誌配置
+            level: 日誌級別
+            log_dir: 日誌目錄
         """
         self.name = name
-        self.config = config or LogConfig()
+        self.config = config or LogConfig(level_name=level, log_dir=log_dir)
         self.logger = self._setup_logger()
         self._error_count = 0
         self._last_alert_time = datetime.now()
@@ -207,8 +248,9 @@ class Logger:
             log_dir.mkdir(parents=True, exist_ok=True)
             
             # 創建文件處理器
+            file_path = log_dir / self.config.log_file
             file_handler = logging.handlers.RotatingFileHandler(
-                filename=log_dir / self.config.log_file,
+                filename=file_path,
                 maxBytes=self.config.max_bytes,
                 backupCount=self.config.backup_count,
                 encoding='utf-8'

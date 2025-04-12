@@ -84,9 +84,9 @@ class DelayConfig(BaseConfig):
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'DelayConfig':
         """從字典創建配置"""
-        config = super().from_dict(data)
+        now = datetime.now()
         return cls(
-            id=config.id,
+            id=data.get('id', 'default_delay'),
             page_load=data.get('page_load', {"min": 2.0, "max": 5.0}),
             between_actions=data.get('between_actions', {"min": 1.0, "max": 3.0}),
             before_click=data.get('before_click', {"min": 0.5, "max": 2.0}),
@@ -95,15 +95,15 @@ class DelayConfig(BaseConfig):
             use_human_like_delay=data.get('use_human_like_delay', True),
             min_delay=data.get('min_delay', 0.1),
             max_delay=data.get('max_delay', 10.0),
-            created_at=config.created_at,
-            updated_at=config.updated_at,
-            total_uses=config.total_uses,
-            success_count=config.success_count,
-            failure_count=config.failure_count,
-            last_used=config.last_used,
-            last_success=config.last_success,
-            last_failure=config.last_failure,
-            metadata=config.metadata
+            created_at=data.get('created_at', now),
+            updated_at=data.get('updated_at', now),
+            total_uses=data.get('total_uses', 0),
+            success_count=data.get('success_count', 0),
+            failure_count=data.get('failure_count', 0),
+            last_used=data.get('last_used'),
+            last_success=data.get('last_success'),
+            last_failure=data.get('last_failure'),
+            metadata=data.get('metadata', {})
         )
     
     def get_delay(self, delay_type: str) -> float:

@@ -162,6 +162,45 @@ class HumanBehaviorConfig:
     created_at: datetime = field(default_factory=datetime.now)  # 創建時間
     updated_at: datetime = field(default_factory=datetime.now)  # 更新時間
     
+    def validate(self) -> bool:
+        """驗證配置的有效性
+        
+        Returns:
+            bool: 配置是否有效
+        """
+        try:
+            # 驗證 id 不為空
+            if not self.id or not isinstance(self.id, str):
+                return False
+                
+            # 驗證行為模式
+            valid_patterns = ["natural", "aggressive", "cautious"]
+            if self.behavior_pattern not in valid_patterns:
+                return False
+                
+            # 驗證會話模式
+            valid_sessions = ["normal", "quick", "thorough"]
+            if self.session_pattern not in valid_sessions:
+                return False
+                
+            # 驗證時間戳
+            if not isinstance(self.created_at, datetime) or not isinstance(self.updated_at, datetime):
+                return False
+                
+            # 驗證子配置
+            if not isinstance(self.mouse_config, MouseConfig):
+                return False
+            if not isinstance(self.keyboard_config, KeyboardConfig):
+                return False
+            if not isinstance(self.scroll_config, ScrollConfig):
+                return False
+            if not isinstance(self.timing_config, TimingConfig):
+                return False
+                
+            return True
+        except Exception:
+            return False
+    
     def to_dict(self) -> Dict[str, Any]:
         """轉換為字典"""
         return {
@@ -180,20 +219,36 @@ class HumanBehaviorConfig:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'HumanBehaviorConfig':
         """從字典創建實例"""
-        if 'created_at' in data:
-            data['created_at'] = datetime.fromisoformat(data['created_at'])
-        if 'updated_at' in data:
-            data['updated_at'] = datetime.fromisoformat(data['updated_at'])
+        if not data:
+            raise ValueError("配置數據不能為空")
             
+        # 確保 id 存在
+        if "id" not in data:
+            raise ValueError("配置必須包含 id")
+            
+        # 創建子配置
+        mouse_config = MouseConfig.from_dict(data.get("mouse_config", {}))
+        keyboard_config = KeyboardConfig.from_dict(data.get("keyboard_config", {}))
+        scroll_config = ScrollConfig.from_dict(data.get("scroll_config", {}))
+        timing_config = TimingConfig.from_dict(data.get("timing_config", {}))
+        
+        # 處理時間戳
+        try:
+            created_at = datetime.fromisoformat(data.get("created_at", datetime.now().isoformat()))
+            updated_at = datetime.fromisoformat(data.get("updated_at", datetime.now().isoformat()))
+        except (ValueError, TypeError):
+            created_at = datetime.now()
+            updated_at = datetime.now()
+        
         return cls(
-            id=data.get("id"),
-            mouse_config=MouseConfig.from_dict(data.get("mouse_config", {})),
-            keyboard_config=KeyboardConfig.from_dict(data.get("keyboard_config", {})),
-            scroll_config=ScrollConfig.from_dict(data.get("scroll_config", {})),
-            timing_config=TimingConfig.from_dict(data.get("timing_config", {})),
+            id=data["id"],
+            mouse_config=mouse_config,
+            keyboard_config=keyboard_config,
+            scroll_config=scroll_config,
+            timing_config=timing_config,
             behavior_pattern=data.get("behavior_pattern", "natural"),
             randomize_behavior=data.get("randomize_behavior", True),
             session_pattern=data.get("session_pattern", "normal"),
-            created_at=data.get('created_at', datetime.now()),
-            updated_at=data.get('updated_at', datetime.now())
+            created_at=created_at,
+            updated_at=updated_at
         ) 

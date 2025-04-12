@@ -37,7 +37,8 @@ from src.core.utils import (
     PathUtils,
     Logger,
     URLUtils,
-    DataProcessor
+    DataProcessor,
+    setup_logger
 )
 from src.core.exceptions import CrawlerException, BrowserError, NavigationError
 from src.core.webdriver_manager import WebDriverManager
@@ -65,7 +66,14 @@ class BaseScraper:
         self.path_utils = PathUtils()
         
         # 初始化日誌工具
-        self.logger = Logger.get_logger(self.__class__.__name__)
+        self.logger = setup_logger(
+            name=self.__class__.__name__,
+            level_name="INFO" if not debug_mode else "DEBUG",
+            log_dir=os.path.join(data_dir, "logs"),
+            log_file=f"{self.__class__.__name__.lower()}.log",
+            console_output=True,
+            file_output=True
+        )
         
         # 設置基本屬性
         self.config_path = config_path
@@ -80,7 +88,17 @@ class BaseScraper:
         self._load_config()
         
         # 初始化 WebDriver 管理器
-        self.webdriver_manager = WebDriverManager(self.config, self.logger)
+        browser_config = {
+            "headless": self.config.get("crawler", {}).get("headless", False),
+            "window_size": (
+                self.config.get("crawler", {}).get("window_width", 1920),
+                self.config.get("crawler", {}).get("window_height", 1080)
+            ),
+            "page_load_timeout": self.config.get("crawler", {}).get("timeout", 30),
+            "proxy": self.config.get("security", {}).get("proxy"),
+            "user_agent": self.config.get("security", {}).get("user_agent")
+        }
+        self.webdriver_manager = WebDriverManager(browser_config)
         
         # 初始化瀏覽器工具
         self.browser_utils = BrowserUtils()

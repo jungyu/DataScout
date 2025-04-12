@@ -114,7 +114,7 @@ class CrawlerStateManager:
         # 初始化工具類
         self.logger = setup_logger(
             name="state_manager",
-            level=logging.INFO,
+            level_name="INFO",
             log_dir="logs",
             console_output=True,
             file_output=True
@@ -126,12 +126,12 @@ class CrawlerStateManager:
         
         # 設置狀態文件
         self.state_file = state_file
-        self.state_dir = self.path_utils.get_dir_path(state_file)
-        self.checkpoint_dir = self.path_utils.join_path(self.state_dir, "checkpoints")
+        self.state_dir = os.path.dirname(state_file)
+        self.checkpoint_dir = os.path.join(self.state_dir, "checkpoints")
         
         # 創建目錄
-        self.path_utils.ensure_dir(self.state_dir)
-        self.path_utils.ensure_dir(self.checkpoint_dir)
+        os.makedirs(self.state_dir, exist_ok=True)
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
         
         # 初始化狀態
         self.states: Dict[str, TaskState] = {}

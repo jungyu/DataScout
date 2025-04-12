@@ -63,7 +63,7 @@ class CrawlerEngine:
         # 初始化工具類
         self.logger = setup_logger(
             name="crawler_engine",
-            level=logging.INFO,
+            level_name="INFO",
             log_dir="logs",
             console_output=True,
             file_output=True
