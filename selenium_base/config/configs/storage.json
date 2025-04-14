@@ -1,0 +1,50 @@
+{
+    "default_storage": "local",
+    "storage_types": {
+        "local": {
+            "enabled": true,
+            "base_path": "data",
+            "file_format": "json",
+            "compression": false
+        },
+        "mongodb": {
+            "enabled": false,
+            "host": "localhost",
+            "port": 27017,
+            "database": "crawler",
+            "username": "",
+            "password": "",
+            "auth_source": "admin"
+        },
+        "notion": {
+            "enabled": false,
+            "token": "",
+            "database_id": "",
+            "page_size": 100
+        }
+    },
+    "collections": {
+        "products": {
+            "storage_type": "local",
+            "index_fields": ["id", "url", "title"],
+            "backup_enabled": true
+        },
+        "categories": {
+            "storage_type": "local",
+            "index_fields": ["id", "name", "parent_id"],
+            "backup_enabled": true
+        },
+        "crawler_logs": {
+            "storage_type": "local",
+            "index_fields": ["timestamp", "level", "message"],
+            "backup_enabled": false
+        }
+    },
+    "backup": {
+        "enabled": true,
+        "interval": 86400,
+        "max_backups": 5,
+        "include_collections": ["products", "categories"],
+        "exclude_patterns": ["*.tmp", "*.log"]
+    }
+} 

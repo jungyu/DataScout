@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="datascout",
-    version="0.1.0",
+    version="0.2.0",
     packages=find_packages(),
     install_requires=[
         "selenium>=4.0.0",
@@ -14,17 +14,33 @@ setup(
         "python-dotenv>=0.19.0",
         "fastapi>=0.68.0",
         "uvicorn>=0.15.0",
+        "undetected-chromedriver>=3.5.0",
+        "fake-useragent>=1.1.1",
+        "pyppeteer>=1.0.2",
     ],
-    author="Your Name",
-    author_email="your.email@example.com",
-    description="A powerful web automation and data collection framework",
+    author="Aaron Yu",
+    author_email="aaron@datascout.com",
+    description="高級網頁自動化與數據採集框架，具備強大的反檢測功能",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/DataScout",
+    url="https://github.com/jungyu/DataScout",
     classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
+        "Topic :: Internet :: WWW/HTTP",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Software Development :: Testing",
     ],
     python_requires=">=3.8",
+    project_urls={
+        "Bug Reports": "https://github.com/jungyu/DataScout/issues",
+        "Source": "https://github.com/jungyu/DataScout",
+        "Documentation": "https://datascout.readthedocs.io/",
+    }
 ) 

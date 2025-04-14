@@ -1,0 +1,9 @@
+headless: false
+proxy: null
+user_agent: null
+window_size:
+  width: 1920
+  height: 1080
+page_load_timeout: 30
+implicit_wait: 10
+extensions_dir: extensions 

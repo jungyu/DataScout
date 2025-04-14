@@ -1,0 +1,48 @@
+{
+    "browser": {
+        "headless": false,
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "window_size": {
+            "width": 1920,
+            "height": 1080
+        },
+        "proxy": null
+    },
+    "anti_detection": {
+        "fingerprint": {
+            "webgl": true,
+            "canvas": true,
+            "audio": true,
+            "fonts": true,
+            "webrtc": true,
+            "hardware": true,
+            "timezone": true,
+            "language": true
+        },
+        "human_behavior": {
+            "mouse_movement": true,
+            "keyboard_typing": true,
+            "scrolling": true,
+            "random_delays": true
+        },
+        "request_control": {
+            "rate_limit": true,
+            "retry": true,
+            "headers": true
+        }
+    },
+    "captcha": {
+        "auto_solve": true,
+        "service": "2captcha",
+        "api_key": null
+    },
+    "storage": {
+        "data_dir": "data/shopee",
+        "save_format": "json"
+    },
+    "session": {
+        "auto_login": true,
+        "cookie_expiry": 86400,
+        "session_timeout": 3600
+    }
+} 

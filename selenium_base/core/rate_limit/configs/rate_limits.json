@@ -1,0 +1,31 @@
+{
+    "version": "1.0.0",
+    "enabled": true,
+    "global": {
+        "window": 3600,
+        "max_requests": 1000
+    },
+    "domain": {
+        "window": 3600,
+        "max_requests": 100
+    },
+    "ip": {
+        "window": 3600,
+        "max_requests": 50
+    },
+    "session": {
+        "window": 3600,
+        "max_requests": 200
+    },
+    "delay": {
+        "min": 1.0,
+        "max": 5.0
+    },
+    "circuit_breaker": {
+        "threshold": 5,
+        "reset_timeout": 300
+    },
+    "monitoring": {
+        "reset_interval": 86400
+    }
+} 

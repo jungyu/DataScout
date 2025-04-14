@@ -1,0 +1,142 @@
+{
+    "version": "1.0.0",
+    "environment": "formal",
+    "browser": {
+        "headless": true,
+        "timeout": 30,
+        "page_load_timeout": 30,
+        "implicit_wait": 10,
+        "window_size": {
+            "width": 1920,
+            "height": 1080
+        }
+    },
+    "anti_detection": {
+        "user_agent": {
+            "rotation_strategy": "round_robin",
+            "cache_duration": 300,
+            "validation": {
+                "enabled": true,
+                "min_length": 50,
+                "max_length": 300,
+                "required_fields": ["Mozilla", "Chrome", "Safari"]
+            },
+            "user_agents": [
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0"
+            ]
+        },
+        "browser_fingerprint": {
+            "id": "shopee_crawler_fp_001",
+            "platform": "windows",
+            "vendor": "Google Inc. (Intel)",
+            "language": "zh-TW",
+            "languages": ["zh-TW", "en-US", "en"],
+            "color_depth": 24,
+            "pixel_ratio": 1,
+            "screen_width": 1920,
+            "screen_height": 1080,
+            "webgl": {
+                "vendor": "Google Inc. (Intel)",
+                "renderer": "ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)",
+                "version": "WebGL GLSL ES 1.0",
+                "extensions": [
+                    "ANGLE_instanced_arrays",
+                    "EXT_blend_minmax",
+                    "EXT_color_buffer_half_float",
+                    "EXT_disjoint_timer_query",
+                    "EXT_float_blend",
+                    "EXT_frag_depth",
+                    "EXT_shader_texture_lod",
+                    "EXT_texture_compression_bptc",
+                    "EXT_texture_compression_rgtc",
+                    "EXT_texture_filter_anisotropic",
+                    "OES_element_index_uint",
+                    "OES_fbo_render_mipmap",
+                    "OES_standard_derivatives",
+                    "OES_texture_float",
+                    "OES_texture_float_linear",
+                    "OES_texture_half_float",
+                    "OES_texture_half_float_linear",
+                    "OES_vertex_array_object",
+                    "WEBGL_color_buffer_float",
+                    "WEBGL_compressed_texture_s3tc",
+                    "WEBGL_compressed_texture_s3tc_srgb",
+                    "WEBGL_debug_renderer_info",
+                    "WEBGL_debug_shaders",
+                    "WEBGL_depth_texture",
+                    "WEBGL_draw_buffers",
+                    "WEBGL_lose_context",
+                    "WEBGL_multi_draw"
+                ],
+                "noise": 0.1
+            }
+        },
+        "proxy": {
+            "enabled": false,
+            "type": "http",
+            "rotate_interval": 300,
+            "max_fails": 3,
+            "proxies": []
+        },
+        "rate_limiting": {
+            "enabled": true,
+            "requests_per_second": 1,
+            "max_retries": 3,
+            "retry_delay": 5
+        }
+    },
+    "crawler": {
+        "base_url": "https://shopee.tw",
+        "search_url": "https://shopee.tw/search",
+        "category_url": "https://shopee.tw/category/{category_id}",
+        "product_url": "https://shopee.tw/product/{shop_id}/{product_id}",
+        "max_retries": 3,
+        "retry_delay": 5,
+        "scroll_pause_time": 2,
+        "max_scroll_attempts": 10,
+        "categories": {
+            "enabled": true,
+            "update_interval": 86400
+        },
+        "products": {
+            "enabled": true,
+            "batch_size": 100,
+            "update_interval": 3600
+        },
+        "shops": {
+            "enabled": true,
+            "update_interval": 86400
+        }
+    },
+    "captcha": {
+        "enabled": true,
+        "detection_threshold": 0.8,
+        "max_attempts": 3,
+        "solution_timeout": 30
+    },
+    "storage": {
+        "type": "local",
+        "path": "./data",
+        "format": "json",
+        "compression": false,
+        "backup": {
+            "enabled": true,
+            "interval": 86400,
+            "max_backups": 7
+        }
+    },
+    "logging": {
+        "level": "INFO",
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        "file": {
+            "enabled": true,
+            "path": "./logs/crawler.log",
+            "max_size": 10485760,
+            "backup_count": 5
+        }
+    }
+} 

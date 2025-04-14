@@ -1,0 +1,67 @@
+browser:
+  headless: true  # 無頭模式
+  proxy: http://proxy.example.com:8080  # 代理伺服器
+  user_agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36
+  window_size:
+    width: 1920
+    height: 1080
+  page_load_timeout: 30
+  implicit_wait: 10
+  extensions_dir: extensions
+  
+request:
+  timeout: 30
+  max_retries: 3
+  retry_delay: 1
+  rate_limits:
+    enabled: true  # 啟用速率限制
+    global:  # 全局限制
+      window: 3600  # 時間窗口（秒）
+      max_requests: 1000  # 最大請求數
+    domain:  # 域名限制
+      window: 3600
+      max_requests: 100
+    ip:  # IP限制
+      window: 3600
+      max_requests: 50
+    session:  # 會話限制
+      window: 3600
+      max_requests: 200
+    delay:  # 延遲設置
+      min: 1.0  # 最小延遲（秒）
+      max: 5.0  # 最大延遲（秒）
+    circuit_breaker:  # 熔斷器設置
+      threshold: 5  # 失敗閾值
+      reset_timeout: 300  # 重置超時（秒）
+    monitoring:  # 監控設置
+      reset_interval: 86400  # 重置間隔（秒）
+  headers:
+    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+    Accept-Language: zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7
+    Accept-Encoding: gzip, deflate, br
+    Connection: keep-alive
+    
+storage:
+  data_dir: data           # 資料目錄
+  log_dir: logs           # 日誌目錄
+  temp_dir: temp          # 臨時檔案目錄
+  results_dir: data/results  # 結果目錄
+  cache_dir: data/cache    # 快取目錄
+  
+logging:
+  level: DEBUG  # 日誌等級：DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  handlers:
+    console:  # 控制台輸出
+      class: logging.StreamHandler
+      level: INFO
+      formatter: default
+    file:  # 檔案輸出
+      class: logging.FileHandler
+      level: DEBUG
+      formatter: default
+      filename: logs/datascout.log
+  formatters:
+    default:  # 預設格式
+      format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+      datefmt: '%Y-%m-%d %H:%M:%S' 

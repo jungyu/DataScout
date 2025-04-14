@@ -1,0 +1,70 @@
+{
+    "version": "1.0.0",
+    "enabled": true,
+    "channels": {
+        "email": {
+            "enabled": false,
+            "smtp_server": "smtp.gmail.com",
+            "smtp_port": 587,
+            "username": "",
+            "password": "",
+            "from_email": "",
+            "to_emails": []
+        },
+        "slack": {
+            "enabled": false,
+            "webhook_url": "",
+            "channel": "#crawler-alerts"
+        },
+        "telegram": {
+            "enabled": false,
+            "bot_token": "",
+            "chat_id": ""
+        }
+    },
+    "notification_rules": {
+        "error": {
+            "channels": ["email", "slack", "telegram"],
+            "cooldown": 300,
+            "batch_size": 5
+        },
+        "warning": {
+            "channels": ["slack"],
+            "cooldown": 600,
+            "batch_size": 10
+        },
+        "info": {
+            "channels": [],
+            "cooldown": 3600,
+            "batch_size": 20
+        }
+    },
+    "templates": {
+        "error": {
+            "subject": "爬蟲錯誤通知",
+            "body": "時間: {timestamp}\n錯誤類型: {error_type}\n錯誤訊息: {message}\n堆疊追蹤: {traceback}"
+        },
+        "warning": {
+            "subject": "爬蟲警告通知",
+            "body": "時間: {timestamp}\n警告類型: {warning_type}\n警告訊息: {message}"
+        },
+        "info": {
+            "subject": "爬蟲資訊通知",
+            "body": "時間: {timestamp}\n資訊類型: {info_type}\n訊息: {message}"
+        }
+    },
+    "rate_limits": {
+        "email": {
+            "max_per_hour": 10,
+            "max_per_day": 50
+        },
+        "slack": {
+            "max_per_hour": 20,
+            "max_per_day": 100
+        },
+        "telegram": {
+            "max_per_hour": 30,
+            "max_per_day": 150
+        }
+    }
+} 

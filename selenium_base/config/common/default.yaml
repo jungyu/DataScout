@@ -1,0 +1,24 @@
+storage:
+  data_dir: data
+  log_dir: logs
+  temp_dir: temp
+  results_dir: data/results
+  cache_dir: data/cache
+  
+logging:
+  level: INFO
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  handlers:
+    console:
+      class: logging.StreamHandler
+      level: INFO
+      formatter: default
+    file:
+      class: logging.FileHandler
+      level: DEBUG
+      formatter: default
+      filename: logs/datascout.log
+  formatters:
+    default:
+      format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+      datefmt: '%Y-%m-%d %H:%M:%S' 

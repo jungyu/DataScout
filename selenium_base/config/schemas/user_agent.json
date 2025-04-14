@@ -1,0 +1,53 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "用戶代理配置模式",
+    "type": "object",
+    "required": ["rotation_strategy", "cache_duration", "validation", "user_agents"],
+    "properties": {
+        "rotation_strategy": {
+            "type": "string",
+            "enum": ["round_robin", "random", "least_used"],
+            "description": "用戶代理輪換策略"
+        },
+        "cache_duration": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "快取持續時間（秒）"
+        },
+        "validation": {
+            "type": "object",
+            "required": ["enabled", "min_length", "max_length", "required_fields"],
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "是否啟用驗證"
+                },
+                "min_length": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "最小長度"
+                },
+                "max_length": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "最大長度"
+                },
+                "required_fields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "必需的字段列表"
+                }
+            }
+        },
+        "user_agents": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            },
+            "description": "用戶代理字符串列表"
+        }
+    }
+} 

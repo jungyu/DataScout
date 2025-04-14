@@ -1,0 +1,67 @@
+{
+    "id": "default",
+    "version": "1.0.0",
+    "description": "默認反檢測配置",
+    "enabled": true,
+    "created_at": "2024-03-21T00:00:00",
+    "updated_at": "2024-03-21T00:00:00",
+    "last_used": "2024-03-21T00:00:00",
+    "headless": false,
+    "window_size": {
+        "width": 1920,
+        "height": 1080
+    },
+    "page_load_timeout": 30,
+    "script_timeout": 30,
+    "use_proxy": false,
+    "proxies": [],
+    "use_random_user_agent": true,
+    "user_agents": [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3.1 Safari/605.1.15"
+    ],
+    "browser_fingerprint": {
+        "platform": "Win32",
+        "webgl_vendor": "Google Inc. (NVIDIA)",
+        "webgl_renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3080 Direct3D11 vs_5_0 ps_5_0)",
+        "language": "zh-CN",
+        "timezone": "Asia/Shanghai",
+        "screen_resolution": "1920x1080",
+        "color_depth": 24,
+        "pixel_ratio": 1
+    },
+    "anti_fingerprint": {
+        "enable_webgl_noise": true,
+        "enable_canvas_noise": true,
+        "enable_audio_noise": true,
+        "enable_font_noise": true,
+        "enable_webgl_vendor_spoof": true,
+        "enable_webgl_renderer_spoof": true,
+        "enable_platform_spoof": true,
+        "enable_language_spoof": true,
+        "enable_timezone_spoof": true,
+        "enable_screen_spoof": true,
+        "enable_color_depth_spoof": true,
+        "enable_pixel_ratio_spoof": true
+    },
+    "delay_config": {
+        "min_delay": 1,
+        "max_delay": 5,
+        "random_delay": true,
+        "mouse_movement_delay": true,
+        "typing_delay": true,
+        "scroll_delay": true,
+        "click_delay": true
+    },
+    "max_retries": 3,
+    "retry_delay": 5,
+    "detection_threshold": 0.8,
+    "block_threshold": 0.9,
+    "use_cache": true,
+    "cache_duration": 3600,
+    "max_cache_size": 1000,
+    "metrics": {},
+    "metadata": {}
+} 

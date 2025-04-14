@@ -1,0 +1,85 @@
+{
+    "version": "1.0.0",
+    "enabled": true,
+    "global": {
+        "requests_per_second": 1,
+        "requests_per_minute": 30,
+        "requests_per_hour": 1000,
+        "requests_per_day": 10000,
+        "concurrent_requests": 5
+    },
+    "domain_limits": {
+        "default": {
+            "requests_per_second": 1,
+            "requests_per_minute": 30,
+            "requests_per_hour": 1000,
+            "requests_per_day": 10000,
+            "concurrent_requests": 5
+        }
+    },
+    "ip_limits": {
+        "max_requests_per_ip": 1000,
+        "ip_ban_duration": 86400,
+        "ip_whitelist": []
+    },
+    "session_limits": {
+        "max_sessions_per_ip": 5,
+        "session_timeout": 3600,
+        "max_requests_per_session": 100
+    },
+    "delay_settings": {
+        "min_delay": 1.0,
+        "max_delay": 5.0,
+        "random_delay": true,
+        "exponential_backoff": true,
+        "backoff_factor": 2.0,
+        "max_backoff": 60.0
+    },
+    "throttling": {
+        "enabled": true,
+        "strategy": "token_bucket",
+        "bucket_size": 10,
+        "refill_rate": 1,
+        "refill_interval": 1
+    },
+    "circuit_breaker": {
+        "enabled": true,
+        "failure_threshold": 5,
+        "reset_timeout": 60,
+        "half_open_timeout": 30
+    },
+    "rate_limit_headers": {
+        "enabled": true,
+        "respect_retry_after": true,
+        "default_retry_after": 60
+    },
+    "proxy_rotation": {
+        "enabled": true,
+        "rotation_interval": 300,
+        "max_requests_per_proxy": 100,
+        "proxy_timeout": 30
+    },
+    "user_agent_rotation": {
+        "enabled": true,
+        "rotation_interval": 100,
+        "max_requests_per_user_agent": 50
+    },
+    "cookie_management": {
+        "enabled": true,
+        "max_cookies_per_domain": 100,
+        "cookie_expiry": 86400,
+        "clear_cookies_on_error": true
+    },
+    "error_handling": {
+        "max_retries": 3,
+        "retry_delay": 5,
+        "retry_on_status": [429, 500, 502, 503, 504],
+        "stop_on_status": [403, 404, 410]
+    },
+    "monitoring": {
+        "enabled": true,
+        "metrics_interval": 60,
+        "alert_threshold": 0.8,
+        "alert_channels": ["email", "slack"]
+    }
+} 

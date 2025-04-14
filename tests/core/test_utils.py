@@ -11,6 +11,7 @@ import sys
 import pytest
 from pathlib import Path
 from datetime import datetime
+from datascout_core.core.utils import Utils
 
 # 添加項目根目錄到 Python 路徑
 project_root = Path(__file__).parent.parent.parent
@@ -156,3 +157,126 @@ class TestSecurityUtils:
         encrypted_data = security_utils.encrypt_data(test_data)
         decrypted_data = security_utils.decrypt_data(encrypted_data)
         assert decrypted_data == test_data 
+
+@pytest.fixture
+def test_data():
+    """測試資料"""
+    return {
+        'string': 'test_string',
+        'number': 123,
+        'list': [1, 2, 3],
+        'dict': {'key': 'value'}
+    }
+
+@pytest.fixture
+def test_dir(tmp_path):
+    """測試目錄"""
+    return str(tmp_path)
+
+def test_generate_id():
+    """測試生成隨機ID"""
+    # 測試預設長度
+    id1 = Utils.generate_id()
+    assert len(id1) == 8
+    assert isinstance(id1, str)
+    
+    # 測試自訂長度
+    id2 = Utils.generate_id(12)
+    assert len(id2) == 12
+    assert isinstance(id2, str)
+
+def test_generate_timestamp():
+    """測試生成時間戳"""
+    timestamp = Utils.generate_timestamp()
+    assert isinstance(timestamp, str)
+    assert len(timestamp) == 15  # YYYYMMDD_HHMMSS
+
+def test_calculate_md5():
+    """測試計算MD5雜湊值"""
+    # 測試字串
+    md5_str = Utils.calculate_md5('test')
+    assert isinstance(md5_str, str)
+    assert len(md5_str) == 32
+    
+    # 測試位元組
+    md5_bytes = Utils.calculate_md5(b'test')
+    assert isinstance(md5_bytes, str)
+    assert len(md5_bytes) == 32
+
+def test_json_operations(test_data, test_dir):
+    """測試JSON操作"""
+    # 測試儲存JSON
+    json_path = os.path.join(test_dir, 'test.json')
+    Utils.save_json(test_data, json_path)
+    assert os.path.exists(json_path)
+    
+    # 測試載入JSON
+    loaded_data = Utils.load_json(json_path)
+    assert loaded_data == test_data
+
+def test_yaml_operations(test_data, test_dir):
+    """測試YAML操作"""
+    # 測試儲存YAML
+    yaml_path = os.path.join(test_dir, 'test.yaml')
+    Utils.save_yaml(test_data, yaml_path)
+    assert os.path.exists(yaml_path)
+    
+    # 測試載入YAML
+    loaded_data = Utils.load_yaml(yaml_path)
+    assert loaded_data == test_data
+
+def test_sleep():
+    """測試睡眠功能"""
+    import time
+    start_time = time.time()
+    Utils.sleep(0.1)
+    end_time = time.time()
+    assert end_time - start_time >= 0.1
+
+def test_file_operations(test_dir):
+    """測試檔案操作"""
+    # 測試建立目錄
+    test_subdir = os.path.join(test_dir, 'subdir')
+    Utils.ensure_dir(test_subdir)
+    assert os.path.exists(test_subdir)
+    
+    # 測試建立檔案
+    test_file = os.path.join(test_subdir, 'test.txt')
+    with open(test_file, 'w') as f:
+        f.write('test')
+    
+    # 測試取得檔案大小
+    file_size = Utils.get_file_size(test_file)
+    assert file_size == 4
+    
+    # 測試列出檔案
+    files = Utils.list_files(test_subdir)
+    assert len(files) == 1
+    assert files[0] == test_file
+    
+    # 測試列出特定模式檔案
+    txt_files = Utils.list_files(test_subdir, '.txt')
+    assert len(txt_files) == 1
+    assert txt_files[0] == test_file
+    
+    # 測試刪除檔案
+    Utils.delete_file(test_file)
+    assert not os.path.exists(test_file)
+
+def test_error_handling(test_dir):
+    """測試錯誤處理"""
+    # 測試載入不存在的JSON檔案
+    with pytest.raises(Exception):
+        Utils.load_json(os.path.join(test_dir, 'nonexistent.json'))
+    
+    # 測試載入不存在的YAML檔案
+    with pytest.raises(Exception):
+        Utils.load_yaml(os.path.join(test_dir, 'nonexistent.yaml'))
+    
+    # 測試取得不存在的檔案大小
+    with pytest.raises(Exception):
+        Utils.get_file_size(os.path.join(test_dir, 'nonexistent.txt'))
+    
+    # 測試列出不存在的目錄
+    with pytest.raises(Exception):
+        Utils.list_files(os.path.join(test_dir, 'nonexistent')) 

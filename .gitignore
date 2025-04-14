@@ -102,3 +102,52 @@ htmlcov/
 .coverage.*
 coverage/
 *.py,cover
+
+# Project specific
+data/*
+!data/.gitkeep
+!data/results/.gitkeep
+!data/cache/.gitkeep
+
+logs/*
+!logs/.gitkeep
+!logs/error/.gitkeep
+!logs/info/.gitkeep
+
+temp/*
+!temp/.gitkeep
+!temp/downloads/.gitkeep
+!temp/cache/.gitkeep
+
+config/*.local.yaml
+config/*.local.json
+
+# Documentation
+docs/_build/
+
+# Data directories
+data/cookies/
+data/logs/
+data/errors/
+data/screenshots/
+data/search/
+
+# Logs
+*.log
+
+# Local development
+.env
+.env.local
+.env.*.local
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Distribution
+*.tar.gz
+*.zip
+*.rar
+*.7z

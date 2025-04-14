@@ -1,0 +1,89 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "瀏覽器指紋配置模式",
+    "type": "object",
+    "required": ["id", "platform", "user_agent", "webgl"],
+    "properties": {
+        "id": {
+            "type": "string",
+            "description": "指紋配置ID"
+        },
+        "platform": {
+            "type": "string",
+            "enum": ["windows", "macos", "linux"],
+            "description": "平台類型"
+        },
+        "user_agent": {
+            "type": "string",
+            "description": "用戶代理字符串"
+        },
+        "vendor": {
+            "type": "string",
+            "description": "瀏覽器供應商"
+        },
+        "language": {
+            "type": "string",
+            "pattern": "^[a-z]{2}-[A-Z]{2}$",
+            "description": "主要語言"
+        },
+        "languages": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": "^[a-z]{2}-[A-Z]{2}$"
+            },
+            "description": "支持的語言列表"
+        },
+        "color_depth": {
+            "type": "integer",
+            "enum": [16, 24, 32],
+            "description": "顏色深度"
+        },
+        "pixel_ratio": {
+            "type": "number",
+            "minimum": 1,
+            "description": "設備像素比"
+        },
+        "screen_width": {
+            "type": "integer",
+            "minimum": 800,
+            "description": "屏幕寬度"
+        },
+        "screen_height": {
+            "type": "integer",
+            "minimum": 600,
+            "description": "屏幕高度"
+        },
+        "webgl": {
+            "type": "object",
+            "required": ["vendor", "renderer", "version"],
+            "properties": {
+                "vendor": {
+                    "type": "string",
+                    "description": "WebGL 供應商"
+                },
+                "renderer": {
+                    "type": "string",
+                    "description": "WebGL 渲染器"
+                },
+                "version": {
+                    "type": "string",
+                    "description": "WebGL 版本"
+                },
+                "extensions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "WebGL 擴展列表"
+                },
+                "noise": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "指紋噪聲值"
+                }
+            }
+        }
+    }
+} 

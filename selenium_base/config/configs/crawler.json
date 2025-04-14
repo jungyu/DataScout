@@ -1,0 +1,53 @@
+{
+    "browser": {
+        "headless": true,
+        "timeout": 30,
+        "page_load_timeout": 30,
+        "implicit_wait": 10,
+        "window_size": {
+            "width": 1920,
+            "height": 1080
+        }
+    },
+    "shopee": {
+        "base_url": "https://shopee.tw",
+        "search_url": "https://shopee.tw/search",
+        "category_url": "https://shopee.tw/category/{category_id}",
+        "product_url": "https://shopee.tw/product/{shop_id}/{product_id}",
+        "max_retries": 3,
+        "retry_delay": 5,
+        "scroll_pause_time": 2,
+        "max_scroll_attempts": 10,
+        "categories": {
+            "enabled": true,
+            "update_interval": 86400
+        },
+        "products": {
+            "enabled": true,
+            "batch_size": 100,
+            "update_interval": 3600
+        },
+        "shops": {
+            "enabled": true,
+            "update_interval": 86400
+        }
+    },
+    "captcha": {
+        "enabled": true,
+        "detection_threshold": 0.8,
+        "max_attempts": 3,
+        "solution_timeout": 30
+    },
+    "proxy": {
+        "enabled": false,
+        "type": "http",
+        "rotate_interval": 300,
+        "max_fails": 3
+    },
+    "rate_limiting": {
+        "enabled": true,
+        "requests_per_second": 1,
+        "max_retries": 3,
+        "retry_delay": 5
+    }
+} 

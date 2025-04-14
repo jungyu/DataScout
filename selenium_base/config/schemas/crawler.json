@@ -1,0 +1,97 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "爬蟲配置模式",
+    "type": "object",
+    "required": ["browser", "proxy", "rate_limiting"],
+    "properties": {
+        "browser": {
+            "type": "object",
+            "required": ["headless", "timeout", "window_size"],
+            "properties": {
+                "headless": {
+                    "type": "boolean",
+                    "description": "是否使用無頭模式"
+                },
+                "timeout": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "全局超時時間（秒）"
+                },
+                "page_load_timeout": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "頁面加載超時時間（秒）"
+                },
+                "implicit_wait": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "隱式等待時間（秒）"
+                },
+                "window_size": {
+                    "type": "object",
+                    "required": ["width", "height"],
+                    "properties": {
+                        "width": {
+                            "type": "integer",
+                            "minimum": 800
+                        },
+                        "height": {
+                            "type": "integer",
+                            "minimum": 600
+                        }
+                    }
+                }
+            }
+        },
+        "proxy": {
+            "type": "object",
+            "required": ["enabled", "type"],
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "是否啟用代理"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": ["http", "socks5"],
+                    "description": "代理類型"
+                },
+                "rotate_interval": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "代理輪換間隔（秒）"
+                },
+                "max_fails": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "最大失敗次數"
+                }
+            }
+        },
+        "rate_limiting": {
+            "type": "object",
+            "required": ["enabled", "requests_per_second"],
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "是否啟用速率限制"
+                },
+                "requests_per_second": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "description": "每秒請求數"
+                },
+                "max_retries": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "最大重試次數"
+                },
+                "retry_delay": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "重試延遲（秒）"
+                }
+            }
+        }
+    }
+} 

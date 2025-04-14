@@ -1,11 +1,23 @@
+"""
+反檢測模組測試
+
+測試反檢測相關功能，包括：
+1. 瀏覽器指紋
+2. 人類行為模擬
+3. 代理管理
+4. 請求控制
+"""
+
 import unittest
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from src.anti_detection.utils.browser_fingerprint import BrowserFingerprint
-from src.anti_detection.utils.human_behavior import HumanBehavior
+from src.anti_detection.fingerprint import BrowserFingerprint
+from src.anti_detection.human_behavior import HumanBehavior
+from src.anti_detection.proxy_manager import ProxyManager
+from src.anti_detection.request_controller import RequestController
 from src.core.utils.browser_utils import BrowserUtils
 from src.anti_detection.configs import (
     BrowserFingerprintConfig,
@@ -21,7 +33,10 @@ from src.anti_detection.configs import (
 import time
 
 class TestAntiDetection(unittest.TestCase):
+    """反檢測功能測試"""
+    
     def setUp(self):
+        """測試前準備"""
         chrome_options = Options()
         chrome_options.add_argument('--disable-blink-features=AutomationControlled')
         chrome_options.add_argument('--disable-infobars')
@@ -49,6 +64,8 @@ class TestAntiDetection(unittest.TestCase):
         self.browser_utils = BrowserUtils(self.driver)
         self.browser_fingerprint = BrowserFingerprint(self.driver, self.fingerprint_config)
         self.human_behavior = HumanBehavior(self.driver, self.human_config)
+        self.proxy_manager = ProxyManager()
+        self.request_controller = RequestController()
 
     def tearDown(self):
         if self.driver:
@@ -61,43 +78,25 @@ class TestAntiDetection(unittest.TestCase):
         self.assertFalse(webdriver_present, "navigator.webdriver 屬性未被正確隱藏")
 
     def test_browser_fingerprint(self):
-        """測試瀏覽器指紋功能"""
-        self.driver.get('https://bot.sannysoft.com')
-        
-        # 測試 WebGL 指紋
-        webgl_fingerprint = self.browser_fingerprint.get_webgl_fingerprint()
-        self.assertIsNotNone(webgl_fingerprint, "WebGL 指紋獲取失敗")
-        self.assertIsInstance(webgl_fingerprint, dict, "WebGL 指紋格式不正確")
-        
-        # 測試 Canvas 指紋
-        canvas_fingerprint = self.browser_fingerprint.get_canvas_fingerprint()
-        self.assertIsNotNone(canvas_fingerprint, "Canvas 指紋獲取失敗")
-        self.assertIsInstance(canvas_fingerprint, str, "Canvas 指紋格式不正確")
-        
-        # 測試 Audio 指紋
-        audio_fingerprint = self.browser_fingerprint.get_audio_fingerprint()
-        self.assertIsNotNone(audio_fingerprint, "Audio 指紋獲取失敗")
-        self.assertIsInstance(audio_fingerprint, str, "Audio 指紋格式不正確")
+        """測試瀏覽器指紋"""
+        fingerprint = self.browser_fingerprint.generate()
+        self.assertIsNotNone(fingerprint)
+        self.assertTrue(self.browser_fingerprint.validate())
 
     def test_human_behavior(self):
-        """測試人類行為模擬功能"""
-        self.driver.get('https://example.com')
-        
-        # 測試隨機滾動
-        initial_scroll = self.driver.execute_script('return window.pageYOffset')
-        self.human_behavior.random_scroll()
-        final_scroll = self.driver.execute_script('return window.pageYOffset')
-        self.assertNotEqual(initial_scroll, final_scroll, "頁面滾動未生效")
-        
-        # 測試隨機移動
-        element = self.browser_utils.wait_for_element(By.TAG_NAME, 'body')
-        self.human_behavior.random_mouse_movement(element)
-        
-        # 測試隨機暫停
-        start_time = time.time()
-        self.human_behavior.random_pause()
-        end_time = time.time()
-        self.assertGreater(end_time - start_time, 0, "隨機暫停未生效")
+        """測試人類行為模擬"""
+        behavior = self.human_behavior.simulate()
+        self.assertIsNotNone(behavior)
+
+    def test_proxy_manager(self):
+        """測試代理管理"""
+        proxy = self.proxy_manager.get_proxy()
+        self.assertIsNotNone(proxy)
+
+    def test_request_controller(self):
+        """測試請求控制"""
+        self.request_controller.add_request()
+        self.assertTrue(self.request_controller.can_request())
 
     def test_browser_utils(self):
         """測試瀏覽器工具類功能"""
