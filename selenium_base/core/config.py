@@ -2,144 +2,141 @@
 # -*- coding: utf-8 -*-
 
 """
-Selenium 基礎配置
+基礎配置模組
+
+此模組提供爬蟲的基礎配置類。
 """
 
 import os
+import json
+from typing import Dict, Any, Optional
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any
-from selenium_base.core.exceptions import ConfigError
 
 @dataclass
-class Config:
-    """Selenium 基礎配置類"""
+class BaseConfig:
+    """基礎配置類"""
     
-    # 瀏覽器配置
-    browser_type: str = "chrome"  # 瀏覽器類型：chrome, firefox, safari
-    headless: bool = False  # 是否使用無頭模式
-    remote_url: Optional[str] = None  # 遠程 WebDriver 地址
-    
-    # 窗口配置
-    window_size: Dict[str, int] = field(default_factory=lambda: {"width": 1920, "height": 1080})
-    maximize: bool = True  # 是否最大化窗口
-    
-    # 超時配置
-    page_load_timeout: int = 30  # 頁面加載超時時間（秒）
-    implicit_wait: int = 10  # 隱式等待時間（秒）
-    script_timeout: int = 30  # 腳本執行超時時間（秒）
-    
-    # 重試配置
-    max_retries: int = 3  # 最大重試次數
-    retry_interval: int = 1  # 重試間隔（秒）
-    
-    # 路徑配置
-    base_dir: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    data_dir: str = os.path.join(base_dir, "data")
-    cookies_dir: str = os.path.join(data_dir, "cookies")
-    logs_dir: str = os.path.join(data_dir, "logs")
-    errors_dir: str = os.path.join(data_dir, "errors")
-    screenshots_dir: str = os.path.join(data_dir, "screenshots")
-    temp_dir: str = os.path.join(data_dir, "temp")
-    search_dir: str = os.path.join(data_dir, "search")
-    
-    # 日誌配置
-    log_level: str = "INFO"  # 日誌級別：DEBUG, INFO, WARNING, ERROR, CRITICAL
-    log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    log_file: str = os.path.join(logs_dir, "selenium.log")
-    
-    # 截圖配置
-    screenshot_on_error: bool = True  # 錯誤時是否自動截圖
-    screenshot_format: str = "png"  # 截圖格式：png, jpg
+    data_dir: str = field(default="data")  # 數據目錄
+    browser: Dict[str, Any] = field(default_factory=dict)  # 瀏覽器配置
+    request: Dict[str, Any] = field(default_factory=dict)  # 請求配置
+    anti_detection: Dict[str, Any] = field(default_factory=dict)  # 反偵測配置
+    captcha: Dict[str, Any] = field(default_factory=dict)  # 驗證碼配置
     
     def __post_init__(self):
-        """初始化後處理"""
-        self._validate_config()
-        self._create_directories()
-    
-    def _validate_config(self):
+        """初始化後的驗證"""
+        self.validate()
+        
+    def validate(self) -> None:
         """驗證配置"""
-        # 驗證瀏覽器類型
-        if self.browser_type not in ["chrome", "firefox", "safari"]:
-            raise ConfigError(f"Unsupported browser type: {self.browser_type}")
+        # 驗證數據目錄
+        if not isinstance(self.data_dir, str):
+            raise ValueError("data_dir 必須是字符串")
+            
+        # 創建數據目錄
+        os.makedirs(self.data_dir, exist_ok=True)
         
-        # 驗證超時設置
-        if self.page_load_timeout < 0:
-            raise ConfigError("Page load timeout must be non-negative")
-        if self.implicit_wait < 0:
-            raise ConfigError("Implicit wait must be non-negative")
-        if self.script_timeout < 0:
-            raise ConfigError("Script timeout must be non-negative")
-        
-        # 驗證重試設置
-        if self.max_retries < 0:
-            raise ConfigError("Max retries must be non-negative")
-        if self.retry_interval < 0:
-            raise ConfigError("Retry interval must be non-negative")
-        
-        # 驗證日誌級別
-        valid_log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-        if self.log_level not in valid_log_levels:
-            raise ConfigError(f"Invalid log level: {self.log_level}")
-        
-        # 驗證截圖格式
-        if self.screenshot_format not in ["png", "jpg"]:
-            raise ConfigError(f"Unsupported screenshot format: {self.screenshot_format}")
-    
-    def _create_directories(self):
-        """創建必要的目錄"""
-        directories = [
-            self.data_dir,
-            self.cookies_dir,
-            self.logs_dir,
-            self.errors_dir,
-            self.screenshots_dir,
-            self.temp_dir,
-            self.search_dir
-        ]
-        
-        for directory in directories:
-            os.makedirs(directory, exist_ok=True)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """將配置轉換為字典
-        
-        Returns:
-            配置字典
+        # 驗證瀏覽器配置
+        if not isinstance(self.browser, dict):
+            raise ValueError("browser 必須是字典")
+            
+        # 驗證請求配置
+        if not isinstance(self.request, dict):
+            raise ValueError("request 必須是字典")
+            
+        # 驗證反偵測配置
+        if not isinstance(self.anti_detection, dict):
+            raise ValueError("anti_detection 必須是字典")
+            
+        # 驗證驗證碼配置
+        if not isinstance(self.captcha, dict):
+            raise ValueError("captcha 必須是字典")
+            
+    def save(self, file_path: str) -> None:
         """
-        return {
-            "browser_type": self.browser_type,
-            "headless": self.headless,
-            "remote_url": self.remote_url,
-            "window_size": self.window_size,
-            "maximize": self.maximize,
-            "page_load_timeout": self.page_load_timeout,
-            "implicit_wait": self.implicit_wait,
-            "script_timeout": self.script_timeout,
-            "max_retries": self.max_retries,
-            "retry_interval": self.retry_interval,
-            "base_dir": self.base_dir,
-            "data_dir": self.data_dir,
-            "cookies_dir": self.cookies_dir,
-            "logs_dir": self.logs_dir,
-            "errors_dir": self.errors_dir,
-            "screenshots_dir": self.screenshots_dir,
-            "temp_dir": self.temp_dir,
-            "search_dir": self.search_dir,
-            "log_level": self.log_level,
-            "log_format": self.log_format,
-            "log_file": self.log_file,
-            "screenshot_on_error": self.screenshot_on_error,
-            "screenshot_format": self.screenshot_format
-        }
-    
-    @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> "Config":
-        """從字典創建配置
+        保存配置到文件
         
         Args:
-            config_dict: 配置字典
+            file_path: 文件路徑
+        """
+        # 創建目錄
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        
+        # 轉換為字典
+        config_dict = {
+            "data_dir": self.data_dir,
+            "browser": self.browser,
+            "request": self.request,
+            "anti_detection": self.anti_detection,
+            "captcha": self.captcha,
+        }
+        
+        # 保存到文件
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(config_dict, f, indent=4, ensure_ascii=False)
+            
+    @classmethod
+    def load(cls, file_path: str) -> "BaseConfig":
+        """
+        從文件加載配置
+        
+        Args:
+            file_path: 文件路徑
             
         Returns:
             配置實例
         """
-        return cls(**config_dict) 
+        # 檢查文件是否存在
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"配置文件不存在: {file_path}")
+            
+        # 讀取文件
+        with open(file_path, "r", encoding="utf-8") as f:
+            config_dict = json.load(f)
+            
+        # 創建實例
+        return cls(**config_dict)
+        
+    def update(self, config_dict: Dict[str, Any]) -> None:
+        """
+        更新配置
+        
+        Args:
+            config_dict: 配置字典
+        """
+        # 更新數據目錄
+        if "data_dir" in config_dict:
+            self.data_dir = config_dict["data_dir"]
+            
+        # 更新瀏覽器配置
+        if "browser" in config_dict:
+            self.browser.update(config_dict["browser"])
+            
+        # 更新請求配置
+        if "request" in config_dict:
+            self.request.update(config_dict["request"])
+            
+        # 更新反偵測配置
+        if "anti_detection" in config_dict:
+            self.anti_detection.update(config_dict["anti_detection"])
+            
+        # 更新驗證碼配置
+        if "captcha" in config_dict:
+            self.captcha.update(config_dict["captcha"])
+            
+        # 驗證更新後的配置
+        self.validate()
+        
+    def merge(self, other: "BaseConfig") -> None:
+        """
+        合併另一個配置
+        
+        Args:
+            other: 另一個配置實例
+        """
+        self.update({
+            "data_dir": other.data_dir,
+            "browser": other.browser,
+            "request": other.request,
+            "anti_detection": other.anti_detection,
+            "captcha": other.captcha,
+        }) 

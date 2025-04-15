@@ -17,6 +17,7 @@ setup(
         "undetected-chromedriver>=3.5.0",
         "fake-useragent>=1.1.1",
         "pyppeteer>=1.0.2",
+        "data_scout_extractors>=0.1.0",
     ],
     author="Aaron Yu",
     author_email="aaron@datascout.com",
