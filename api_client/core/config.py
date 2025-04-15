@@ -12,33 +12,6 @@ from typing import Dict, Any, Optional, List
 from api_client.core.exceptions import ConfigurationError
 import time
 
-class APIConfig:
-    """API 配置基礎類"""
-    
-    def __init__(self, config: Dict[str, Any]):
-        """初始化配置
-        
-        Args:
-            config: 配置字典
-        """
-        self.config = config
-    
-    def validate(self) -> bool:
-        """驗證配置
-        
-        Returns:
-            bool: 配置是否有效
-        """
-        return True
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """轉換為字典
-        
-        Returns:
-            Dict[str, Any]: 配置字典
-        """
-        return self.config
-
 @dataclass
 class APIConfig:
     """API 基礎配置類"""
@@ -179,6 +152,15 @@ class APIConfig:
             配置實例
         """
         return cls(**config_dict)
+    
+    def validate(self) -> bool:
+        """驗證配置
+        
+        Returns:
+            bool: 配置是否有效
+        """
+        self._validate_config()
+        return True
 
 class MQTTConfig(APIConfig):
     """MQTT 配置類"""

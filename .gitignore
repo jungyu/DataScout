@@ -139,6 +139,7 @@ data/search/
 .env
 .env.local
 .env.*.local
+examples/formal/cwa/.env
 
 # Testing
 .coverage
