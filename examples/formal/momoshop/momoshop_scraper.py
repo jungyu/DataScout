@@ -87,7 +87,7 @@ class MomoShopScraper(PlaywrightBase):
         Returns:
             List[Dict[str, Any]]: 商品列表
         """
-        url = f"{self.site_config['base_url']}/search/searchShop.jsp?searchKeyword={quote(keyword)}&curPage={page}"
+        url = f"{self.site_config['search_url']}?keyword={quote(keyword)}&cateLevel=0&_isFuzzy=0&searchType=1&curPage={page}"
         logger.info(f"搜索商品: {keyword}, 頁碼: {page}")
         
         self.navigate(url)
@@ -101,10 +101,17 @@ class MomoShopScraper(PlaywrightBase):
             
         # 保存頁面內容以供分析
         content = self.page.content()
-        with open(f"search_result_{keyword}_{page}.html", "w", encoding="utf-8") as f:
+        html_path = Path("data/raw") / f"search_result_{keyword}_{page}.html"
+        screenshot_path = Path("data/raw") / f"search_result_{keyword}_{page}.png"
+        
+        # 確保目錄存在
+        html_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # 保存 HTML 和截圖
+        with open(html_path, "w", encoding="utf-8") as f:
             f.write(content)
-        self.page.screenshot(path=f"search_result_{keyword}_{page}.png")
-        logger.info(f"已保存搜尋結果頁面到 search_result_{keyword}_{page}.html")
+        self.page.screenshot(path=str(screenshot_path))
+        logger.info(f"已保存搜尋結果頁面到 {html_path}")
             
         # 提取商品列表
         products = []
