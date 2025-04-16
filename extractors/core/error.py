@@ -14,7 +14,9 @@ import functools
 import logging
 from typing import Any, Callable, Dict, Optional, Type, Union
 
-from ...core.error import BaseError, handle_error
+class BaseError(Exception):
+    """基礎錯誤類別"""
+    pass
 
 class ExtractorError(BaseError):
     """提取器基礎錯誤類別"""
@@ -43,6 +45,34 @@ class ExtractorTimeoutError(ExtractorError):
 class ExtractorStateError(ExtractorError):
     """提取器狀態錯誤"""
     pass
+
+def handle_error(
+    error_types: Optional[Union[Type[Exception], tuple[Type[Exception], ...]]] = None,
+    default_return: Any = None,
+    logger: Optional[logging.Logger] = None
+) -> Callable:
+    """
+    通用錯誤處理裝飾器
+    
+    Args:
+        error_types: 要處理的錯誤類型
+        default_return: 發生錯誤時的默認返回值
+        logger: 日誌記錄器
+        
+    Returns:
+        裝飾器函數
+    """
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return func(*args, **kwargs)
+            except error_types or (Exception,) as e:
+                if logger:
+                    logger.error(f"執行錯誤：{str(e)}", exc_info=True)
+                return default_return
+        return wrapper
+    return decorator
 
 def handle_extractor_error(
     error_types: Optional[Union[Type[Exception], tuple[Type[Exception], ...]]] = None,
@@ -78,6 +108,7 @@ def handle_extractor_error(
 
 # 導出所有錯誤類別和函數
 __all__ = [
+    'BaseError',
     'ExtractorError',
     'ExtractorNotFoundError',
     'ExtractorConfigError',
@@ -85,5 +116,6 @@ __all__ = [
     'ExtractorExecutionError',
     'ExtractorTimeoutError',
     'ExtractorStateError',
+    'handle_error',
     'handle_extractor_error'
-] 
+]

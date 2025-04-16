@@ -47,8 +47,8 @@ class MomoShopCaptchaHandler:
             self.logger.info("開始處理 reCAPTCHA 驗證碼")
             
             # 檢查是否存在 reCAPTCHA iframe
-            recaptcha_frame = self.driver.frame("iframe[title*='reCAPTCHA']")
-            if not recaptcha_frame:
+            recaptcha_frame = self.driver.frame_locator("iframe[title*='reCAPTCHA']")
+            if recaptcha_frame.count() == 0:
                 self.logger.warning("未找到 reCAPTCHA iframe")
                 return False
                 
@@ -57,8 +57,7 @@ class MomoShopCaptchaHandler:
             checkbox.click()
             
             # 等待驗證完成
-            recaptcha_frame.wait_for_selector(
-                ".recaptcha-checkbox-checked",
+            recaptcha_frame.locator(".recaptcha-checkbox-checked").wait_for(
                 timeout=self.config.get("timeout", 30000)
             )
             
@@ -81,7 +80,7 @@ class MomoShopCaptchaHandler:
             
             # 檢查是否存在圖片驗證碼
             image_captcha = self.driver.locator("img.captcha-image")
-            if not image_captcha.count():
+            if image_captcha.count() == 0:
                 self.logger.warning("未找到圖片驗證碼")
                 return False
                 
@@ -125,7 +124,7 @@ class MomoShopCaptchaHandler:
             
             # 檢查是否存在滑塊驗證碼
             slider = self.driver.locator(".slider-captcha")
-            if not slider.count():
+            if slider.count() == 0:
                 self.logger.warning("未找到滑塊驗證碼")
                 return False
                 
@@ -178,4 +177,4 @@ class MomoShopCaptchaHandler:
             
         except Exception as e:
             self.logger.error(f"處理滑塊驗證碼失敗: {str(e)}")
-            return False 
+            return False

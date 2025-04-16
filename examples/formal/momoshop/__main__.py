@@ -22,9 +22,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
-# 添加專案根目錄到 Python 路徑
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.append(str(project_root))
+# 確保能找到相關模組
+current_dir = Path(__file__).parent
+sys.path.append(str(current_dir.parent.parent.parent))  # 添加專案根目錄
 
 from playwright_base import setup_logger
 from examples.formal.momoshop.momoshop_scraper import MomoShopScraper

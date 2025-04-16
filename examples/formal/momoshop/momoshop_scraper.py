@@ -11,13 +11,14 @@ import logging
 import argparse
 from typing import Dict, List, Optional, Any
 import sys
+import os
 from pathlib import Path
 from urllib.parse import quote
 from datetime import datetime
 
-# 添加專案根目錄到 Python 路徑
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.append(str(project_root))
+# 確保能找到相關模組
+current_dir = Path(__file__).parent
+sys.path.append(str(current_dir.parent.parent.parent))  # 添加專案根目錄
 
 from playwright_base import PlaywrightBase, setup_logger
 from examples.formal.momoshop.captcha_handler import MomoShopCaptchaHandler
@@ -78,15 +79,14 @@ class MomoShopScraper(PlaywrightBase):
             )
             logger.info("驗證碼處理器已設置")
 
-    def search_products(self, keyword: str, page: int = 1, save_page: bool = True, auto_paging: bool = False) -> List[Dict[str, Any]]:
+    def search_products(self, keyword: str, page: int = 1, save_page: bool = True) -> List[Dict[str, Any]]:
         """
-        搜索商品並提取結果，可自動翻頁直到最後一頁
+        搜索商品並提取結果
 
         Args:
             keyword: 搜索關鍵字
-            page: 起始頁碼，默認為1
+            page: 頁碼，默認為1
             save_page: 是否保存頁面內容，默認為True
-            auto_paging: 是否自動翻頁直到最後一頁
 
         Returns:
             List[Dict[str, Any]]: 商品列表，每個商品為一個字典
@@ -95,48 +95,23 @@ class MomoShopScraper(PlaywrightBase):
             PageException: 頁面操作失敗
             ElementException: 元素操作失敗
         """
-        all_products = []
-        cur_page = page
+        try:
+            url = f"{self.site_config['search_url']}?keyword={quote(keyword)}&cateLevel=0&_isFuzzy=0&searchType=1&curPage={page}"
+            logger.info(f"搜索商品: {keyword}, 頁碼: {page}")
 
-        while True:
-            try:
-                url = (
-                    f"{self.site_config['search_url']}?keyword={quote(keyword)}"
-                    f"&cateLevel=0&_isFuzzy=0&searchType=1&curPage={cur_page}"
-                )
-                logger.info(f"搜索商品: {keyword}, 頁碼: {cur_page}，URL: {url}")
+            self.navigate(url)
+            self.wait_for_load_state("networkidle", timeout=self.site_config.get("request", {}).get("timeout", 60000))
 
-                self.navigate(url)
-                self.wait_for_load_state("networkidle", timeout=self.site_config.get("request", {}).get("timeout", 60000))
-                self._handle_captcha_if_present()
+            self._handle_captcha_if_present()
 
-                if save_page:
-                    self._save_page_content(keyword, cur_page)
+            if save_page:
+                self._save_page_content(keyword, page)
 
-                products = self._extract_product_list("search")
-                if not products:
-                    logger.info(f"第 {cur_page} 頁無商品，結束自動翻頁")
-                    break
+            return self._extract_product_list("search")
 
-                all_products.extend(products)
-                logger.info(f"第 {cur_page} 頁擷取 {len(products)} 筆商品，累計 {len(all_products)} 筆")
-
-                if not auto_paging:
-                    break
-
-                # 檢查是否有下一頁（根據分頁按鈕是否存在或商品數量是否小於每頁最大數）
-                next_btn = self.page.locator("a.next")
-                if next_btn.count() == 0 or "disabled" in (next_btn.get_attribute("class") or ""):
-                    logger.info("已到最後一頁，結束自動翻頁")
-                    break
-
-                cur_page += 1
-
-            except Exception as e:
-                logger.error(f"搜尋商品時發生錯誤: {str(e)}")
-                raise PageException(f"搜尋商品失敗: {str(e)}")
-
-        return all_products
+        except Exception as e:
+            logger.error(f"搜尋商品時發生錯誤: {str(e)}")
+            raise PageException(f"搜尋商品失敗: {str(e)}")
 
     def _handle_captcha_if_present(self):
         """處理頁面上可能出現的驗證碼"""
@@ -195,12 +170,7 @@ class MomoShopScraper(PlaywrightBase):
         selectors = self.selectors.get(list_type, {})
 
         try:
-            # 等待商品列表加載完成
-            self.page.wait_for_selector(selectors.get("list_item", "div.goodsUrl"), 
-                                        timeout=self.site_config.get("request", {}).get("timeout", 60000))
-            
-            # 使用 locator 方法查找所有商品元素
-            product_elements = self.page.locator(selectors.get("list_item", "div.goodsUrl")).all()
+            product_elements = self.page.locator(selectors.get("list_item", "")).all()
             logger.info(f"找到 {len(product_elements)} 個商品元素")
 
             for element in product_elements:
@@ -220,114 +190,30 @@ class MomoShopScraper(PlaywrightBase):
             return []
 
     def _extract_product_data(self, element, selectors: Dict[str, str]) -> Optional[Dict[str, Any]]:
-        """從元素中提取商品數據
-
-        Args:
-            element: 商品元素
-            selectors: 選擇器字典
-
-        Returns:
-            Optional[Dict[str, Any]]: 商品數據字典，如果提取失敗則返回 None
-        """
+        """從元素中提取商品數據"""
         try:
             product = {}
 
-            # 商品名稱
-            try:
-                name_element = element.locator(selectors.get("name", "h3.prdName"))
-                product["name"] = name_element.text_content().strip()
-                product["full_name"] = name_element.get_attribute("title") or product["name"]
-            except Exception as e:
-                logger.warning(f"提取商品名稱失敗: {str(e)}")
-                product["name"] = ""
-                product["full_name"] = ""
+            for field, selector in selectors.items():
+                if field in ["list_item", "tags"]:
+                    continue
 
-            # 商品價格
-            try:
-                price_element = element.locator(selectors.get("price", "div.money b"))
-                price_text = price_element.text_content().strip()
-                product["price"] = price_text.replace(",", "")
-            except Exception as e:
-                logger.warning(f"提取商品價格失敗: {str(e)}")
-                product["price"] = ""
-
-            # 商品連結
-            try:
-                link_element = element.locator(selectors.get("link", "a.goods-img-url"))
-                if link_element.count() > 0:
-                    product["link"] = link_element.first.get_attribute("href")
-                else:
-                    product["link"] = ""
-            except Exception as e:
-                logger.warning(f"提取商品鏈接失敗: {str(e)}")
-                product["link"] = ""
-
-            # 商品主圖
-            try:
-                img_element = element.locator(selectors.get("image", "img.prdImg"))
-                if img_element.count() > 0:
-                    product["image"] = img_element.first.get_attribute("src")
-                    product["image_alt"] = img_element.first.get_attribute("alt") or ""
-                else:
-                    product["image"] = ""
-                    product["image_alt"] = ""
-            except Exception as e:
-                logger.warning(f"提取商品圖片失敗: {str(e)}")
-                product["image"] = ""
-                product["image_alt"] = ""
-
-            # 促銷資訊
-            try:
-                promotion_element = element.locator(selectors.get("promotion", "p.sloganTitle"))
-                product["promotion"] = promotion_element.text_content().strip()
-            except Exception as e:
-                logger.warning(f"提取促銷信息失敗: {str(e)}")
-                product["promotion"] = ""
-
-            # 標籤
-            try:
-                tags_elements = element.locator(selectors.get("tags", "div.iconArea i")).all()
-                product["tags"] = [tag.text_content().strip() for tag in tags_elements if tag.text_content().strip()]
-            except Exception as e:
-                logger.warning(f"提取標籤失敗: {str(e)}")
-                product["tags"] = []
-
-            # 商品 ID
-            try:
-                if product["link"]:
-                    import re
-                    id_match = re.search(r"i_code=(\d+)", product["link"])
-                    if id_match:
-                        product["id"] = id_match.group(1)
+                try:
+                    if field.endswith("_url") or field.endswith("_src"):
+                        attr_name = "src" if field.endswith("_src") else "href"
+                        value = element.locator(selector).get_attribute(attr_name)
                     else:
-                        product["id"] = ""
-                else:
-                    product["id"] = ""
-            except Exception as e:
-                logger.warning(f"提取商品 ID 失敗: {str(e)}")
-                product["id"] = ""
+                        value = element.locator(selector).text_content().strip()
 
-            # 評分
-            try:
-                rating_element = element.locator(selectors.get("rating", "div.ratingStars"))
-                if rating_element.count() > 0:
-                    product["rating"] = rating_element.first.get_attribute("data-rating") or "0"
-                else:
-                    product["rating"] = "0"
-            except Exception as e:
-                logger.warning(f"提取評分失敗: {str(e)}")
-                product["rating"] = "0"
+                    product[field] = value
+                except Exception:
+                    product[field] = ""
 
-            # 折扣
-            try:
-                discount_element = element.locator(selectors.get("discount", "span.discountTxt"))
-                if discount_element.count() > 0:
-                    product["discount"] = discount_element.first.text_content().strip()
-                else:
-                    product["discount"] = ""
-            except Exception as e:
-                logger.warning(f"提取折扣信息失敗: {str(e)}")
-                product["discount"] = ""
+            if "tags" in selectors:
+                try:
+                    product["tags"] = [tag.text_content().strip() for tag in element.locator(selectors["tags"]).all()]
+                except Exception:
+                    product["tags"] = []
 
             return product
 
@@ -358,7 +244,7 @@ class MomoShopScraper(PlaywrightBase):
 
     def get_product_detail(self, product_id: str) -> Dict[str, Any]:
         """
-        獲取商品詳情（包含商品規格與評論）
+        獲取商品詳情
 
         Args:
             product_id: 商品 ID
@@ -374,44 +260,15 @@ class MomoShopScraper(PlaywrightBase):
 
         self._handle_captcha_if_present()
 
-        sel = self.selectors["product"]
         try:
             product = {
-                "name": self.page.locator(sel["detail_name"]).text_content().strip(),
-                "price": self.page.locator(sel["detail_price"]).text_content().strip(),
-                "image_url": self.page.locator(sel["image"]).get_attribute("src"),
-                "promotion": self.page.locator(sel["promotion"]).text_content().strip(),
-                "tags": [tag.text_content().strip() for tag in self.page.locator(sel["tags"]).all()],
-                "description": self.page.locator(sel["description"]).text_content().strip() if self.page.locator(sel["description"]).count() > 0 else "",
-                "images": [img.get_attribute("src") for img in self.page.locator(sel["images"]).all()],
+                "name": self.page.locator(self.selectors["product"]["detail_name"]).text_content(),
+                "price": self.page.locator(self.selectors["product"]["detail_price"]).text_content(),
+                "image_url": self.page.locator(self.selectors["product"]["image"]).get_attribute("src"),
+                "product_url": self.page.url,
+                "promotion": self.page.locator(self.selectors["product"]["promotion"]).text_content(),
+                "tags": [tag.text_content() for tag in self.page.locator(self.selectors["product"]["tags"]).all()]
             }
-
-            # 商品規格
-            specs = {}
-            for row in self.page.locator(sel["specs_table"]).all():
-                th = row.locator(sel["spec_name"])
-                td = row.locator(sel["spec_value"])
-                if th.count() > 0 and td.count() > 0:
-                    key = th.first.text_content().strip()
-                    values = [li.text_content().strip() for li in td.first.locator("li").all()]
-                    specs[key] = values if len(values) > 1 else (values[0] if values else "")
-            product["specs"] = specs
-
-            # 商品評論
-            reviews = []
-            for card in self.page.locator(sel["review_card"]).all():
-                try:
-                    review = {
-                        "name": card.locator(sel["review_name"]).first.text_content().strip() if card.locator(sel["review_name"]).count() > 0 else "",
-                        "score": card.locator(sel["review_score"]).first.get_attribute("score") if card.locator(sel["review_score"]).count() > 0 else "",
-                        "date": card.locator(sel["review_date"]).first.text_content().strip() if card.locator(sel["review_date"]).count() > 0 else "",
-                        "comment": card.locator(sel["review_comment"]).first.text_content().strip() if card.locator(sel["review_comment"]).count() > 0 else "",
-                        "images": [img.get_attribute("src") for img in card.locator(sel["review_images"]).all()],
-                    }
-                    reviews.append(review)
-                except Exception as e:
-                    logger.warning(f"擷取單一評論失敗: {str(e)}")
-            product["reviews"] = reviews
 
             logger.info(f"成功提取商品詳情: {product['name']}")
             return product
@@ -457,7 +314,7 @@ def main():
             if not args.keyword:
                 logger.error("搜尋方法需要提供關鍵字")
                 return
-            products = scraper.search_products(args.keyword, args.page, auto_paging=True)
+            products = scraper.search_products(args.keyword, args.page)
             logger.info(f"搜尋結果: {len(products)} 個商品")
             
         elif args.method == "category":
