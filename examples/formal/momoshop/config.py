@@ -46,7 +46,6 @@ SELECTORS: Dict[str, Dict[str, str]] = {
         "list_item": "div.goodsUrl",
         "name": "h3.prdName",
         "price": "div.money b",
-        # link/image 都建議直接用 class 選擇器，並於 _extract_product_data 用 .first 處理
         "link": "a.goods-img-url",
         "image": "img.prdImg",
         "promotion": "p.sloganTitle",
@@ -55,20 +54,24 @@ SELECTORS: Dict[str, Dict[str, str]] = {
         "discount": "span.discountTxt"
     },
     "product": {
-        "list_item": "div.goodsUrl",
-        "name": "//h1[@class='prdName']/text()",
-        "price": "//ul[@class='prdPrice']//span[@class='price']/text()",
-        "link": "//a[@class='goods-img-url']/@href",
-        "image": "//img[@class='productImg']/@src",
-        "promotion": "//div[@class='promotion']//p/text()",
-        "tags": "//div[@class='iconArea']//i",
-        "detail_name": "//h1[@class='prdName']/text()",
-        "detail_price": "//ul[@class='prdPrice']//span[@class='price']/text()",
-        "description": "//div[@class='productIntro']//div[@class='Area']",
-        "specs": "//div[@class='specificationBox']//table//tr",
+        # 商品詳情頁面
+        "detail_name": "h1.prdName",
+        "detail_price": "ul.prdPrice span.price",
+        "image": "img.productImg",
+        "promotion": "div.promotion p",
+        "tags": "div.iconArea i",
+        "description": "div.productIntro div.Area",
+        "specs_table": "div.attributesListArea table#attributesTable tr",
         "spec_name": "th",
         "spec_value": "td",
-        "images": "//div[@class='swiper-wrapper']//img[@class='productImg']/@src"
+        "images": "div.swiper-wrapper img.productImg",
+        # 商品評論
+        "review_card": "div.reviewCard",
+        "review_name": ".Name",
+        "review_score": ".RatingStarGroup",
+        "review_date": ".Date",
+        "review_comment": ".Comment",
+        "review_images": ".PhotoItemInner img",
     },
     "pagination": {
         "container": "div.pageArea",
