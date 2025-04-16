@@ -95,8 +95,12 @@ class MomoShopScraper(PlaywrightBase):
             ElementException: 元素操作失敗
         """
         try:
-            url = f"{self.site_config['search_url']}?keyword={quote(keyword)}&cateLevel=0&_isFuzzy=0&searchType=1&curPage={page}"
-            logger.info(f"搜索商品: {keyword}, 頁碼: {page}")
+            # 正確處理翻頁參數 curPage
+            url = (
+                f"{self.site_config['search_url']}?keyword={quote(keyword)}"
+                f"&cateLevel=0&_isFuzzy=0&searchType=1&curPage={page}"
+            )
+            logger.info(f"搜索商品: {keyword}, 頁碼: {page}，URL: {url}")
 
             self.navigate(url)
             self.wait_for_load_state("networkidle", timeout=self.site_config.get("request", {}).get("timeout", 60000))
@@ -169,7 +173,12 @@ class MomoShopScraper(PlaywrightBase):
         selectors = self.selectors.get(list_type, {})
 
         try:
-            product_elements = self.page.locator(selectors.get("list_item", "")).all()
+            # 等待商品列表加載完成
+            self.page.wait_for_selector(selectors.get("list_item", "div.goodsUrl"), 
+                                        timeout=self.site_config.get("request", {}).get("timeout", 60000))
+            
+            # 使用 locator 方法查找所有商品元素
+            product_elements = self.page.locator(selectors.get("list_item", "div.goodsUrl")).all()
             logger.info(f"找到 {len(product_elements)} 個商品元素")
 
             for element in product_elements:
@@ -189,30 +198,114 @@ class MomoShopScraper(PlaywrightBase):
             return []
 
     def _extract_product_data(self, element, selectors: Dict[str, str]) -> Optional[Dict[str, Any]]:
-        """從元素中提取商品數據"""
+        """從元素中提取商品數據
+
+        Args:
+            element: 商品元素
+            selectors: 選擇器字典
+
+        Returns:
+            Optional[Dict[str, Any]]: 商品數據字典，如果提取失敗則返回 None
+        """
         try:
             product = {}
 
-            for field, selector in selectors.items():
-                if field in ["list_item", "tags"]:
-                    continue
+            # 商品名稱
+            try:
+                name_element = element.locator(selectors.get("name", "h3.prdName"))
+                product["name"] = name_element.text_content().strip()
+                product["full_name"] = name_element.get_attribute("title") or product["name"]
+            except Exception as e:
+                logger.warning(f"提取商品名稱失敗: {str(e)}")
+                product["name"] = ""
+                product["full_name"] = ""
 
-                try:
-                    if field.endswith("_url") or field.endswith("_src"):
-                        attr_name = "src" if field.endswith("_src") else "href"
-                        value = element.locator(selector).get_attribute(attr_name)
+            # 商品價格
+            try:
+                price_element = element.locator(selectors.get("price", "div.money b"))
+                price_text = price_element.text_content().strip()
+                product["price"] = price_text.replace(",", "")
+            except Exception as e:
+                logger.warning(f"提取商品價格失敗: {str(e)}")
+                product["price"] = ""
+
+            # 商品連結
+            try:
+                link_element = element.locator(selectors.get("link", "a.goods-img-url"))
+                if link_element.count() > 0:
+                    product["link"] = link_element.first.get_attribute("href")
+                else:
+                    product["link"] = ""
+            except Exception as e:
+                logger.warning(f"提取商品鏈接失敗: {str(e)}")
+                product["link"] = ""
+
+            # 商品主圖
+            try:
+                img_element = element.locator(selectors.get("image", "img.prdImg"))
+                if img_element.count() > 0:
+                    product["image"] = img_element.first.get_attribute("src")
+                    product["image_alt"] = img_element.first.get_attribute("alt") or ""
+                else:
+                    product["image"] = ""
+                    product["image_alt"] = ""
+            except Exception as e:
+                logger.warning(f"提取商品圖片失敗: {str(e)}")
+                product["image"] = ""
+                product["image_alt"] = ""
+
+            # 促銷資訊
+            try:
+                promotion_element = element.locator(selectors.get("promotion", "p.sloganTitle"))
+                product["promotion"] = promotion_element.text_content().strip()
+            except Exception as e:
+                logger.warning(f"提取促銷信息失敗: {str(e)}")
+                product["promotion"] = ""
+
+            # 標籤
+            try:
+                tags_elements = element.locator(selectors.get("tags", "div.iconArea i")).all()
+                product["tags"] = [tag.text_content().strip() for tag in tags_elements if tag.text_content().strip()]
+            except Exception as e:
+                logger.warning(f"提取標籤失敗: {str(e)}")
+                product["tags"] = []
+
+            # 商品 ID
+            try:
+                if product["link"]:
+                    import re
+                    id_match = re.search(r"i_code=(\d+)", product["link"])
+                    if id_match:
+                        product["id"] = id_match.group(1)
                     else:
-                        value = element.locator(selector).text_content().strip()
+                        product["id"] = ""
+                else:
+                    product["id"] = ""
+            except Exception as e:
+                logger.warning(f"提取商品 ID 失敗: {str(e)}")
+                product["id"] = ""
 
-                    product[field] = value
-                except Exception:
-                    product[field] = ""
+            # 評分
+            try:
+                rating_element = element.locator(selectors.get("rating", "div.ratingStars"))
+                if rating_element.count() > 0:
+                    product["rating"] = rating_element.first.get_attribute("data-rating") or "0"
+                else:
+                    product["rating"] = "0"
+            except Exception as e:
+                logger.warning(f"提取評分失敗: {str(e)}")
+                product["rating"] = "0"
 
-            if "tags" in selectors:
-                try:
-                    product["tags"] = [tag.text_content().strip() for tag in element.locator(selectors["tags"]).all()]
-                except Exception:
-                    product["tags"] = []
+            # 折扣
+            try:
+                discount_element = element.locator(selectors.get("discount", "span.discountTxt"))
+                if discount_element.count() > 0:
+                    product["discount"] = discount_element.first.text_content().strip()
+                else:
+                    product["discount"] = ""
+            except Exception as e:
+                logger.warning(f"提取折扣信息失敗: {str(e)}")
+                product["discount"] = ""
 
             return product
 

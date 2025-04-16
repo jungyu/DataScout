@@ -46,10 +46,13 @@ SELECTORS: Dict[str, Dict[str, str]] = {
         "list_item": "div.goodsUrl",
         "name": "h3.prdName",
         "price": "div.money b",
+        # link/image 都建議直接用 class 選擇器，並於 _extract_product_data 用 .first 處理
         "link": "a.goods-img-url",
-        "image": "div.goodsUrl img.prdImg",
+        "image": "img.prdImg",
         "promotion": "p.sloganTitle",
-        "tags": "div.iconArea i"
+        "tags": "div.iconArea i",
+        "rating": "div.ratingStars",
+        "discount": "span.discountTxt"
     },
     "product": {
         "list_item": "div.goodsUrl",
@@ -105,4 +108,4 @@ LOG_CONFIG = {
     "level": "INFO",
     "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     "file": "momoshop_scraper.log",
-} 
+}
