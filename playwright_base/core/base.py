@@ -235,13 +235,23 @@ class PlaywrightBase:
         route.continue_()
 
     def _random_delay(self):
-        """隨機延遲"""
-        if ANTI_DETECTION_CONFIG["random_delay"]:
-            delay = random.uniform(
-                ANTI_DETECTION_CONFIG["delay_min"],
-                ANTI_DETECTION_CONFIG["delay_max"],
-            )
-            time.sleep(delay)
+        """
+        實現隨機延遲以模擬人類行為
+        
+        延遲時間範圍由配置的 delay_min 和 delay_max 決定
+        只有在 random_delay 配置為 True 時才執行延遲
+        """
+        if not ANTI_DETECTION_CONFIG.get("random_delay", False):
+            return
+            
+        delay = random.uniform(
+            ANTI_DETECTION_CONFIG.get("delay_min", 1),
+            ANTI_DETECTION_CONFIG.get("delay_max", 3),
+        )
+        logger.debug(f"隨機延遲 {delay:.2f} 秒")
+        time.sleep(delay)
+
+
 
     def screenshot(
         self,

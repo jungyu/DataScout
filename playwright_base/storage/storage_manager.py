@@ -32,48 +32,74 @@ class StorageManager:
 
     def save_json(
         self,
-        data: Union[Dict, List],
+        data: Union[Dict[str, Any], List[Any]],
         filename: str,
         append: bool = False,
         pretty: bool = True,
+        encoding: str = "utf-8",
+        ensure_ascii: bool = False,
     ) -> str:
         """
-        保存 JSON 數據
+        保存數據為 JSON 格式
 
         Args:
-            data: 要保存的數據
+            data: 要保存的數據，可以是字典或列表
             filename: 文件名
-            append: 是否追加到現有文件
-            pretty: 是否美化輸出
+            append: 是否追加到現有文件，如果為 True 且文件存在，會將數據合併
+            pretty: 是否美化輸出，美化後的 JSON 會有縮進
+            encoding: 文件編碼
+            ensure_ascii: 是否確保 ASCII 編碼，設為 False 以保留中文等非 ASCII 字符
 
         Returns:
             str: 保存的文件路徑
+
+        Raises:
+            StorageException: 保存過程中發生錯誤
         """
         try:
+            # 確保文件路徑有 .json 後綴
             file_path = self.json_dir / filename
-            if not file_path.suffix:
+            if not file_path.suffix or file_path.suffix.lower() != '.json':
                 file_path = file_path.with_suffix(".json")
 
+            # 處理追加模式
             if append and file_path.exists():
-                with open(file_path, "r", encoding="utf-8") as f:
-                    existing_data = json.load(f)
-                if isinstance(existing_data, list):
-                    if isinstance(data, list):
-                        existing_data.extend(data)
-                    else:
-                        existing_data.append(data)
-                    data = existing_data
-                else:
-                    data = [existing_data, data]
+                try:
+                    with open(file_path, "r", encoding=encoding) as f:
+                        existing_data = json.load(f)
 
-            with open(file_path, "w", encoding="utf-8") as f:
+                    # 合併數據
+                    if isinstance(existing_data, list) and isinstance(data, list):
+                        existing_data.extend(data)
+                        data = existing_data
+                    elif isinstance(existing_data, list):
+                        existing_data.append(data)
+                        data = existing_data
+                    elif isinstance(existing_data, dict) and isinstance(data, dict):
+                        existing_data.update(data)
+                        data = existing_data
+                    else:
+                        data = [existing_data, data]
+                except json.JSONDecodeError:
+                    logger.warning(f"追加模式: 現有文件 {file_path} 不是有效的 JSON，將被覆蓋")
+
+            # 寫入文件
+            with open(file_path, "w", encoding=encoding) as f:
+                json_kwargs = {"ensure_ascii": ensure_ascii}
                 if pretty:
-                    json.dump(data, f, ensure_ascii=False, indent=2)
-                else:
-                    json.dump(data, f, ensure_ascii=False)
+                    json_kwargs["indent"] = 2
+
+                json.dump(data, f, **json_kwargs)
 
             logger.info(f"JSON 數據已保存到: {file_path}")
             return str(file_path)
+
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON 編碼錯誤: {str(e)}")
+            raise StorageException(f"JSON 編碼錯誤: {str(e)}")
+        except PermissionError:
+            logger.error(f"無法寫入文件，權限被拒絕: {file_path}")
+            raise StorageException(f"保存 JSON 失敗: 無權限寫入文件 {file_path}")
         except Exception as e:
             logger.error(f"保存 JSON 數據時發生錯誤: {str(e)}")
             raise StorageException(f"保存 JSON 數據失敗: {str(e)}")
@@ -332,4 +358,4 @@ class StorageManager:
             return max(files, key=lambda x: x.stat().st_mtime)
         except Exception as e:
             logger.error(f"獲取最新文件時發生錯誤: {str(e)}")
-            return None 
+            return None

@@ -143,38 +143,51 @@ class UserAgentManager:
             logger.error(f"獲取一致用戶代理時發生錯誤: {str(e)}")
             raise AntiDetectionException(f"獲取一致用戶代理失敗: {str(e)}")
     
-    def rotate_ua(self) -> str:
+    def rotate_ua(self) -> Optional[str]:
         """
-        輪換用戶代理
+        根據設定的間隔輪換用戶代理
+        
+        如果距離上次輪換時間未滿設定的間隔，則返回當前代理
+        否則生成新的用戶代理並更新輪換時間
         
         Returns:
-            str: 新的用戶代理字符串
+            Optional[str]: 用戶代理字符串，如未啟用則返回 None
+        
+        Raises:
+            AntiDetectionException: 輪換過程中出現錯誤
         """
+        if not self.ua_config.get("enabled", False):
+            return None
+        
         try:
-            if not self.ua_config["enabled"]:
-                return None
-            
             current_time = datetime.now()
+            rotation_interval = self.ua_config.get("rotation_interval", 3600)
             
             # 檢查是否需要輪換
-            if (self.ua_config["last_rotation"] and
-                (current_time - self.ua_config["last_rotation"]).total_seconds() < self.ua_config["rotation_interval"]):
-                return self.ua_config["current_ua"]
+            last_rotation = self.ua_config.get("last_rotation")
+            if (last_rotation and 
+                (current_time - last_rotation).total_seconds() < rotation_interval):
+                return self.ua_config.get("current_ua")
             
-            # 生成新用戶代理
-            new_ua = self.generate_random_ua()
-            while new_ua in self.ua_config["blacklist"]:
+            # 篩選非黑名單的用戶代理
+            blacklist = set(item.get("ua") for item in self.ua_config.get("blacklist", []))
+            
+            # 嘗試生成非黑名單的用戶代理
+            for _ in range(10):  # 最多嘗試10次
                 new_ua = self.generate_random_ua()
+                if new_ua not in blacklist:
+                    break
             
             self.ua_config["current_ua"] = new_ua
             self.ua_config["last_rotation"] = current_time
             
-            logger.info(f"已輪換到新用戶代理: {new_ua}")
+            logger.info(f"已輪換到新用戶代理: {new_ua[:30]}...")
             return new_ua
+            
         except Exception as e:
             logger.error(f"輪換用戶代理時發生錯誤: {str(e)}")
             raise AntiDetectionException(f"輪換用戶代理失敗: {str(e)}")
-    
+        
     def add_to_blacklist(self, ua: str) -> None:
         """
         將用戶代理添加到黑名單

@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlencode, quote
 import json
+from datetime import datetime
 
 # 添加專案根目錄到 Python 路徑
 project_root = Path(__file__).parent.parent.parent.parent
@@ -29,6 +30,14 @@ from examples.formal.momoshop.config import SITE_CONFIG, SELECTORS, BROWSER_CONF
 
 # 設置日誌
 logger = setup_logger(name=__name__)
+
+class PageException(Exception):
+    """頁面操作失敗異常"""
+    pass
+
+class ElementException(Exception):
+    """元素操作失敗異常"""
+    pass
 
 class MomoShopScraper(PlaywrightBase):
     """
@@ -76,71 +85,167 @@ class MomoShopScraper(PlaywrightBase):
             )
             logger.info("驗證碼處理器已設置")
             
-    def search_products(self, keyword: str, page: int = 1) -> List[Dict[str, Any]]:
+    def search_products(self, keyword: str, page: int = 1, save_page: bool = True) -> List[Dict[str, Any]]:
         """
-        搜索商品
-        
+        搜索商品並提取結果
+
         Args:
             keyword: 搜索關鍵字
-            page: 頁碼
-            
+            page: 頁碼，默認為1
+            save_page: 是否保存頁面內容，默認為True
+
+        Returns:
+            List[Dict[str, Any]]: 商品列表，每個商品為一個字典
+
+        Raises:
+            PageException: 頁面操作失敗
+            ElementException: 元素操作失敗
+        """
+        try:
+            # 構建並編碼 URL
+            url = f"{self.site_config['search_url']}?keyword={quote(keyword)}&cateLevel=0&_isFuzzy=0&searchType=1&curPage={page}"
+            logger.info(f"搜索商品: {keyword}, 頁碼: {page}")
+
+            # 導航並等待頁面加載
+            self.navigate(url)
+            self.wait_for_load_state("networkidle", timeout=self.site_config.get("request", {}).get("timeout", 60000))
+
+            # 處理驗證碼
+            self._handle_captcha_if_present()
+
+            # 保存頁面內容
+            if save_page:
+                self._save_page_content(keyword, page)
+
+            # 提取商品列表
+            return self._extract_product_list("search")
+
+        except Exception as e:
+            logger.error(f"搜尋商品時發生錯誤: {str(e)}")
+            raise PageException(f"搜尋商品失敗: {str(e)}")
+
+    def _handle_captcha_if_present(self):
+        """處理頁面上可能出現的驗證碼"""
+        captcha_selectors = self.selectors.get("captcha", {})
+
+        # 檢查各種類型的驗證碼
+        for captcha_type, selector in captcha_selectors.items():
+            try:
+                if self.page.locator(selector).count() > 0:
+                    logger.info(f"檢測到 {captcha_type} 驗證碼")
+                    self.setup_captcha_handler()
+
+                    # 根據驗證碼類型調用相應的處理方法
+                    handler_method = getattr(self.captcha_handler, f"handle_{captcha_type}", None)
+                    if handler_method and callable(handler_method):
+                        result = handler_method()
+                        if result:
+                            logger.info(f"{captcha_type} 驗證碼處理成功")
+                        else:
+                            logger.warning(f"{captcha_type} 驗證碼處理失敗")
+                    else:
+                        logger.warning(f"未找到處理 {captcha_type} 驗證碼的方法")
+            except Exception as e:
+                logger.error(f"處理 {captcha_type} 驗證碼時發生錯誤: {str(e)}")
+
+    def _save_page_content(self, keyword: str, page: int):
+        """保存頁面內容和截圖"""
+        try:
+            # 建立文件名
+            base_name = f"search_result_{keyword}_{page}"
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            file_name = f"{base_name}_{timestamp}"
+
+            # 準備保存路徑
+            save_dir = Path(self.site_config.get("save_path", "data/raw"))
+            save_dir.mkdir(parents=True, exist_ok=True)
+
+            # 保存 HTML
+            content = self.page.content()
+            html_path = save_dir / f"{file_name}.html"
+            with open(html_path, "w", encoding="utf-8") as f:
+                f.write(content)
+
+            # 保存截圖
+            screenshot_path = save_dir / f"{file_name}.png"
+            self.page.screenshot(path=str(screenshot_path))
+
+            logger.info(f"已保存頁面內容: HTML={html_path}, 截圖={screenshot_path}")
+        except Exception as e:
+            logger.warning(f"保存頁面內容時發生錯誤: {str(e)}")
+
+    def _extract_product_list(self, list_type: str) -> List[Dict[str, Any]]:
+        """
+        從頁面提取商品列表
+
+        Args:
+            list_type: 列表類型，可以是 "search" 或 "category"
+
         Returns:
             List[Dict[str, Any]]: 商品列表
         """
-        url = f"{self.site_config['search_url']}?keyword={quote(keyword)}&cateLevel=0&_isFuzzy=0&searchType=1&curPage={page}"
-        logger.info(f"搜索商品: {keyword}, 頁碼: {page}")
-        
-        self.navigate(url)
-        self.wait_for_load_state("networkidle", timeout=60000)
-        
-        # 檢查是否有驗證碼
-        if self.page.locator(self.selectors["captcha"]["recaptcha"]).count() > 0:
-            logger.info("檢測到 reCAPTCHA 驗證碼")
-            self.setup_captcha_handler()
-            self.captcha_handler.handle_recaptcha()
-            
-        # 保存頁面內容以供分析
-        content = self.page.content()
-        html_path = Path("data/raw") / f"search_result_{keyword}_{page}.html"
-        screenshot_path = Path("data/raw") / f"search_result_{keyword}_{page}.png"
-        
-        # 確保目錄存在
-        html_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        # 保存 HTML 和截圖
-        with open(html_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        self.page.screenshot(path=str(screenshot_path))
-        logger.info(f"已保存搜尋結果頁面到 {html_path}")
-            
-        # 提取商品列表
         products = []
+        selectors = self.selectors.get(list_type, {})
+
         try:
-            product_elements = self.page.locator(self.selectors["search"]["list_item"]).all()
+            # 獲取所有商品元素
+            product_elements = self.page.locator(selectors.get("list_item", "")).all()
             logger.info(f"找到 {len(product_elements)} 個商品元素")
-            
+
+            # 處理每個商品元素
             for element in product_elements:
                 try:
-                    product = {
-                        "name": element.locator(self.selectors["search"]["name"]).text_content(),
-                        "price": element.locator(self.selectors["search"]["price"]).text_content(),
-                        "image_url": element.locator(self.selectors["search"]["image"]).get_attribute("src"),
-                        "product_url": element.locator(self.selectors["search"]["link"]).get_attribute("href"),
-                        "promotion": element.locator(self.selectors["search"]["promotion"]).text_content(),
-                        "tags": [tag.text_content() for tag in element.locator(self.selectors["search"]["tags"]).all()]
-                    }
-                    products.append(product)
+                    product = self._extract_product_data(element, selectors)
+                    if product:
+                        products.append(product)
                 except Exception as e:
                     logger.error(f"提取商品信息失敗: {str(e)}")
                     continue
-                    
+
             logger.info(f"成功提取 {len(products)} 個商品")
             return products
-            
+
         except Exception as e:
-            logger.error(f"搜尋商品時發生錯誤: {str(e)}")
-            raise
-        
+            logger.error(f"提取商品列表時發生錯誤: {str(e)}")
+            return []
+
+    def _extract_product_data(self, element, selectors: Dict[str, str]) -> Optional[Dict[str, Any]]:
+        """從元素中提取商品數據"""
+        try:
+            product = {}
+
+            # 提取基本信息
+            for field, selector in selectors.items():
+                if field in ["list_item", "tags"]:
+                    continue
+
+                try:
+                    if field.endswith("_url") or field.endswith("_src"):
+                        # 對於URL類型的字段，獲取屬性
+                        attr_name = "src" if field.endswith("_src") else "href"
+                        value = element.locator(selector).get_attribute(attr_name)
+                    else:
+                        # 對於文本類型的字段，獲取文本內容
+                        value = element.locator(selector).text_content().strip()
+
+                    product[field] = value
+                except Exception:
+                    # 如果某個字段提取失敗，設置為空字符串
+                    product[field] = ""
+
+            # 提取標籤
+            if "tags" in selectors:
+                try:
+                    product["tags"] = [tag.text_content().strip() for tag in element.locator(selectors["tags"]).all()]
+                except Exception:
+                    product["tags"] = []
+
+            return product
+
+        except Exception as e:
+            logger.error(f"提取商品數據時發生錯誤: {str(e)}")
+            return None
+
     def get_category_products(self, category_id: str, page: int = 1) -> List[Dict[str, Any]]:
         """
         獲取分類商品
@@ -283,4 +388,4 @@ def main():
         scraper.close()
         
 if __name__ == "__main__":
-    main() 
+    main()
