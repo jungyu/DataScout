@@ -6,8 +6,11 @@ import numpy as np
 from pathlib import Path
 import os
 
+# 設定中文字型支援
+plt.rcParams['font.family'] = ['Noto Sans Gothic', 'Taipei Sans TC Beta', 'AppleGothic', 'Heiti TC', 'Arial Unicode MS']
+
 # 定義要取的 FRED 指標 ID (定向性財政刺激相關指標)
-fred_ids = ["GDPC1", "GPDI", "GCE", "PAYEMS", "PAYCONSA", "MANEMP", "UNRATE", "GFDEBTN"]
+fred_ids = ["GDPC1", "GPDI", "GCE", "PAYEMS", "USCONS", "MANEMP", "UNRATE", "GFDEBTN"]
 
 # 設定時間範圍 (從 2000 年至今)
 start_date = datetime.datetime(2000, 1, 1)
@@ -85,8 +88,8 @@ try:
                 # 定義持續增長標準 (年度增長率 > 3%)
                 analysis_df[f'{indicator}_growth_y'] = analysis_df[f'{indicator}_yoy_pct'] > 3
     
-    # 2. 就業數據分析 (PAYEMS總數、PAYCONSA建築業、MANEMP製造業)
-    for indicator in ["PAYEMS", "PAYCONSA", "MANEMP"]:
+    # 2. 就業數據分析 (PAYEMS總數、USCONS建築業、MANEMP製造業)
+    for indicator in ["PAYEMS", "USCONS", "MANEMP"]:
         if indicator in fred_data.columns:
             indicator_data = fred_data[indicator].dropna()
             if not indicator_data.empty:
@@ -143,7 +146,7 @@ try:
             stimulus_indicators.append(component)
     
     # 檢查就業增長
-    for emp_indicator in ['PAYCONSA_growth_m', 'MANEMP_growth_m']:
+    for emp_indicator in ['USCONS_growth_m', 'MANEMP_growth_m']:
         if emp_indicator in analysis_df.columns:
             stimulus_indicators.append(emp_indicator)
     
@@ -189,7 +192,7 @@ try:
     axes[0].set_ylabel('金額')
     
     # 2. 就業數據圖表
-    for i, indicator_pair in enumerate([("PAYEMS", "非農就業總數"), ("PAYCONSA", "建築業就業"), ("MANEMP", "製造業就業")]):
+    for i, indicator_pair in enumerate([("PAYEMS", "非農就業總數"), ("USCONS", "建築業就業"), ("MANEMP", "製造業就業")]):
         indicator, title = indicator_pair
         if indicator in fred_data.columns:
             indicator_data = fred_data[indicator].dropna() / 1e3  # 轉換為百萬人
@@ -275,7 +278,7 @@ try:
                 print(f"  • {start_date} 至 {end_date}")
                 
                 # 計算期間內的指標變化
-                for indicator in ['GDPC1', 'GPDI', 'GCE', 'PAYEMS', 'PAYCONSA', 'MANEMP', 'UNRATE', 'GFDEBTN']:
+                for indicator in ['GDPC1', 'GPDI', 'GCE', 'PAYEMS', 'USCONS', 'MANEMP', 'UNRATE', 'GFDEBTN']:
                     if indicator in data.columns:
                         if indicator == 'UNRATE':  # 失業率用百分點變化
                             change = data[indicator].iloc[-1] - data[indicator].iloc[0]
@@ -304,12 +307,12 @@ try:
                 print(f"  • 政府消費與投資平均季度增長率: {recent_growth:.2f}%")
     
     # 檢查就業數據
-    for indicator in ['PAYEMS', 'PAYCONSA', 'MANEMP']:
+    for indicator in ['PAYEMS', 'USCONS', 'MANEMP']:
         if f'{indicator}_mom_change' in recent_data.columns:
             recent_change = recent_data[f'{indicator}_mom_change'].mean()
             if indicator == 'PAYEMS':
                 print(f"  • 非農就業平均月增長: {recent_change:.2f}千人")
-            elif indicator == 'PAYCONSA':
+            elif indicator == 'USCONS':
                 print(f"  • 建築業就業平均月增長: {recent_change:.2f}千人")
             elif indicator == 'MANEMP':
                 print(f"  • 製造業就業平均月增長: {recent_change:.2f}千人")
@@ -345,19 +348,26 @@ try:
             sector_benefits.append("政府項目")
         
         # 檢查就業增長情況
-        if 'PAYCONSA_growth_m' in recent_data.columns and recent_data['PAYCONSA_growth_m'].sum() > 0:
+        if 'USCONS_growth_m' in recent_data.columns and recent_data['USCONS_growth_m'].sum() > 0:
             sector_benefits.append("建築業")
         
-        if 'MANEMP_growth_m' in recent_data.columns and recent_data['MANEMP_growth_m'].sum() > 0:
-            sector_benefits.append("製造業")
+        if 'MANEMP_growth_m' in recent_data.columns:
+            if recent_data['MANEMP_growth_m'].sum() > 0:
+                sector_benefits.append("製造業")
         
         if sector_benefits:
             print(f"  • 主要受益部門: {', '.join(sector_benefits)}")
+        else:
+            print("  • 未發現明顯受益部門")
     else:
-        print("  • 近期未出現明確的定向性財政刺激跡象")
+        print("  • 近期無明顯財政刺激跡象")
 
 except Exception as e:
     print(f"獲取或處理 FRED 數據時發生錯誤: {e}")
     print("請確認指標 ID 是否正確，以及網路連線是否正常。")
     import traceback
-    print(traceback.format_exc())
+    print(traceback.format_exc())  # 顯示詳細的錯誤信息
+
+finally:
+    print("\n分析完成")
+    plt.close('all')  # 關閉所有圖表

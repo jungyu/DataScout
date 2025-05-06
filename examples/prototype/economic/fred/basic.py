@@ -5,6 +5,10 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import os
 
+# 設定中文字型支援
+# 嘗試使用系統中存在的常見中文字型名稱列表作為優先順序
+plt.rcParams['font.family'] = ['Noto Sans Gothic', 'Taipei Sans TC Beta', 'AppleGothic', 'Heiti TC']
+
 # 定義要取的 FRED 指標 ID
 fred_ids = ["UNRATE", "GDP", "DFF", "T10YIE", "WALCL"]
 
