@@ -62,32 +62,30 @@ def setup_output_dirs() -> Dict[str, Path]:
 def save_results(data: Any, method: str, query: str, format: str = "json") -> Path:
     """
     保存爬取結果
-    
+
     Args:
         data: 爬取的數據
         method: 爬取方法 (search/category/product)
         query: 查詢內容 (關鍵字/分類ID/商品ID)
         format: 輸出格式 (json/csv)
-        
+
     Returns:
         Path: 保存的文件路徑
     """
     # 建立文件名
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{method}_{query}_{timestamp}"
-    
-    # 準備保存路徑
-    output_dir = Path("data/processed")
+
+    # 修改輸出路徑到 examples/formal/momoshop/data/
+    output_dir = Path(__file__).parent / "data"
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     if format.lower() == "json":
         file_path = output_dir / f"{filename}.json"
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     elif format.lower() == "csv":
         file_path = output_dir / f"{filename}.csv"
-        
-        # 根據數據類型處理 CSV 輸出
         if isinstance(data, list) and data:
             with open(file_path, "w", encoding="utf-8", newline="") as f:
                 fields = data[0].keys()
@@ -95,7 +93,6 @@ def save_results(data: Any, method: str, query: str, format: str = "json") -> Pa
                 writer.writeheader()
                 writer.writerows(data)
         else:
-            # 處理單個產品詳情
             with open(file_path, "w", encoding="utf-8", newline="") as f:
                 if isinstance(data, dict):
                     fields = data.keys()
@@ -107,7 +104,7 @@ def save_results(data: Any, method: str, query: str, format: str = "json") -> Pa
     else:
         logger.warning(f"不支持的格式: {format}")
         return None
-        
+
     logger.info(f"結果已保存到 {file_path}")
     return file_path
 
