@@ -58,12 +58,13 @@ SELECTORS = {
         "image": ".article-header__image img" # 圖片
     },
     "paywall": {
-        "login_button": ".login-link", # 登入按鈕
-        "paywall": ".piano-container", # 付費牆
-        "cookie_banner": ".cookie-consent", # Cookie 橫幅
-        "cookie_accept": ".cookie-consent__button--accept", # 接受 Cookie 按鈕
-        "subscription_banner": ".subscription-prompt", # 訂閱橫幅
-        "close_button": ".close-button" # 關閉按鈕
+        "login_button": ".login-link", 
+        "paywall": ".piano-container", 
+        "cookie_banner": ".cookie-consent, .cookie-banner", # 新增 cookie-banner 選擇器
+        "cookie_accept": ".cookie-banner__button[data-acceptance-button], .btn.btn--white-fill.cookie-banner__button", # 更新接受按鈕
+        "cookie_close": ".cookie-banner__link--close[data-close-button], .cookie-banner__link.cookie-banner__link--close", # 新增關閉按鈕
+        "subscription_banner": ".subscription-prompt",
+        "close_button": ".close-button"
     }
 }
 
@@ -285,6 +286,24 @@ class NikkeiScraper(PlaywrightBase):
                     "path": "/"
                 },
                 {
+                    "name": "nikkei_cookie_banner_closed",  # 新增
+                    "value": "true",
+                    "domain": ".asia.nikkei.com",
+                    "path": "/"
+                },
+                {
+                    "name": "nikkei_cookie_accepted",  # 新增
+                    "value": "true",
+                    "domain": ".asia.nikkei.com",
+                    "path": "/"
+                },
+                {
+                    "name": "gdpr_cookie_accepted",  # 新增
+                    "value": "true",
+                    "domain": ".asia.nikkei.com",
+                    "path": "/"
+                },
+                {
                     "name": "visited_articles",
                     "value": "[]",
                     "domain": ".asia.nikkei.com",
@@ -437,6 +456,8 @@ class NikkeiScraper(PlaywrightBase):
                 self.selectors["paywall"]["login_button"],
                 self.selectors["paywall"]["cookie_banner"],
                 self.selectors["paywall"]["subscription_banner"],
+                "a.cookie-banner__button[data-acceptance-button]",  # 新增
+                ".cookie-banner",  # 新增
                 "#piano-container",
                 ".gdpr-banner",
                 ".newsletter-signup",
@@ -472,7 +493,27 @@ class NikkeiScraper(PlaywrightBase):
     def _handle_paywall_or_popup(self) -> bool:
         """處理付費牆或彈窗"""
         try:
-            # 處理 Cookie 彈窗
+            # 特別處理 Nikkei 的 Cookie 彈窗
+            nikkei_cookie_selectors = [
+                "a.cookie-banner__button[data-acceptance-button]",
+                ".btn.btn--white-fill.cookie-banner__button",
+                ".cookie-banner__button[data-acceptance-button]"
+            ]
+            
+            for selector in nikkei_cookie_selectors:
+                try:
+                    if self.page.query_selector(selector):
+                        logger.info(f"點擊 Nikkei Cookie 同意按鈕: {selector}")
+                        self.page.click(selector)
+                        self._random_delay(1, 2)
+                        # 儲存接受 cookie 狀態
+                        self._save_cookie_acceptance_state()
+                        return True
+                except Exception as e:
+                    logger.warning(f"點擊 Nikkei Cookie 按鈕 {selector} 失敗: {str(e)}")
+                    continue
+            
+            # 處理 Cookie 彈窗 (一般處理)
             cookie_selectors = [
                 self.selectors["paywall"]["cookie_accept"],
                 ".cookie-consent__button",
@@ -534,6 +575,44 @@ class NikkeiScraper(PlaywrightBase):
         except Exception as e:
             logger.error(f"處理付費牆或彈窗時發生錯誤: {str(e)}")
             return False
+
+    def _save_cookie_acceptance_state(self):
+        """儲存 Cookie 接受狀態"""
+        try:
+            # 設置 Nikkei 特定的 Cookie
+            self._context.add_cookies([
+                {
+                    "name": "nikkei_cookie_banner_closed",
+                    "value": "true",
+                    "domain": ".asia.nikkei.com",
+                    "path": "/"
+                },
+                {
+                    "name": "nikkei_cookie_accepted", 
+                    "value": "true",
+                    "domain": ".asia.nikkei.com",
+                    "path": "/"
+                },
+                {
+                    "name": "gdpr_cookie_accepted",
+                    "value": "true",
+                    "domain": ".asia.nikkei.com",
+                    "path": "/"
+                }
+            ])
+            
+            # 將接受狀態儲存到 storage.json
+            try:
+                storage = self._context.storage_state()
+                with open("storage.json", "w") as f:
+                    json.dump(storage, f)
+                logger.info("已將 Cookie 接受狀態儲存到 storage.json")
+            except Exception as e:
+                logger.warning(f"儲存 storage 狀態時發生錯誤: {str(e)}")
+                
+            logger.info("已設置 Nikkei Cookie 接受狀態")
+        except Exception as e:
+            logger.warning(f"儲存 Cookie 接受狀態時發生錯誤: {str(e)}")
 
     def _get_total_count(self) -> int:
         """獲取搜索結果的總數量"""
