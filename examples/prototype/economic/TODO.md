@@ -1,0 +1,7 @@
+- 新聞事件的取得(Yahoo Finance, 彭博)
+- 預測模型：XGBoost/LightGBM
+- fastAPI
+- tailwind + chart.js (OHLC)
+- 預測模型：LSTM/GRU
+- 預測模型：NeuralProphet
+- 預測模型：ARIMA/SARIMA

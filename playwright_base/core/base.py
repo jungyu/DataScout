@@ -109,7 +109,19 @@ class PlaywrightBase:
             if self.proxy:
                 context_kwargs["proxy"] = self.proxy
                 
-            self._context = self._browser.new_context(**context_kwargs)
+            # 檢查 storage.json 是否存在，不存在則不使用 storage_state
+            if os.path.exists("storage.json"):
+                try:
+                    with open("storage.json", "r") as f:
+                        storage = json.load(f)
+                        self._context = self._browser.new_context(storage_state=storage)
+                except Exception as e:
+                    logger.warning(f"讀取儲存狀態失敗: {str(e)}，將創建新的上下文")
+                    self._context = self._browser.new_context(**context_kwargs)
+            else:
+                # 沒有 storage.json 時，創建一個新的 context
+                logger.info("未找到 storage.json，使用默認配置創建瀏覽器上下文")
+                self._context = self._browser.new_context(**context_kwargs)
             self._page = self._context.new_page()
             
             # 設置請求攔截
@@ -118,7 +130,7 @@ class PlaywrightBase:
             logger.info("瀏覽器實例已啟動")
         except Exception as e:
             logger.error(f"啟動瀏覽器時發生錯誤: {str(e)}")
-            raise BrowserException(f"啟動瀏覽器失敗: {str(e)}")
+            raise BrowserException(f"啟動瀍覽器失敗: {str(e)}")
 
     def close(self) -> None:
         """
@@ -509,15 +521,10 @@ class PlaywrightBase:
             raise PageException("頁面未創建")
             
         try:
-            # 獲取儲存狀態
-            storage = self.page.context.storage_state()
-            
-            # 創建目錄
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            
-            # 保存到文件
-            with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(storage, f, ensure_ascii=False, indent=2)
+            # 儲存狀態
+            storage = self._context.storage_state()
+            with open("storage.json", "w") as f:
+                json.dump(storage, f)
                 
             self.storage_state = storage
             logger.info(f"儲存狀態已保存到: {file_path}")
@@ -560,4 +567,4 @@ class PlaywrightBase:
             logger.info("已清除儲存狀態")
         except Exception as e:
             logger.error(f"清除儲存狀態失敗: {str(e)}")
-            raise StorageException(f"清除儲存狀態失敗: {str(e)}") 
+            raise StorageException(f"清除儲存狀態失敗: {str(e)}")
