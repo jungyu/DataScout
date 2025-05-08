@@ -19,6 +19,8 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from ..core.base import BaseExtractor
 from ..core.error import ExtractorError, handle_extractor_error
 from .web import WebExtractor
+# 導入 BaseConfig 類型
+from ..core.manager import BaseConfig
 
 class ContentExtractor(WebExtractor):
     """內容提取器類別"""
@@ -142,4 +144,4 @@ class ContentExtractor(WebExtractor):
             'content': self.extract_content(),
             'metadata': self.extract_metadata(),
             'links': self.extract_links()
-        } 
+        }

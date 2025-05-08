@@ -12,6 +12,7 @@
 """
 
 import logging
+from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Union
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -22,6 +23,8 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 from ..core.base import BaseExtractor
 from ..core.error import ExtractorError, handle_extractor_error
+# 導入 BaseConfig 類型
+from ..core.manager import BaseConfig
 
 class WebExtractor(BaseExtractor):
     """網頁提取器類別"""
@@ -227,4 +230,4 @@ class WebExtractor(BaseExtractor):
     @abstractmethod
     def _extract(self, *args: Any, **kwargs: Any) -> Any:
         """具體的提取邏輯"""
-        pass 
+        pass

@@ -13,7 +13,7 @@ class PageOperations:
         Args:
             page: Playwright 頁面對象
         """
-        this.page = page
+        self.page = page
 
     def wait_for_network_idle(self, timeout: int = 30000) -> None:
         """
@@ -23,7 +23,7 @@ class PageOperations:
             timeout: 超時時間（毫秒）
         """
         try:
-            this.page.wait_for_load_state("networkidle", timeout=timeout)
+            self.page.wait_for_load_state("networkidle", timeout=timeout)
             logger.debug("網絡請求已完成")
         except TimeoutError:
             logger.warning("等待網絡請求超時")
@@ -38,7 +38,7 @@ class PageOperations:
             timeout: 超時時間（毫秒）
         """
         try:
-            element = this.page.wait_for_selector(selector, timeout=timeout)
+            element = self.page.wait_for_selector(selector, timeout=timeout)
             element.scroll_into_view_if_needed()
             logger.debug(f"已滾動到元素: {selector}")
         except Exception as e:
@@ -54,7 +54,7 @@ class PageOperations:
             delay: 每次滾動的延遲（毫秒）
         """
         try:
-            this.page.evaluate(f"""
+            self.page.evaluate(f"""
                 window.scrollTo(0, document.body.scrollHeight);
                 new Promise((resolve) => {{
                     let totalHeight = 0;
@@ -88,7 +88,7 @@ class PageOperations:
             str: 元素文本
         """
         try:
-            element = this.page.wait_for_selector(selector, timeout=timeout)
+            element = self.page.wait_for_selector(selector, timeout=timeout)
             text = element.text_content()
             logger.debug(f"已獲取元素文本: {selector}")
             return text.strip()
@@ -109,7 +109,7 @@ class PageOperations:
             str: 屬性值
         """
         try:
-            element = this.page.wait_for_selector(selector, timeout=timeout)
+            element = self.page.wait_for_selector(selector, timeout=timeout)
             value = element.get_attribute(attribute)
             logger.debug(f"已獲取元素屬性: {selector} [{attribute}]")
             return value
@@ -129,7 +129,7 @@ class PageOperations:
             List[str]: 元素文本列表
         """
         try:
-            elements = this.page.query_selector_all(selector)
+            elements = self.page.query_selector_all(selector)
             texts = [element.text_content().strip() for element in elements]
             logger.debug(f"已獲取元素文本列表: {selector}")
             return texts
@@ -150,7 +150,7 @@ class PageOperations:
             List[str]: 屬性值列表
         """
         try:
-            elements = this.page.query_selector_all(selector)
+            elements = self.page.query_selector_all(selector)
             values = [element.get_attribute(attribute) for element in elements]
             logger.debug(f"已獲取元素屬性列表: {selector} [{attribute}]")
             return values
@@ -167,7 +167,7 @@ class PageOperations:
             timeout: 超時時間（毫秒）
         """
         try:
-            this.page.click(selector, timeout=timeout)
+            self.page.click(selector, timeout=timeout)
             logger.debug(f"已點擊元素: {selector}")
         except Exception as e:
             logger.error(f"點擊元素時發生錯誤: {str(e)}")
@@ -183,7 +183,7 @@ class PageOperations:
             timeout: 超時時間（毫秒）
         """
         try:
-            this.page.fill(selector, value, timeout=timeout)
+            self.page.fill(selector, value, timeout=timeout)
             logger.debug(f"已填充輸入框: {selector}")
         except Exception as e:
             logger.error(f"填充輸入框時發生錯誤: {str(e)}")
@@ -199,7 +199,7 @@ class PageOperations:
             timeout: 超時時間（毫秒）
         """
         try:
-            this.page.select_option(selector, value, timeout=timeout)
+            self.page.select_option(selector, value, timeout=timeout)
             logger.debug(f"已選擇下拉框選項: {selector}")
         except Exception as e:
             logger.error(f"選擇下拉框選項時發生錯誤: {str(e)}")
@@ -214,7 +214,7 @@ class PageOperations:
             timeout: 超時時間（毫秒）
         """
         try:
-            this.page.check(selector, timeout=timeout)
+            self.page.check(selector, timeout=timeout)
             logger.debug(f"已勾選複選框: {selector}")
         except Exception as e:
             logger.error(f"勾選複選框時發生錯誤: {str(e)}")
@@ -229,7 +229,7 @@ class PageOperations:
             timeout: 超時時間（毫秒）
         """
         try:
-            this.page.uncheck(selector, timeout=timeout)
+            self.page.uncheck(selector, timeout=timeout)
             logger.debug(f"已取消勾選複選框: {selector}")
         except Exception as e:
             logger.error(f"取消勾選複選框時發生錯誤: {str(e)}")
@@ -247,7 +247,7 @@ class PageOperations:
             ElementHandle: 元素句柄
         """
         try:
-            element = this.page.wait_for_selector(selector, timeout=timeout)
+            element = self.page.wait_for_selector(selector, timeout=timeout)
             logger.debug(f"已等待元素出現: {selector}")
             return element
         except Exception as e:
@@ -266,7 +266,7 @@ class PageOperations:
             List[ElementHandle]: 元素句柄列表
         """
         try:
-            elements = this.page.query_selector_all(selector)
+            elements = self.page.query_selector_all(selector)
             logger.debug(f"已等待元素出現: {selector}")
             return elements
         except Exception as e:
@@ -281,7 +281,7 @@ class PageOperations:
             timeout: 超時時間（毫秒）
         """
         try:
-            this.page.wait_for_load_state("domcontentloaded", timeout=timeout)
+            self.page.wait_for_load_state("domcontentloaded", timeout=timeout)
             logger.debug("頁面導航已完成")
         except Exception as e:
             logger.error(f"等待頁面導航時發生錯誤: {str(e)}")
@@ -296,7 +296,7 @@ class PageOperations:
             full_page: 是否截取完整頁面
         """
         try:
-            this.page.screenshot(path=path, full_page=full_page)
+            self.page.screenshot(path=path, full_page=full_page)
             logger.debug(f"已保存頁面截圖: {path}")
         except Exception as e:
             logger.error(f"截取頁面截圖時發生錯誤: {str(e)}")
@@ -310,7 +310,7 @@ class PageOperations:
             str: 頁面標題
         """
         try:
-            title = this.page.title()
+            title = self.page.title()
             logger.debug(f"已獲取頁面標題: {title}")
             return title
         except Exception as e:
@@ -325,7 +325,7 @@ class PageOperations:
             str: 頁面 URL
         """
         try:
-            url = this.page.url
+            url = self.page.url
             logger.debug(f"已獲取頁面 URL: {url}")
             return url
         except Exception as e:
@@ -340,7 +340,7 @@ class PageOperations:
             str: 頁面內容
         """
         try:
-            content = this.page.content()
+            content = self.page.content()
             logger.debug("已獲取頁面內容")
             return content
         except Exception as e:
@@ -358,7 +358,7 @@ class PageOperations:
             Any: 腳本執行結果
         """
         try:
-            result = this.page.evaluate(script)
+            result = self.page.evaluate(script)
             logger.debug("已執行 JavaScript 腳本")
             return result
         except Exception as e:
@@ -374,7 +374,7 @@ class PageOperations:
             src: 腳本源
         """
         try:
-            this.page.add_script_tag(content=content, src=src)
+            self.page.add_script_tag(content=content, src=src)
             logger.debug("已添加腳本標籤")
         except Exception as e:
             logger.error(f"添加腳本標籤時發生錯誤: {str(e)}")
@@ -389,7 +389,7 @@ class PageOperations:
             href: 樣式源
         """
         try:
-            this.page.add_style_tag(content=content, href=href)
+            self.page.add_style_tag(content=content, href=href)
             logger.debug("已添加樣式標籤")
         except Exception as e:
             logger.error(f"添加樣式標籤時發生錯誤: {str(e)}")
@@ -404,7 +404,7 @@ class PageOperations:
             height: 高度
         """
         try:
-            this.page.set_viewport_size({"width": width, "height": height})
+            self.page.set_viewport_size({"width": width, "height": height})
             logger.debug(f"已設置視窗大小: {width}x{height}")
         except Exception as e:
             logger.error(f"設置視窗大小時發生錯誤: {str(e)}")
@@ -418,7 +418,7 @@ class PageOperations:
             headers: HTTP 頭字典
         """
         try:
-            this.page.set_extra_http_headers(headers)
+            self.page.set_extra_http_headers(headers)
             logger.debug("已設置額外 HTTP 頭")
         except Exception as e:
             logger.error(f"設置額外 HTTP 頭時發生錯誤: {str(e)}")
@@ -432,7 +432,7 @@ class PageOperations:
             timeout: 超時時間（毫秒）
         """
         try:
-            this.page.set_default_timeout(timeout)
+            self.page.set_default_timeout(timeout)
             logger.debug(f"已設置默認超時時間: {timeout}ms")
         except Exception as e:
             logger.error(f"設置默認超時時間時發生錯誤: {str(e)}")
@@ -446,8 +446,90 @@ class PageOperations:
             timeout: 超時時間（毫秒）
         """
         try:
-            this.page.set_default_navigation_timeout(timeout)
+            self.page.set_default_navigation_timeout(timeout)
             logger.debug(f"已設置默認導航超時時間: {timeout}ms")
         except Exception as e:
             logger.error(f"設置默認導航超時時間時發生錯誤: {str(e)}")
-            raise PageException(f"設置默認導航超時時間失敗: {str(e)}") 
+            raise PageException(f"設置默認導航超時時間失敗: {str(e)}")
+
+    def scroll_page(self, max_scrolls: int = 5, scroll_delay: float = 1.0, scroll_distance: int = 600, wait_for_selector: Optional[str] = None) -> None:
+        """
+        分段滾動頁面以觸發懶加載或無限滾動
+
+        Args:
+            max_scrolls: 最大滾動次數
+            scroll_delay: 每次滾動後延遲（秒）
+            scroll_distance: 每次滾動距離（像素）
+            wait_for_selector: 每次滾動後等待此 selector 出現（可選）
+        """
+        try:
+            for i in range(max_scrolls):
+                self.page.evaluate(f"window.scrollBy(0, {scroll_distance})")
+                logger.debug(f"第 {i+1} 次滾動 {scroll_distance} 像素")
+                if wait_for_selector:
+                    try:
+                        self.page.wait_for_selector(wait_for_selector, timeout=5000)
+                    except Exception:
+                        pass
+                import time
+                time.sleep(scroll_delay)
+            logger.info(f"已完成 {max_scrolls} 次分段滾動")
+        except Exception as e:
+            logger.error(f"分段滾動頁面時發生錯誤: {str(e)}")
+            raise PageException(f"分段滾動頁面失敗: {str(e)}")
+
+    def click_load_more(self, selector: str, max_clicks: int = 5, delay: float = 2.0) -> int:
+        """
+        自動點擊「Load more」按鈕，並支援多次點擊與延遲
+
+        Args:
+            selector: Load more 按鈕的選擇器
+            max_clicks: 最大點擊次數
+            delay: 每次點擊後延遲（秒）
+        Returns:
+            int: 實際點擊次數
+        """
+        clicks = 0
+        try:
+            for i in range(max_clicks):
+                button = self.page.query_selector(selector)
+                if not button:
+                    logger.info(f"第 {i+1} 次未找到 Load more 按鈕，結束點擊")
+                    break
+                button.scroll_into_view_if_needed()
+                import time
+                time.sleep(0.5)
+                button.click()
+                logger.info(f"已點擊 Load more 按鈕 ({i+1}/{max_clicks})")
+                clicks += 1
+                time.sleep(delay)
+            return clicks
+        except Exception as e:
+            logger.error(f"點擊 Load more 按鈕時發生錯誤: {str(e)}")
+            raise PageException(f"點擊 Load more 按鈕失敗: {str(e)}")
+
+    def click_next_page(self, selector: str, delay: float = 2.0) -> bool:
+        """
+        點擊「下一頁」按鈕，並自動滾動到按鈕位置
+
+        Args:
+            selector: 下一頁按鈕的選擇器
+            delay: 點擊後延遲（秒）
+        Returns:
+            bool: 是否成功點擊
+        """
+        try:
+            button = self.page.query_selector(selector)
+            if not button:
+                logger.info("未找到下一頁按鈕")
+                return False
+            button.scroll_into_view_if_needed()
+            import time
+            time.sleep(0.5)
+            button.click()
+            logger.info("已點擊下一頁按鈕")
+            time.sleep(delay)
+            return True
+        except Exception as e:
+            logger.error(f"點擊下一頁按鈕時發生錯誤: {str(e)}")
+            raise PageException(f"點擊下一頁按鈕失敗: {str(e)}")

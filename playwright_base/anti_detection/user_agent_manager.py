@@ -112,11 +112,14 @@ class UserAgentManager:
             # 選擇操作系統版本
             os_version = random.choice(self.os_versions[os_type])
             
+            # 增加隨機化參數
+            random_suffix = random.randint(1000, 9999)
+            
             # 生成用戶代理
             ua = self.ua_templates[browser][os_type].format(
                 version=version,
                 os_version=os_version
-            )
+            ) + f"-{random_suffix}"
             
             return ua
         except Exception as e:
@@ -251,4 +254,4 @@ class UserAgentManager:
             logger.info(f"已應用用戶代理: {ua}")
         except Exception as e:
             logger.error(f"應用用戶代理時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"應用用戶代理失敗: {str(e)}") 
+            raise AntiDetectionException(f"應用用戶代理失敗: {str(e)}")

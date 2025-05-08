@@ -15,10 +15,9 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 
-from ...core.error import handle_error
-from ...core.logger import get_logger
-from ...core.config import BaseConfig
-from .error import ExtractorError, handle_extractor_error
+# 修正引用：將 get_logger 替換為 setup_logger
+from playwright_base.utils.logger import setup_logger
+from .error import ExtractorError, handle_extractor_error, handle_error
 from .types import ExtractorConfig, ExtractorState, ExtractorResult
 
 class BaseExtractor(ABC):
@@ -37,7 +36,7 @@ class BaseExtractor(ABC):
             logger: 日誌記錄器
         """
         self.config = config if isinstance(config, ExtractorConfig) else ExtractorConfig(**(config or {}))
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger or setup_logger(__name__)  # 將 get_logger 替換為 setup_logger
         self._state = ExtractorState()
         
     @handle_extractor_error()
@@ -140,8 +139,8 @@ class BaseExtractor(ABC):
     def __enter__(self) -> 'BaseExtractor':
         """上下文管理器入口"""
         self.setup()
-        return this
+        return self
         
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """上下文管理器出口"""
-        self.cleanup() 
+        self.cleanup()

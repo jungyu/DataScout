@@ -40,7 +40,21 @@ class BrowserException(PlaywrightBaseException):
 
 class PageException(PlaywrightBaseException):
     """頁面相關異常"""
-    pass
+    def __init__(self, message: str = None, url: str = None, selector: str = None, cause: Exception = None):
+        """
+        初始化頁面異常
+
+        Args:
+            message: 錯誤訊息
+            url: 當前頁面 URL
+            selector: 相關的元素選擇器
+            cause: 導致此異常的原始異常
+        """
+        self.url = url
+        self.selector = selector
+        context_info = f"URL: {url}, Selector: {selector}" if url or selector else ""
+        full_message = f"{message} ({context_info})" if context_info else message
+        super().__init__(full_message, cause)
 
 
 class ElementException(PlaywrightBaseException):

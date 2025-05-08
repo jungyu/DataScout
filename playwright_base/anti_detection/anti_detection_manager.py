@@ -301,4 +301,24 @@ class AntiDetectionManager:
             logger.info("已清理所有黑名單")
         except Exception as e:
             logger.error(f"清理黑名單時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"清理黑名單失敗: {str(e)}") 
+            raise AntiDetectionException(f"清理黑名單失敗: {str(e)}")
+    
+    async def spoof_navigator_webdriver(self, page) -> None:
+        """
+        偽裝 window.navigator.webdriver 屬性
+
+        Args:
+            page: Playwright 頁面對象
+        """
+        try:
+            await page.add_init_script(
+                """
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+                """
+            )
+            logger.info("已偽裝 window.navigator.webdriver 屬性")
+        except Exception as e:
+            logger.error(f"偽裝 window.navigator.webdriver 時發生錯誤: {str(e)}")
+            raise AntiDetectionException(f"偽裝 window.navigator.webdriver 失敗: {str(e)}")

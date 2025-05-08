@@ -15,11 +15,23 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Type, Union
 
-from ...core.error import handle_error
-from ...core.logger import get_logger
-from ...core.config import BaseConfig
-from .error import ExtractorError, handle_extractor_error
+# 修正相對導入問題
+from .error import handle_error, ExtractorError, handle_extractor_error
 from .base import BaseExtractor
+
+# 導入配置相關類型，使用簡單的字典替代
+class BaseConfig:
+    def __init__(self, config: Dict[str, Any] = None):
+        self.config = config or {}
+        
+    def __getitem__(self, key):
+        return self.config.get(key)
+        
+    def __setitem__(self, key, value):
+        self.config[key] = value
+        
+    def get(self, key, default=None):
+        return self.config.get(key, default)
 
 class BaseExtractorManager(ABC):
     """基礎提取器管理器類別"""
@@ -37,7 +49,8 @@ class BaseExtractorManager(ABC):
             logger: 日誌記錄器
         """
         self.config = config if isinstance(config, BaseConfig) else BaseConfig(config or {})
-        self.logger = logger or get_logger(__name__)
+        # 使用標準 logging 模組而非未定義的 get_logger 函數
+        self.logger = logger or logging.getLogger(__name__)
         self._extractors: Dict[str, Type[BaseExtractor]] = {}
         self._instances: Dict[str, BaseExtractor] = {}
         
@@ -159,4 +172,4 @@ class BaseExtractorManager(ABC):
         
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """上下文管理器出口"""
-        self.cleanup() 
+        self.cleanup()

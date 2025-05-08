@@ -76,7 +76,9 @@ class HumanLikeBehavior:
                 current_y = current_position["y"] + (target_y - current_position["y"]) * progress
 
                 await page.mouse.move(current_x, current_y)
-                await asyncio.sleep(0.016)  # 約 60fps
+                # 模擬真實延遲模式
+                delay = random.uniform(0.01, 0.05)  # 隨機延遲 10-50ms
+                await asyncio.sleep(delay)
 
         except Exception as e:
             logger.error(f"移動鼠標到元素時發生錯誤: {str(e)}")
@@ -206,4 +208,35 @@ class HumanLikeBehavior:
                 await asyncio.sleep(0.016)  # 約 60fps
 
         except Exception as e:
-            logger.error(f"執行隨機鼠標移動時發生錯誤: {str(e)}") 
+            logger.error(f"執行隨機鼠標移動時發生錯誤: {str(e)}")
+
+
+import random
+import time
+from loguru import logger
+from typing import Optional
+
+def human_scroll(page, min_times: int = 3, max_times: int = 8, min_dist: int = 300, max_dist: int = 700, sleep_min: float = 0.5, sleep_max: float = 2.0) -> None:
+    """
+    模擬人類隨機平滑滾動頁面
+    Args:
+        page: Playwright Page 物件
+        min_times: 最少滾動次數
+        max_times: 最多滾動次數
+        min_dist: 每次最小滾動距離
+        max_dist: 每次最大滾動距離
+        sleep_min: 每次滾動後最小等待秒數
+        sleep_max: 每次滾動後最大等待秒數
+    """
+    try:
+        page_height = page.evaluate("() => document.body.scrollHeight")
+        scroll_times = random.randint(min_times, max_times)
+        for _ in range(scroll_times):
+            scroll_distance = random.randint(min_dist, max_dist)
+            current_position = page.evaluate("() => window.pageYOffset")
+            target_position = min(current_position + scroll_distance, page_height - 800)
+            page.evaluate(f"() => window.scrollTo({{top: {target_position}, behavior: 'smooth'}})")
+            time.sleep(random.uniform(sleep_min, sleep_max))
+        logger.info("已完成人類化滾動頁面")
+    except Exception as e:
+        logger.warning(f"模擬滾動頁面時發生錯誤: {str(e)}")

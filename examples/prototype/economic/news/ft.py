@@ -168,6 +168,9 @@ class FTScraper(PlaywrightBase):
 
         # 啟動瀏覽器
         self.start()
+        
+        # 註冊頁面事件處理器，監控頁面創建
+        self._register_page_event_handlers()
 
         logger.info("Financial Times 爬蟲已初始化")
 
@@ -930,6 +933,42 @@ class FTScraper(PlaywrightBase):
         
         logger.info(f"成功獲取 {len(all_news)} 條新聞數據")
         return all_news
+
+    async def manage_pages(self):
+        """管理頁面數量，關閉多餘頁面"""
+        try:
+            if not self._context:
+                return
+                
+            pages = self._context.pages
+            if len(pages) > 3:  # 設置一個合理的閾值
+                logger.warning(f"偵測到頁面過多 ({len(pages)}個)，正在清理...")
+                
+                # 保留當前使用的頁面，關閉其他頁面
+                current_page = self.page
+                for page in pages:
+                    if page != current_page:
+                        try:
+                            await page.close()
+                            logger.info(f"已關閉多餘頁面")
+                        except Exception as e:
+                            logger.warning(f"關閉頁面時發生錯誤: {str(e)}")
+                            
+                logger.info(f"頁面清理完成，剩餘頁面數量: {len(self._context.pages)}")
+        except Exception as e:
+            logger.error(f"管理頁面時發生錯誤: {str(e)}")
+
+    def _register_page_event_handlers(self):
+        """註冊頁面事件處理器，監控頁面創建"""
+        if self._context:
+            self._context.on("page", self._on_page_created)
+            logger.info("已註冊頁面事件處理器")
+
+    async def _on_page_created(self, page):
+        """處理新創建的頁面事件"""
+        logger.info("新頁面已創建，關閉多餘頁面")
+        await page.close()
+        await self.manage_pages()  # 當有新頁面創建時，檢查並管理頁面數量
 
 def load_keywords() -> List[List[str]]:
     """從 keywords.json 檔案讀取關鍵字組合"""

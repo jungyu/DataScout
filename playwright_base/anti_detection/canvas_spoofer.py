@@ -56,7 +56,9 @@ class CanvasSpoofer:
             "patterns": random.sample(self.patterns, random.randint(3, 5)),
             "noise": random.uniform(0.1, 0.5),
             "text_offset": random.uniform(-1, 1),
-            "pattern_offset": random.uniform(-2, 2)
+            "pattern_offset": random.uniform(-2, 2),
+            "rotation": random.uniform(0, 360),  # 新增隨機旋轉角度
+            "scale": random.uniform(0.8, 1.2)   # 新增隨機縮放比例
         }
     
     def get_consistent_canvas_fingerprint(self) -> Dict[str, Any]:
@@ -211,4 +213,4 @@ class CanvasSpoofer:
             logger.info("已應用 Canvas 指紋偽裝")
         except Exception as e:
             logger.error(f"應用 Canvas 指紋偽裝時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"應用 Canvas 指紋偽裝失敗: {str(e)}") 
+            raise AntiDetectionException(f"應用 Canvas 指紋偽裝失敗: {str(e)}")
