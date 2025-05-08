@@ -40,6 +40,7 @@ from .stealth import inject_stealth_js
 from .cookie_utils import add_initial_cookies
 from ..anti_detection.human_like import human_scroll
 from .popup_handler import check_and_handle_popup
+from .page_manager import PageManager
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,9 @@ class PlaywrightBase:
         self.proxy_manager = ProxyManager()
         self.captcha_manager = None
         self.storage = StorageManager(base_dir="data")
+        
+        # 頁面管理器，實現序列化頁面訪問
+        self.page_manager = None
 
     def __enter__(self):
         self.start()

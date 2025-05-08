@@ -25,7 +25,7 @@ from typing import Dict, List, Optional, Any, Tuple, Union
 current_dir = Path(__file__).parent
 sys.path.append(str(current_dir.parent.parent.parent))  # 添加專案根目錄
 
-from config.nikkei_config import SITE_CONFIG, SELECTORS  # 建議將設定移至 config/
+from examples.prototype.economic.config.nikkei_config import SITE_CONFIG, SELECTORS
 from playwright_base import PlaywrightBase, setup_logger
 from playwright_base.anti_detection import HumanLikeBehavior
 from extractors.handlers.news import NewsListExtractor, NewsContentExtractor
@@ -74,6 +74,9 @@ class NikkeiScraper(PlaywrightBase):
         self.human_like = HumanLikeBehavior()
         self.list_extractor = NewsListExtractor()
         self.content_extractor = NewsContentExtractor()
+        
+        # 存儲定時器引用，便於清理
+        self._timers = []
         
         # 啟動瀏覽器 - 這是關鍵步驟
         logger.info("正在啟動瀏覽器...")
@@ -262,6 +265,31 @@ class NikkeiScraper(PlaywrightBase):
         except Exception as e:
             logger.error(f"處理付費牆或彈窗時發生錯誤: {str(e)}")
             return False
+
+    def _ensure_single_page(self):
+        """確保 context 只保留一個分頁，並將 self._page 指向唯一分頁"""
+        if not self._context:
+            return
+        pages = self._context.pages
+        # 若有多個分頁，只保留第一個，其他全部關閉
+        if len(pages) > 1:
+            main_page = pages[0]
+            for p in pages[1:]:
+                try:
+                    p.close()
+                except Exception:
+                    pass
+            self._page = main_page
+        elif pages:
+            self._page = pages[0]
+        else:
+            # 沒有分頁就新建一個
+            self._page = self._context.new_page()
+
+    def navigate(self, url: str, timeout: int = 30000) -> None:
+        """重寫 navigate，導航前強制只保留一個分頁"""
+        self._ensure_single_page()
+        super().navigate(url, timeout=timeout)
 
     def search_news(self, keyword: str) -> List[Dict[str, Any]]:
         """搜尋新聞並提取結果
@@ -508,10 +536,12 @@ class NikkeiScraper(PlaywrightBase):
             bool: 是否成功處理
         """
         try:
-            # 使用改進版的 check_and_handle_popup 方法處理
-            if not self.check_and_handle_popup(self.selectors.get("paywall", {})):
-                # 如果內建方法失敗，嘗試使用 human_like 模組
-                return self.human_like.handle_popups(self.page, self.selectors.get("paywall", {}))
+            # 先檢查是否有彈窗
+            if self._check_for_paywall_or_popup():
+                # 如果有彈窗，嘗試處理
+                if not self._handle_paywall_or_popup():
+                    # 如果內建方法失敗，嘗試使用 human_like 模組
+                    return self.human_like.handle_popups(self.page, self.selectors.get("paywall", {}))
             return True
         except Exception as e:
             logger.warning(f"處理彈窗時發生錯誤: {str(e)}, 繼續執行")
@@ -522,13 +552,29 @@ class NikkeiScraper(PlaywrightBase):
         try:
             # 保存當前 storage 狀態
             try:
-                if self._context:
-                    storage = self._context.storage_state()
-                    with open("storage.json", "w", encoding="utf-8") as f:
-                        json.dump(storage, f, ensure_ascii=False, indent=2)
-                    logger.info("關閉前已保存 storage 狀態")
+                if self._context and self._context.pages:
+                    # 確保至少有一個頁面開啟且不是分離狀態
+                    main_page = self._context.pages[0]
+                    if (main_page and main_page.url != "about:blank"):
+                        try:
+                            storage = self._context.storage_state()
+                            with open("storage.json", "w", encoding="utf-8") as f:
+                                json.dump(storage, f, ensure_ascii=False, indent=2)
+                            logger.info("關閉前已保存 storage 狀態")
+                        except Exception as e:
+                            logger.warning(f"保存 storage 狀態時發生錯誤: {str(e)}")
+                    else:
+                        logger.warning("無法保存 storage：頁面可能已分離或是空白頁")
+                else:
+                    logger.warning("無法保存 storage：瀏覽器上下文不可用或沒有開啟頁面")
             except Exception as e:
                 logger.warning(f"保存 storage 狀態時發生錯誤: {str(e)}")
+            
+            # 清理定時器
+            for timer in self._timers:
+                if timer and timer.is_alive():
+                    timer.cancel()
+            logger.info(f"已清理 {len(self._timers)} 個定時器")
             
             # 使用基類的關閉方法
             super().close()
@@ -618,6 +664,9 @@ class NikkeiScraper(PlaywrightBase):
             threading_timer.daemon = True  # 設為守護線程，不阻塞程式結束
             threading_timer.start()
             
+            # 存儲定時器引用，便於清理
+            self._timers.append(threading_timer)
+            
             logger.info("已註冊頁面事件處理器")
             
         except Exception as e:
@@ -665,7 +714,7 @@ def save_results(filename: str, data: List[Dict[str, Any]]) -> None:
         logger.error(f"儲存資料時發生錯誤: {e}")
 
 def main() -> None:
-    """主程序入口點，處理整個爬取流程"""
+    """主程序入口點，處理整個爬取流程 - 每次只執行 1 組關鍵字"""
     scraper = None
     try:
         # 初始化爬蟲器
@@ -676,83 +725,119 @@ def main() -> None:
         keywords = load_keywords()
         logger.info(f"載入關鍵字完成，共 {len(keywords)} 個")
         
+        # 儲存已處理關鍵字的檔案路徑
+        processed_file = Path("data") / "processed_keywords.json"
+        
+        # 讀取已處理的關鍵字
+        processed_keywords = []
+        if processed_file.exists():
+            try:
+                with open(processed_file, "r", encoding="utf-8") as f:
+                    processed_keywords = json.load(f)
+                logger.info(f"已從 {processed_file} 載入 {len(processed_keywords)} 個已處理關鍵字")
+            except Exception as e:
+                logger.error(f"讀取已處理關鍵字檔案時發生錯誤: {str(e)}")
+        
+        # 過濾出未處理的關鍵字
+        remaining_keywords = [kw for kw in keywords if kw not in processed_keywords]
+        logger.info(f"剩餘 {len(remaining_keywords)} 個未處理的關鍵字")
+        
+        # 如果沒有剩餘關鍵字，結束程式
+        if not remaining_keywords:
+            logger.info("所有關鍵字都已處理完畢，程式結束")
+            return
+        
+        # 只處理第一個未處理的關鍵字
+        current_keyword = remaining_keywords[0]
+        logger.info(f"本次將處理關鍵字: {current_keyword}")
+        
         # 儲存結果的容器
         all_results = []
         
-        # 處理每個關鍵字
-        for idx, kw in enumerate(keywords):
-            logger.info(f"處理關鍵字 [{idx+1}/{len(keywords)}]: {kw}")
+        try:
+            # 確保清理多餘頁面
+            scraper.close_pages(keep_main=True)
+            logger.info("已清理多餘頁面，開始新的關鍵字處理")
             
-            try:
-                # 確保每個關鍵字開始前清理多餘頁面
-                if idx > 0:  # 不是第一個關鍵字時
-                    scraper.close_pages(keep_main=True)
-                    logger.info("已清理多餘頁面，防止頁面堆積")
+            # 使用 paginate_results 獲取所有頁面的新聞
+            logger.info(f"開始處理關鍵字: {current_keyword}")
+            news_list = scraper.paginate_results(current_keyword)
+            
+            # 清理頁面
+            scraper.manage_pages()
+            
+            if not news_list:
+                logger.warning(f"關鍵字 '{current_keyword}' 未找到結果")
+                # 即使沒有結果也標記為已處理
+                processed_keywords.append(current_keyword)
                 
-                # 直接使用 paginate_results (包含翻頁功能)，避免重複爬取
-                news_list = scraper.paginate_results(kw)
-                
-                # 再次確保清理頁面
-                scraper.manage_pages()
-                
-                if not news_list:
-                    logger.warning(f"關鍵字 '{kw}' 未找到結果")
-                    continue
-                
-                logger.info(f"關鍵字 '{kw}' 找到 {len(news_list)} 篇新聞")
-                
-                # 處理每篇文章 (限制處理數量避免過載)
-                max_articles = min(len(news_list), 20)  # 每個關鍵字最多處理 20 篇文章
-                filtered_news = news_list[:max_articles]
-                
-                logger.info(f"將處理前 {max_articles}/{len(news_list)} 篇文章")
-                
-                for i, news in enumerate(filtered_news):
-                    try:
-                        # 每處理5篇文章清理一次頁面
-                        if i > 0 and i % 5 == 0:
-                            scraper.manage_pages()
-                            logger.info(f"處理 {i} 篇文章後清理頁面，防止頁面堆積")
-                            
-                        # 檢查 URL 有效性
-                        if "url" not in news or not news["url"]:
-                            logger.warning(f"跳過缺少 URL 的文章: {news.get('title', '無標題')}")
-                            continue
+                # 保存已處理關鍵字
+                processed_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(processed_file, "w", encoding="utf-8") as f:
+                    json.dump(processed_keywords, f, ensure_ascii=False, indent=2)
+                logger.info(f"已更新已處理關鍵字列表: {processed_file}")
+                return
+            
+            logger.info(f"關鍵字 '{current_keyword}' 找到 {len(news_list)} 篇新聞")
+            
+            # 處理每篇文章 (限制處理數量避免過載)
+            max_articles = min(len(news_list), 20)  # 每個關鍵字最多處理 20 篇文章
+            filtered_news = news_list[:max_articles]
+            
+            logger.info(f"將處理前 {max_articles}/{len(news_list)} 篇文章")
+            
+            for i, news in enumerate(filtered_news):
+                try:
+                    # 每處理5篇文章清理一次頁面
+                    if i > 0 and i % 5 == 0:
+                        scraper.manage_pages()
+                        logger.info(f"處理 {i} 篇文章後清理頁面，防止頁面堆積")
                         
-                        # 顯示進度
-                        logger.info(f"處理文章 [{i+1}/{max_articles}]: {news.get('title', '')[:30]}...")
-                        
-                        # 獲取文章詳情
-                        detail = scraper.get_article_detail(news["url"])
-                        
-                        if detail:
-                            # 合併文章基本資訊與詳情
-                            full_article = {**news, **detail}
-                            full_article["keyword"] = kw  # 添加關鍵字信息
-                            all_results.append(full_article)
-                            
-                            # 每 5 篇文章儲存一次結果，避免資料丟失
-                            if len(all_results) % 5 == 0:
-                                save_results(f"nikkei_results_{datetime.now().strftime('%Y%m%d')}.json", all_results)
-                    
-                    except Exception as e:
-                        logger.error(f"處理文章時發生錯誤: {str(e)}")
+                    # 檢查 URL 有效性
+                    if "url" not in news or not news["url"]:
+                        logger.warning(f"跳過缺少 URL 的文章: {news.get('title', '無標題')}")
                         continue
+                    
+                    # 顯示進度
+                    logger.info(f"處理文章 [{i+1}/{max_articles}]: {news.get('title', '')[:30]}...")
+                    
+                    # 獲取文章詳情
+                    detail = scraper.get_article_detail(news["url"])
+                    
+                    if detail:
+                        # 合併文章基本資訊與詳情
+                        full_article = {**news, **detail}
+                        full_article["keyword"] = current_keyword  # 添加關鍵字信息
+                        all_results.append(full_article)
+                        
+                        # 每 5 篇文章儲存一次結果，避免資料丟失
+                        if len(all_results) % 5 == 0:
+                            save_results(f"nikkei_{current_keyword.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.json", all_results)
                 
-                # 每個關鍵字處理完後保存一次結果
-                save_results(f"nikkei_results_{datetime.now().strftime('%Y%m%d')}.json", all_results)
-                
-                # 關鍵字間暫停一段時間，避免請求過於頻繁
-                if idx < len(keywords) - 1:
-                    pause_time = random.uniform(10, 15)
-                    logger.info(f"完成關鍵字 '{kw}'，暫停 {pause_time:.2f} 秒後繼續...")
-                    time.sleep(pause_time)
-                
-            except Exception as e:
-                logger.error(f"處理關鍵字 '{kw}' 時發生錯誤: {str(e)}")
-                continue
-        
-        logger.info(f"爬取完成，共獲取 {len(all_results)} 筆資料")
+                except Exception as e:
+                    logger.error(f"處理文章時發生錯誤: {str(e)}")
+                    continue
+            
+            # 處理完當前關鍵字後保存結果
+            if all_results:
+                save_results(f"nikkei_{current_keyword.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.json", all_results)
+                logger.info(f"已保存關鍵字 '{current_keyword}' 的 {len(all_results)} 篇文章")
+            
+            # 標記當前關鍵字為已處理
+            processed_keywords.append(current_keyword)
+            
+            # 保存已處理關鍵字
+            processed_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(processed_file, "w", encoding="utf-8") as f:
+                json.dump(processed_keywords, f, ensure_ascii=False, indent=2)
+            logger.info(f"已更新已處理關鍵字列表: {processed_file}")
+            
+            # 提示剩餘未處理關鍵字
+            remaining = len(keywords) - len(processed_keywords)
+            logger.info(f"已完成關鍵字 '{current_keyword}' 處理，剩餘 {remaining} 個關鍵字未處理")
+            
+        except Exception as e:
+            logger.error(f"處理關鍵字 '{current_keyword}' 時發生錯誤: {str(e)}")
         
     except KeyboardInterrupt:
         logger.info("使用者中斷程式執行")
@@ -770,7 +855,7 @@ def main() -> None:
         
         # 最終保存結果
         if 'all_results' in locals() and all_results:
-            final_filename = f"nikkei_results_final_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            final_filename = f"nikkei_{current_keyword.replace(' ', '_')}_final_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
             save_results(final_filename, all_results)
             logger.info(f"已最終保存 {len(all_results)} 筆結果至 {final_filename}")
 
