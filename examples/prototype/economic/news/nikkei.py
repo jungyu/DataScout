@@ -270,26 +270,91 @@ class NikkeiScraper(PlaywrightBase):
         """確保 context 只保留一個分頁，並將 self._page 指向唯一分頁"""
         if not self._context:
             return
-        pages = self._context.pages
-        # 若有多個分頁，只保留第一個，其他全部關閉
-        if len(pages) > 1:
-            main_page = pages[0]
-            for p in pages[1:]:
-                try:
-                    p.close()
-                except Exception:
-                    pass
-            self._page = main_page
-        elif pages:
-            self._page = pages[0]
-        else:
-            # 沒有分頁就新建一個
-            self._page = self._context.new_page()
+            
+        try:
+            pages = self._context.pages
+            # 若有多個分頁，關閉除了第一個以外的所有分頁
+            if len(pages) > 1:
+                logger.warning(f"檢測到多個分頁 ({len(pages)})，進行清理...")
+                main_page = pages[0]
+                for p in pages[1:]:
+                    try:
+                        if not p.is_closed():
+                            url = p.url
+                            p.close()
+                            logger.info(f"已關閉多餘分頁: {url}")
+                    except Exception as e:
+                        logger.warning(f"關閉分頁時發生錯誤: {str(e)}")
+                self._page = main_page
+            elif pages:
+                self._page = pages[0]
+            else:
+                # 沒有分頁就新建一個
+                self._page = self._context.new_page()
+                logger.info("創建新的主分頁")
+                
+            # 更新內部頁面列表
+            self._pages = [p for p in self._context.pages if not p.is_closed()]
+            logger.info(f"頁面清理完成，當前共有 {len(self._pages)} 個分頁")
+            
+        except Exception as e:
+            logger.error(f"確保單一分頁時發生錯誤: {str(e)}")
 
     def navigate(self, url: str, timeout: int = 30000) -> None:
-        """重寫 navigate，導航前強制只保留一個分頁"""
-        self._ensure_single_page()
-        super().navigate(url, timeout=timeout)
+        """重寫 navigate，更嚴格管理頁面，確保只有一個頁面在運作"""
+        try:
+            # 確保瀏覽器上下文存在
+            if not self._context:
+                raise Exception("瀏覽器上下文不存在")
+            
+            # 強制關閉所有其他頁面
+            self.close_pages(keep_main=True)
+            
+            # 如果主頁面不可用，創建新頁面
+            if not self._page or self._page.is_closed():
+                logger.warning("主頁面不可用，創建新頁面")
+                self._page = self._context.new_page()
+                self._pages = [self._page]
+            
+            # 檢查當前頁面和目標 URL
+            try:
+                current_url = self._page.url
+                if current_url == url:
+                    logger.info("頁面已在目標 URL，重新載入")
+                    self._page.reload(timeout=timeout)
+                else:
+                    logger.info(f"導航到新 URL: {url}")
+                    response = self._page.goto(url, timeout=timeout, wait_until="domcontentloaded")
+                    if not response:
+                        raise Exception("導航未收到回應")
+                    if response.status >= 400:
+                        raise Exception(f"導航返回錯誤狀態碼: {response.status}")
+            except Exception as e:
+                logger.error(f"導航過程發生錯誤: {str(e)}")
+                # 嘗試重新創建頁面
+                self._page = self._context.new_page()
+                self._pages = [self._page]
+                response = self._page.goto(url, timeout=timeout, wait_until="domcontentloaded")
+                if not response or response.status >= 400:
+                    raise Exception("重試導航失敗")
+            
+            # 等待頁面完全加載
+            self._page.wait_for_load_state("networkidle", timeout=timeout)
+            
+            # 再次檢查並清理多餘頁面
+            active_pages = len([p for p in self._context.pages if not p.is_closed()])
+            if active_pages > 1:
+                logger.warning(f"檢測到 {active_pages} 個活動頁面，執行清理")
+                self.close_pages(keep_main=True)
+            
+            # 確認主頁面狀態
+            if self._page.is_closed():
+                raise Exception("主頁面已關閉")
+            
+        except Exception as e:
+            logger.error(f"導航失敗: {str(e)}")
+            self._ensure_single_page()  # 嘗試恢復到可用狀態
+            raise
 
     def search_news(self, keyword: str) -> List[Dict[str, Any]]:
         """搜尋新聞並提取結果
@@ -361,14 +426,7 @@ class NikkeiScraper(PlaywrightBase):
                     return []
 
     def paginate_results(self, keyword: str) -> List[Dict[str, Any]]:
-        """按頁面獲取搜索結果
-
-        Args:
-            keyword: 搜索關鍵字
-
-        Returns:
-            List[Dict[str, Any]]: 所有頁面的新聞列表
-        """
+        """按頁面獲取搜索結果，修改以確保更嚴格的分頁控制"""
         all_news: List[Dict[str, Any]] = []
         max_pages = self.site_config["pagination"].get("max_pages", 5)
         timeout = self.site_config.get("request", {}).get("timeout", 60000)
@@ -378,73 +436,55 @@ class NikkeiScraper(PlaywrightBase):
         
         for page in range(1, max_pages + 1):
             try:
-                # 使用 urlencode 處理查詢參數，避免編碼問題
+                # 強制確保只有一個分頁
+                self._ensure_single_page()
+                
+                # 使用 urlencode 處理查詢參數
                 query_params = {"query": keyword, "page": str(page)}
                 encoded_params = urlencode(query_params)
                 url = f"{self.site_config['search_url']}?{encoded_params}"
                 
                 logger.info(f"獲取第 {page}/{max_pages} 頁: {url}")
                 
-                for attempt in range(1, retry_attempts + 1):
-                    try:
-                        # 檢查並清理多餘頁面，防止積累過多頁面
-                        self.manage_pages()
-                        
-                        # 導航到頁面
-                        self.navigate(url, timeout=timeout)
-                        logger.info(f"成功導航到第 {page} 頁 (嘗試 {attempt}/{retry_attempts})")
-                        
-                        # 等待網路活動結束
-                        self.wait_for_load_state("networkidle", timeout=timeout)
-                        
-                        # 處理彈窗
-                        self.handle_popups()
-                        
-                        # 等待內容載入
-                        try:
-                            self.page.wait_for_selector(
-                                self.selectors["search"]["list_item"],
-                                timeout=15000,
-                                state="visible"
-                            )
-                        except Exception as e:
-                            logger.warning(f"第 {page} 頁未找到內容元素: {str(e)}，繼續執行")
-                        
-                        # 滾動頁面
-                        try:
-                            self.human_like.scroll_page(self.page, **self.site_config["scroll"])
-                        except Exception as e:
-                            logger.warning(f"第 {page} 頁滾動失敗: {str(e)}，繼續執行")
-                        
-                        # 提取數據
-                        news = self.list_extractor.extract_news_list(
-                            self.page,
-                            self.selectors["search"]["list_item"],
-                            lambda el: self.list_extractor.extract_news_item(
-                                el, self.selectors["search"], self.site_config["base_url"]
-                            )
-                        )
-                        
-                        if not news:
-                            logger.info(f"第 {page} 頁未找到新聞，可能已到達最後一頁")
-                            return all_news
-                        
-                        logger.info(f"第 {page} 頁成功提取 {len(news)} 篇新聞")
-                        all_news.extend(news)
-                        break  # 成功獲取，跳出重試循環
-                        
-                    except Exception as e:
-                        logger.error(f"獲取第 {page} 頁時發生錯誤 (嘗試 {attempt}/{retry_attempts}): {str(e)}")
-                        if attempt < retry_attempts:
-                            retry_delay = 5 * attempt  # 逐步增加延遲
-                            logger.info(f"將在 {retry_delay} 秒後重試...")
-                            time.sleep(retry_delay)
-                        else:
-                            logger.error(f"第 {page} 頁獲取失敗，跳至下一頁")
-                            break
-            
+                # 使用修改後的 navigate 方法
+                self.navigate(url, timeout=timeout)
+                
+                # 處理彈窗
+                self.handle_popups()
+                
+                # 等待內容載入
+                try:
+                    self.page.wait_for_selector(
+                        self.selectors["search"]["list_item"],
+                        timeout=15000,
+                        state="visible"
+                    )
+                except Exception as e:
+                    logger.warning(f"第 {page} 頁未找到內容元素: {str(e)}，繼續執行")
+                
+                # 提取數據
+                news = self.list_extractor.extract_news_list(
+                    self.page,
+                    self.selectors["search"]["list_item"],
+                    lambda el: self.list_extractor.extract_news_item(
+                        el, self.selectors["search"], self.site_config["base_url"]
+                    )
+                )
+                
+                if not news:
+                    logger.info(f"第 {page} 頁未找到新聞，可能已到達最後一頁")
+                    return all_news
+                
+                logger.info(f"第 {page} 頁成功提取 {len(news)} 篇新聞")
+                all_news.extend(news)
+                
+                # 在每頁處理完成後強制清理
+                self.manage_pages()
+                
             except Exception as e:
-                logger.error(f"處理第 {page} 頁時發生未預期的錯誤: {str(e)}")
+                logger.error(f"處理第 {page} 頁時發生錯誤: {str(e)}")
+                # 發生錯誤時也要清理頁面
+                self.manage_pages()
                 continue
         
         logger.info(f"翻頁完成，共獲取 {len(all_news)} 篇新聞")
@@ -551,24 +591,22 @@ class NikkeiScraper(PlaywrightBase):
         """安全關閉爬蟲器，確保資源釋放"""
         try:
             # 保存當前 storage 狀態
-            try:
-                if self._context and self._context.pages:
-                    # 確保至少有一個頁面開啟且不是分離狀態
-                    main_page = self._context.pages[0]
-                    if (main_page and main_page.url != "about:blank"):
-                        try:
-                            storage = self._context.storage_state()
-                            with open("storage.json", "w", encoding="utf-8") as f:
-                                json.dump(storage, f, ensure_ascii=False, indent=2)
-                            logger.info("關閉前已保存 storage 狀態")
-                        except Exception as e:
-                            logger.warning(f"保存 storage 狀態時發生錯誤: {str(e)}")
-                    else:
-                        logger.warning("無法保存 storage：頁面可能已分離或是空白頁")
-                else:
-                    logger.warning("無法保存 storage：瀏覽器上下文不可用或沒有開啟頁面")
-            except Exception as e:
-                logger.warning(f"保存 storage 狀態時發生錯誤: {str(e)}")
+            if self._context:
+                try:
+                    # 確保主頁面處於穩定狀態
+                    if self._page and not self._page.is_closed():
+                        self._page.wait_for_load_state("networkidle", timeout=5000)
+                    
+                    # 使用較短的超時時間來保存 storage
+                    storage = self._context.storage_state(timeout=5000)
+                    try:
+                        with open("storage.json", "w", encoding="utf-8") as f:
+                            json.dump(storage, f, ensure_ascii=False, indent=2)
+                        logger.info("關閉前已保存 storage 狀態")
+                    except Exception as e:
+                        logger.warning(f"寫入 storage.json 時發生錯誤: {str(e)}")
+                except Exception as e:
+                    logger.warning(f"保存 storage 狀態時發生錯誤: {str(e)}")
             
             # 清理定時器
             for timer in self._timers:
@@ -576,18 +614,35 @@ class NikkeiScraper(PlaywrightBase):
                     timer.cancel()
             logger.info(f"已清理 {len(self._timers)} 個定時器")
             
+            # 確保關閉所有頁面
+            if self._context:
+                try:
+                    pages = self._context.pages
+                    for page in pages:
+                        if not page.is_closed():
+                            page.close(run_before_unload=False)
+                except Exception as e:
+                    logger.warning(f"關閉頁面時發生錯誤: {str(e)}")
+            
             # 使用基類的關閉方法
             super().close()
             logger.info("Nikkei 爬蟲器已安全關閉")
+            
+        except KeyboardInterrupt:
+            logger.warning("收到鍵盤中斷信號，強制關閉爬蟲器")
+            if self._context:
+                self._context.close()
+            super().close()
         except Exception as e:
             logger.error(f"關閉爬蟲器時發生錯誤: {str(e)}")
+            # 確保基類的關閉方法被調用
+            try:
+                super().close()
+            except:
+                pass
             
     def close_pages(self, keep_main: bool = True) -> None:
-        """關閉多餘頁面，只保留主頁面
-        
-        Args:
-            keep_main: 是否保留主頁面
-        """
+        """關閉所有分頁，可選保留主分頁"""
         if not self._context:
             return
             
@@ -596,50 +651,62 @@ class NikkeiScraper(PlaywrightBase):
             if len(pages) <= 1 and keep_main:
                 return
                 
-            logger.info(f"發現 {len(pages)} 個頁面，開始清理...")
+            logger.info(f"開始清理 {len(pages)} 個分頁...")
             
-            # 遍歷所有頁面
-            for i, page in enumerate(pages):
-                # 如果是最後一個頁面且需要保留主頁面，則跳過
-                if i == len(pages) - 1 and keep_main:
-                    logger.info(f"保留主頁面: {page.url}")
-                    self._page = page  # 確保主頁面被正確引用
+            main_page = None
+            if keep_main:
+                # 保留第一個分頁作為主分頁
+                main_page = pages[0]
+            
+            # 關閉所有分頁
+            for page in pages:
+                if page == main_page:
                     continue
-                    
                 try:
-                    url = page.url
-                    page.close()
-                    logger.info(f"已關閉頁面: {url}")
+                    if not page.is_closed():
+                        url = page.url
+                        page.close()
+                        logger.info(f"已關閉分頁: {url}")
                 except Exception as e:
-                    logger.warning(f"關閉頁面時發生錯誤: {str(e)}")
-                    
-            logger.info("頁面清理完成")
+                    logger.warning(f"關閉分頁時發生錯誤: {str(e)}")
+            
+            # 更新內部狀態
+            self._page = main_page if keep_main else None
+            self._pages = [p for p in self._context.pages if not p.is_closed()]
+            
+            logger.info(f"分頁清理完成，剩餘 {len(self._pages)} 個分頁")
             
         except Exception as e:
-            logger.error(f"清理頁面時發生錯誤: {str(e)}")
-            
+            logger.error(f"清理分頁時發生錯誤: {str(e)}")
+            # 發生錯誤時，嘗試強制關閉所有分頁
+            try:
+                for page in self._context.pages:
+                    if not page.is_closed():
+                        page.close()
+                if keep_main:
+                    self._page = self._context.new_page()
+            except Exception as e2:
+                logger.error(f"強制清理分頁時發生錯誤: {str(e2)}")
+
     def manage_pages(self) -> None:
-        """管理頁面，防止頁面無限增長
-        
-        此方法會檢查目前開啟的頁面數量，若超過閾值則關閉多餘頁面
-        """
+        """嚴格管理頁面數量，防止頁面無限增長"""
         if not self._context:
             return
             
         try:
-            pages = self._context.pages
-            max_pages = 3  # 允許最大頁面數量
+            # 強制保持單一分頁
+            self._ensure_single_page()
             
-            # 如果頁面數量超過閾值，則進行清理
-            if len(pages) > max_pages:
-                logger.warning(f"檢測到頁面數量({len(pages)})超過閾值({max_pages})，執行頁面清理")
-                self.close_pages(keep_main=True)
-            else:
-                logger.debug(f"目前頁面數量({len(pages)})未超過閾值({max_pages})，無需清理")
-                
         except Exception as e:
             logger.error(f"管理頁面時發生錯誤: {str(e)}")
-            
+            # 發生錯誤時，嘗試強制關閉所有分頁並重新創建主分頁
+            try:
+                self.close_pages(keep_main=False)
+                self._page = self._context.new_page()
+                logger.info("已重置所有分頁")
+            except Exception as e2:
+                logger.error(f"重置分頁時發生錯誤: {str(e2)}")
+
     def _register_page_event_handlers(self):
         """註冊頁面事件處理器，監控頁面創建
         
