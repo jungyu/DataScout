@@ -74,6 +74,16 @@ keys/
 *.csr
 *.p12
 *.pfx
+# 新增排除項目 - 避免帳號密碼外洩
+*.ini
+config.ini
+credentials.ini
+**/config/config.ini
+**/config/credentials.ini
+**/examples/**/config.ini
+**/examples/**/credentials.ini
+**/playwright_base/**/config.ini
+**/playwright_base/**/credentials.ini
 
 # 瀏覽器相關
 geckodriver.log

@@ -1,0 +1,53 @@
+{
+  "site": {
+    "base_url": "https://asia.nikkei.com",
+    "search_url": "https://asia.nikkei.com/search"
+  },
+  "scraping": {
+    "max_pages": 5,
+    "delay_between_pages": 3,
+    "delay_between_articles": {
+      "min": 5,
+      "max": 8
+    },
+    "auto_close_popups": true
+  },
+  "selectors": {
+    "search_results": {
+      "article": "article.ArticleSearchResult_article__UxvjT",
+      "title": "h2.ArticleSearchResult_headline__y2pzy a",
+      "category": "h4.ArticleSearchResult_tag__JOai8 a",
+      "publish_time": "span.ArticleSearchResult_articleTimestamp__D1E9L",
+      "description": "p.ArticleSearchResult_description__X28UL",
+      "next_page": "li.Pagination_paginationNext__a_qek a"
+    },
+    "article_detail": {
+      "wrapper": "div.NewsArticleWrapper_newsArticleWrapper__5WTIa",
+      "category": ".NewsArticleHeader_newsArticleTagContainer__9oA_J a",
+      "title": "h1.article-header__title",
+      "subtitle": "p.NewsArticleHeader_newsArticleHeaderSubtitle__ZlvPp",
+      "image": "div[data-trackable=\"image-main\"] img",
+      "image_caption": "p.NewsArticleCaption_newsArticleCaption__fxo8v",
+      "author": "div.NewsArticleDetails_newsArticleDetailsByline__VOUu6",
+      "publish_time": "div[data-testid=\"timestamp\"].ArticleTimestamp_articleTimestampCreated__WDqHG span",
+      "update_time": "div[data-testid=\"timestamp\"].ArticleTimestamp_articleTimestampUpdated__3hUKK span",
+      "content": "div#article-body-preview p",
+      "popup_close": "button.tp-close"
+    }
+  },
+  "storage": {
+    "lists_file": "storage/nikkei_lists.json",
+    "articles_file": "storage/nikkei_articles.json",
+    "storage_file": "storage/nikkei_storage.json",
+    "results_file": "storage/nikkei_results.json"
+  },
+  "browser": {
+    "headless": false,
+    "browser_type": "chromium",
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    }
+  }
+}
