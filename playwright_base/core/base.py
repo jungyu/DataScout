@@ -7,6 +7,7 @@ import logging
 import json
 import os
 from datetime import datetime
+import threading
 
 from playwright.async_api import (
     async_playwright,
@@ -75,9 +76,15 @@ class PlaywrightBase:
         self._context: Optional[BrowserContext] = None
         self._page: Optional[Page] = None
         
-        # 存儲所有打開的頁面，用於資源管理和防止頁面洩漏
+        # 更嚴格的頁面管理
         self._pages: List[Page] = []
-        self._max_pages_allowed = kwargs.get("max_pages", 3)  # 設置允許的最大頁面數
+        self._max_pages_allowed = kwargs.get("max_pages", 1)  # 預設只允許一個頁面
+        self._page_lock = threading.Lock()  # 添加線程鎖
+        self._page_creation_count = 0  # 追蹤頁面創建次數
+        self._page_event_handlers = {}  # 追蹤頁面事件處理器
+        self._page_creation_enabled = True  # 控制頁面創建開關
+        self._page_creation_cooldown = 1.0  # 頁面創建冷卻時間（秒）
+        self._last_page_creation_time = 0  # 上次創建頁面的時間
         
         self.user_agent_manager = UserAgentManager()
         self.human_like = HumanLikeBehavior()
@@ -156,14 +163,14 @@ class PlaywrightBase:
                 logger.info("未找到 storage.json，使用默認配置創建瀏覽器上下文")
                 self._context = self._browser.new_context(**context_kwargs)
             
+            # 設置上下文事件監聽器
+            self._context.on("page", self._handle_new_page)
+            
             # 創建頁面並添加到頁面列表
             self._page = self._context.new_page()
             self._pages = [self._page]
             
             # 設置事件監聽器來追蹤新開的頁面
-            self._context.on("page", self._handle_new_page)
-            
-            # 注入頁面關閉監聽器，確保頁面列表同步更新
             self._setup_page_close_listener()
             
             # 設置請求攔截
@@ -180,6 +187,15 @@ class PlaywrightBase:
         關閉瀏覽器實例
         """
         try:
+            # 移除所有事件監聽器
+            for page, handler in self._page_event_handlers.items():
+                try:
+                    page.remove_listener("close", handler)
+                except:
+                    pass
+            self._page_event_handlers.clear()
+            
+            # 關閉所有頁面
             if self._page:
                 self._page.close()
             if self._context:
@@ -188,6 +204,11 @@ class PlaywrightBase:
                 self._browser.close()
             if self._playwright:
                 self._playwright.stop()
+                
+            # 清空頁面列表
+            self._pages = []
+            self._page = None
+            
             logger.info("瀏覽器實例已關閉")
         except Exception as e:
             logger.error(f"關閉瀏覽器時發生錯誤: {str(e)}")
@@ -206,71 +227,45 @@ class PlaywrightBase:
         return self._page
         
     def navigate(self, url: str, timeout: int = 30000) -> None:
-        """
-        導航到指定URL
-        
-        Args:
-            url: 目標URL
-            timeout: 超時時間（毫秒）
-        """
-        if not self._page or self._page.is_closed():
-            logger.warning("頁面已關閉或未初始化，將重新創建頁面")
+        """導航到指定URL"""
+        with self._page_lock:
             try:
-                if self._context:
-                    # 如果上下文存在但頁面被關閉，創建新頁面
-                    self._page = self._context.new_page()
-                    logger.info("已重新創建頁面實例")
-                else:
-                    # 如果連上下文都不存在，拋出異常
-                    raise BrowserException("瀏覽器上下文未初始化，請重新啟動瀏覽器")
-            except Exception as e:
-                logger.error(f"重新創建頁面時發生錯誤: {str(e)}")
-                raise BrowserException(f"重新創建頁面失敗: {str(e)}")
-        
-        # 驗證 URL 格式
-        if not url or not isinstance(url, str) or not (url.startswith('http://') or url.startswith('https://')):
-            raise PageException(f"無效的 URL 格式: {url}")
-        
-        # 延遲
-        if ANTI_DETECTION_CONFIG["random_delay"]:
-            self.random_delay()
-
-        # 嘗試導航
-        try:
-            response = self.page.goto(
-                url,
-                timeout=timeout,
-                wait_until=BROWSER_CONFIG.get("wait_until", "load")
-            )
-
-            # 檢查響應
-            if not response:
-                logger.warning(f"導航到 {url} 沒有收到響應")
-                # 不拋出異常，而是繼續執行，因為有些頁面可能不返回響應但實際上已加載
-            elif response.status >= 400:
-                # 記錄HTTP錯誤但不立即失敗
-                logger.warning(f"導航到 {url} 收到錯誤狀態碼: {response.status}")
+                # 檢查頁面狀態
+                if not self._page or self._page.is_closed():
+                    # 檢查是否已有可用頁面
+                    available_pages = [p for p in self._pages if not p.is_closed()]
+                    if available_pages:
+                        self._page = available_pages[0]
+                    else:
+                        # 只有在沒有可用頁面時才創建新頁面
+                        if len(self._pages) < self._max_pages_allowed:
+                            self._page = self._context.new_page()
+                            self._pages.append(self._page)
+                            # 設置頁面關閉監聽器
+                            handler = lambda: self._handle_page_close(self._page)
+                            self._page.on("close", handler)
+                            self._page_event_handlers[self._page] = handler
+                        else:
+                            raise PageException("已達到最大頁面數量限制")
                 
-            logger.info(f"成功導航到 {url}")
-            return
-            
-        except Exception as e:
-            error_msg = str(e)
-            logger.error(f"導航到 {url} 時發生錯誤: {error_msg}")
-            
-            # 特殊處理超時錯誤
-            if "timeout" in error_msg.lower():
-                logger.warning("導航超時，嘗試等待頁面加載完成")
-                try:
-                    # 即使超時也嘗試等待頁面加載
-                    self.wait_for_load_state("domcontentloaded", timeout=10000)
-                    logger.info("成功獲取基本頁面內容")
-                    return  # 繼續執行流程
-                except Exception as wait_error:
-                    logger.error(f"等待頁面加載失敗: {str(wait_error)}")
-                    # 這裡不拋出異常，而是跳到下面拋出原始異常
-            
-            raise PageException(f"導航失敗: {error_msg}", url=url)
+                # 執行導航
+                response = self._page.goto(url, timeout=timeout)
+                
+                # 檢查響應
+                if not response:
+                    raise PageException(f"導航到 {url} 沒有收到響應")
+                elif response.status >= 400:
+                    raise PageException(f"導航到 {url} 收到錯誤狀態碼: {response.status}")
+                
+                # 等待頁面加載
+                self._page.wait_for_load_state("networkidle", timeout=timeout)
+                
+                # 定期檢查頁面數量
+                self.manage_pages()
+                
+            except Exception as e:
+                logger.error(f"導航失敗: {str(e)}")
+                raise PageException(f"導航失敗: {str(e)}")
 
     def get_current_url(self) -> str:
         """
@@ -398,110 +393,112 @@ class PlaywrightBase:
 
     def new_page(self) -> Page:
         """
-        創建新頁面，並管理頁面計數，防止過多頁面導致資源洩漏
+        創建新頁面，並進行嚴格的頁面數量控制
         
         Returns:
-            Page: 新創建的頁面
-        """
-        if not self._context:
-            raise BrowserException("瀏覽器上下文未初始化")
+            Page: 新創建的頁面實例
             
-        # 檢查是否已達到最大頁面限制
-        if len(self._pages) >= self._max_pages_allowed:
-            logger.warning(f"已達到最大頁面數量限制 ({self._max_pages_allowed})，將關閉最舊的頁面")
+        Raises:
+            PageException: 當達到最大頁面數量限制時
+        """
+        with self._page_lock:
+            current_time = time.time()
+            
+            # 檢查是否允許創建新頁面
+            if not self._page_creation_enabled:
+                raise PageException("頁面創建功能已被禁用")
+                
+            # 檢查冷卻時間
+            if current_time - self._last_page_creation_time < self._page_creation_cooldown:
+                raise PageException("頁面創建過於頻繁，請稍後再試")
+                
+            # 檢查頁面數量限制
+            if len(self._pages) >= self._max_pages_allowed:
+                raise PageException(f"已達到最大頁面數量限制 ({self._max_pages_allowed})")
+                
             try:
-                # 關閉最早創建的頁面（排除主頁面）
-                for old_page in self._pages[1:]:
-                    if not old_page.is_closed():
-                        old_page.close()
-                        logger.info(f"已關閉舊頁面: {old_page.url}")
-                        break
-                # 清理已關閉的頁面
-                self._pages = [p for p in self._pages if not p.is_closed()]
+                # 創建新頁面
+                new_page = self._context.new_page()
+                self._pages.append(new_page)
+                self._page_creation_count += 1
+                self._last_page_creation_time = current_time
+                
+                # 設置頁面關閉監聽器
+                handler = lambda: self._handle_page_close(new_page)
+                new_page.on("close", handler)
+                self._page_event_handlers[new_page] = handler
+                
+                logger.info(f"成功創建新頁面，當前頁面數量: {len(self._pages)}")
+                return new_page
+                
             except Exception as e:
-                logger.error(f"關閉舊頁面時發生錯誤: {str(e)}")
-        
-        try:
-            # 創建新頁面
-            page = self._context.new_page()
-            # 將新頁面添加到頁面列表
-            self._pages.append(page)
-            logger.info(f"已創建新頁面 (當前共 {len(self._pages)} 個頁面)")
-            return page
-        except Exception as e:
-            logger.error(f"創建新頁面失敗: {str(e)}")
-            raise PageException(f"創建新頁面失敗: {str(e)}")
-    
+                logger.error(f"創建新頁面時發生錯誤: {str(e)}")
+                raise PageException(f"創建新頁面失敗: {str(e)}")
+
     def manage_pages(self) -> None:
-        """
-        管理所有打開的頁面，關閉多餘頁面並更新頁面列表
-        """
-        if not self._context:
-            return
-            
-        try:
-            # 獲取所有當前頁面
-            all_pages = self._context.pages
-            
-            # 更新內部頁面列表，確保與實際頁面同步
-            self._pages = [p for p in self._pages if not p.is_closed()]
-            
-            # 如果頁面數超過限制，關閉多餘頁面
-            if len(all_pages) > self._max_pages_allowed:
-                logger.warning(f"檢測到 {len(all_pages)} 個頁面，超過限制 {self._max_pages_allowed}，將關閉多餘頁面")
+        """管理所有打開的頁面"""
+        with self._page_lock:
+            try:
+                # 獲取所有當前頁面
+                all_pages = self._context.pages
                 
-                # 保留主頁面和最新的頁面
-                pages_to_keep = [self._page] + all_pages[-(self._max_pages_allowed-1):] if len(all_pages) > 1 else [self._page]
-                pages_to_keep = [p for p in pages_to_keep if p and not p.is_closed()]
+                # 更新內部頁面列表
+                self._pages = [p for p in self._pages if not p.is_closed()]
                 
-                # 關閉不需要保留的頁面
-                for page in all_pages:
-                    if page not in pages_to_keep and not page.is_closed():
-                        try:
-                            page.close()
-                            logger.info(f"已關閉多餘頁面: {page.url}")
-                        except Exception as e:
-                            logger.error(f"關閉頁面時發生錯誤: {str(e)}")
-                
-                # 更新頁面列表
-                self._pages = [p for p in self._context.pages if not p.is_closed()]
-                logger.info(f"頁面管理完成，當前共 {len(self._pages)} 個頁面")
-        except Exception as e:
-            logger.error(f"管理頁面時發生錯誤: {str(e)}")
+                # 如果頁面數超過限制，關閉多餘頁面
+                if len(all_pages) > self._max_pages_allowed:
+                    logger.warning(f"檢測到 {len(all_pages)} 個頁面，超過限制 {self._max_pages_allowed}")
+                    
+                    # 保留主頁面
+                    pages_to_keep = [self._page] if self._page and not self._page.is_closed() else []
+                    
+                    # 關閉其他頁面
+                    for page in all_pages:
+                        if page not in pages_to_keep and not page.is_closed():
+                            try:
+                                page.close()
+                                logger.info(f"已關閉多餘頁面: {page.url}")
+                            except Exception as e:
+                                logger.error(f"關閉頁面時發生錯誤: {str(e)}")
+                    
+                    # 更新頁面列表
+                    self._pages = [p for p in self._context.pages if not p.is_closed()]
+                    
+                # 更新事件監聽器
+                self._setup_page_close_listener()
+                    
+            except Exception as e:
+                logger.error(f"管理頁面時發生錯誤: {str(e)}")
     
     def close_pages(self, keep_main: bool = True) -> None:
-        """
-        關閉所有頁面，可選保留主頁面
-        
-        Args:
-            keep_main: 是否保留主頁面
-        """
-        if not self._context:
-            return
-            
-        try:
-            # 獲取所有當前頁面
-            pages = self._context.pages
-            
-            for page in pages:
-                # 如果是主頁面且需要保留，則跳過
-                if keep_main and page == self._page:
-                    continue
-                    
-                try:
-                    if not page.is_closed():
-                        url = page.url
-                        page.close()
-                        logger.info(f"已關閉頁面: {url}")
-                except Exception as e:
-                    logger.warning(f"關閉頁面時發生錯誤: {str(e)}")
-            
-            # 更新頁面列表
-            self._pages = [self._page] if keep_main and self._page and not self._page.is_closed() else []
-            logger.info(f"已關閉所有頁面" + (" (已保留主頁面)" if keep_main else ""))
-            
-        except Exception as e:
-            logger.error(f"關閉頁面時發生錯誤: {str(e)}")
+        """關閉所有頁面，可選保留主頁面"""
+        with self._page_lock:
+            if not self._context:
+                return
+                
+            try:
+                # 獲取所有當前頁面
+                pages = self._context.pages
+                
+                for page in pages:
+                    # 如果是主頁面且需要保留，則跳過
+                    if keep_main and page == self._page:
+                        continue
+                        
+                    try:
+                        if not page.is_closed():
+                            url = page.url
+                            page.close()
+                            logger.info(f"已關閉頁面: {url}")
+                    except Exception as e:
+                        logger.warning(f"關閉頁面時發生錯誤: {str(e)}")
+                
+                # 更新頁面列表
+                self._pages = [self._page] if keep_main and self._page and not self._page.is_closed() else []
+                logger.info(f"已關閉所有頁面" + (" (已保留主頁面)" if keep_main else ""))
+                
+            except Exception as e:
+                logger.error(f"關閉頁面時發生錯誤: {str(e)}")
             
     def pdf(
         self,
@@ -813,58 +810,92 @@ class PlaywrightBase:
 
     def _handle_new_page(self, page: Page) -> None:
         """
-        處理新頁面創建事件
+        處理新頁面創建事件，防止未經授權的頁面創建
         
         Args:
-            page: 新創建的頁面
+            page: 新創建的頁面實例
         """
-        try:
-            logger.info(f"檢測到新頁面被創建: {page.url}")
-            
-            # 添加到頁面列表
+        with self._page_lock:
+            # 檢查是否允許創建新頁面
+            if not self._page_creation_enabled:
+                logger.warning("檢測到未經授權的頁面創建，將自動關閉")
+                page.close()
+                return
+                
+            # 檢查頁面數量限制
+            if len(self._pages) >= self._max_pages_allowed:
+                logger.warning(f"檢測到超出限制的頁面創建，將自動關閉 (當前: {len(self._pages)}, 限制: {self._max_pages_allowed})")
+                page.close()
+                return
+                
+            # 添加頁面到管理列表
             self._pages.append(page)
             
             # 設置頁面關閉監聽器
-            page.on("close", lambda: self._handle_page_close(page))
+            def create_close_handler(p):
+                def handler():
+                    self._handle_page_close(p)
+                return handler
+                
+            handler = create_close_handler(page)
+            page.on("close", handler)
+            self._page_event_handlers[page] = handler
             
-            # 如果超過最大頁面限制，關閉最舊的頁面
-            if len(self._pages) > self._max_pages_allowed:
-                logger.warning(f"頁面數量 ({len(self._pages)}) 超過限制 ({self._max_pages_allowed})，將關閉最舊頁面")
-                oldest_pages = [p for p in self._pages[1:] if p != page and not p.is_closed()]
-                if oldest_pages:
-                    oldest_page = oldest_pages[0]
-                    try:
-                        url = oldest_page.url
-                        oldest_page.close()
-                        logger.info(f"已關閉最舊頁面: {url}")
-                    except Exception as e:
-                        logger.error(f"關閉舊頁面時發生錯誤: {str(e)}")
-        except Exception as e:
-            logger.error(f"處理新頁面事件時發生錯誤: {str(e)}")
-            
+            logger.info(f"已處理新頁面創建，當前頁面數量: {len(self._pages)}")
+
     def _handle_page_close(self, page: Page) -> None:
         """
-        處理頁面關閉事件
+        處理頁面關閉事件，確保正確清理資源
         
         Args:
-            page: 被關閉的頁面
+            page: 被關閉的頁面實例
         """
-        try:
-            # 從頁面列表移除
-            if page in self._pages:
-                self._pages.remove(page)
-                logger.info(f"頁面已關閉並從列表中移除，當前剩餘 {len(self._pages)} 個頁面")
-        except Exception as e:
-            logger.error(f"處理頁面關閉事件時發生錯誤: {str(e)}")
-            
+        with self._page_lock:
+            try:
+                # 從頁面列表中移除
+                if page in self._pages:
+                    self._pages.remove(page)
+                    
+                # 移除事件監聽器
+                if page in self._page_event_handlers:
+                    try:
+                        page.remove_listener("close", self._page_event_handlers[page])
+                    except:
+                        pass
+                    del self._page_event_handlers[page]
+                    
+                # 如果關閉的是當前頁面，更新當前頁面引用
+                if self._page == page:
+                    self._page = self._pages[0] if self._pages else None
+                    
+                logger.info(f"頁面已關閉，當前頁面數量: {len(self._pages)}")
+                
+            except Exception as e:
+                logger.error(f"處理頁面關閉時發生錯誤: {str(e)}")
+
     def _setup_page_close_listener(self) -> None:
-        """
-        設置所有頁面的關閉事件監聽器
-        """
+        """設置所有頁面的關閉事件監聽器"""
         try:
+            # 移除舊的事件監聽器
+            for page, handler in self._page_event_handlers.items():
+                try:
+                    page.remove_listener("close", handler)
+                except:
+                    pass
+            self._page_event_handlers.clear()
+            
+            # 為所有頁面設置新的事件監聽器
             for page in self._pages:
                 if not page.is_closed():
-                    page.on("close", lambda: self._handle_page_close(page))
+                    # 使用具名函數替代 lambda
+                    def create_close_handler(p):
+                        def handler():
+                            self._handle_page_close(p)
+                        return handler
+                    
+                    handler = create_close_handler(page)
+                    page.on("close", handler)
+                    self._page_event_handlers[page] = handler
         except Exception as e:
             logger.error(f"設置頁面關閉監聽器時發生錯誤: {str(e)}")
             
@@ -894,3 +925,36 @@ class PlaywrightBase:
         except Exception as e:
             logger.error(f"獲取頁面數量時發生錯誤: {str(e)}")
             return len(self._pages) if self._pages else 0
+
+    def enable_page_creation(self, enabled: bool = True) -> None:
+        """
+        啟用或禁用頁面創建功能
+        
+        Args:
+            enabled: 是否啟用頁面創建
+        """
+        with self._page_lock:
+            self._page_creation_enabled = enabled
+            logger.info(f"頁面創建功能已{'啟用' if enabled else '禁用'}")
+
+    def set_max_pages(self, max_pages: int) -> None:
+        """
+        設置最大允許的頁面數量
+        
+        Args:
+            max_pages: 最大頁面數量
+        """
+        with self._page_lock:
+            if max_pages < 1:
+                raise ValueError("最大頁面數量必須大於 0")
+                
+            self._max_pages_allowed = max_pages
+            logger.info(f"已設置最大頁面數量為: {max_pages}")
+            
+            # 如果當前頁面數量超過新的限制，關閉多餘的頁面
+            while len(self._pages) > max_pages:
+                page_to_close = self._pages[-1]
+                try:
+                    page_to_close.close()
+                except:
+                    pass

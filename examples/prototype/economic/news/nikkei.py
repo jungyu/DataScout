@@ -10,7 +10,6 @@ Nikkei Asia 爬蟲 (關鍵字版)
 
 import logging
 import json
-import csv
 import sys
 import os
 import random
@@ -25,7 +24,7 @@ from typing import Dict, List, Optional, Any, Tuple, Union
 current_dir = Path(__file__).parent
 sys.path.append(str(current_dir.parent.parent.parent))  # 添加專案根目錄
 
-from examples.prototype.economic.config.nikkei_config import SITE_CONFIG, SELECTORS
+from ..config.nikkei_config import SITE_CONFIG, SELECTORS 
 from playwright_base import PlaywrightBase, setup_logger
 from playwright_base.anti_detection import HumanLikeBehavior
 from extractors.handlers.news import NewsListExtractor, NewsContentExtractor
@@ -78,9 +77,12 @@ class NikkeiScraper(PlaywrightBase):
         # 存儲定時器引用，便於清理
         self._timers = []
         
-        # 啟動瀏覽器 - 這是關鍵步驟
+        # 啟動瀏覽器
         logger.info("正在啟動瀏覽器...")
         self.start()
+        
+        # 確保只有一個主頁面
+        self._ensure_single_page()
         
         # 設定 context 選項
         if self._context and browser_config.get("context_options", {}).get("viewport"):
@@ -590,24 +592,6 @@ class NikkeiScraper(PlaywrightBase):
     def close(self) -> None:
         """安全關閉爬蟲器，確保資源釋放"""
         try:
-            # 保存當前 storage 狀態
-            if self._context:
-                try:
-                    # 確保主頁面處於穩定狀態
-                    if self._page and not self._page.is_closed():
-                        self._page.wait_for_load_state("networkidle", timeout=5000)
-                    
-                    # 使用較短的超時時間來保存 storage
-                    storage = self._context.storage_state(timeout=5000)
-                    try:
-                        with open("storage.json", "w", encoding="utf-8") as f:
-                            json.dump(storage, f, ensure_ascii=False, indent=2)
-                        logger.info("關閉前已保存 storage 狀態")
-                    except Exception as e:
-                        logger.warning(f"寫入 storage.json 時發生錯誤: {str(e)}")
-                except Exception as e:
-                    logger.warning(f"保存 storage 狀態時發生錯誤: {str(e)}")
-            
             # 清理定時器
             for timer in self._timers:
                 if timer and timer.is_alive():
@@ -628,11 +612,6 @@ class NikkeiScraper(PlaywrightBase):
             super().close()
             logger.info("Nikkei 爬蟲器已安全關閉")
             
-        except KeyboardInterrupt:
-            logger.warning("收到鍵盤中斷信號，強制關閉爬蟲器")
-            if self._context:
-                self._context.close()
-            super().close()
         except Exception as e:
             logger.error(f"關閉爬蟲器時發生錯誤: {str(e)}")
             # 確保基類的關閉方法被調用
@@ -640,7 +619,7 @@ class NikkeiScraper(PlaywrightBase):
                 super().close()
             except:
                 pass
-            
+
     def close_pages(self, keep_main: bool = True) -> None:
         """關閉所有分頁，可選保留主分頁"""
         if not self._context:
@@ -665,7 +644,8 @@ class NikkeiScraper(PlaywrightBase):
                 try:
                     if not page.is_closed():
                         url = page.url
-                        page.close()
+                        # 使用 run_before_unload=False 來避免觸發頁面卸載事件
+                        page.close(run_before_unload=False)
                         logger.info(f"已關閉分頁: {url}")
                 except Exception as e:
                     logger.warning(f"關閉分頁時發生錯誤: {str(e)}")
@@ -673,6 +653,12 @@ class NikkeiScraper(PlaywrightBase):
             # 更新內部狀態
             self._page = main_page if keep_main else None
             self._pages = [p for p in self._context.pages if not p.is_closed()]
+            
+            # 驗證頁面狀態
+            if keep_main and (not self._page or self._page.is_closed()):
+                logger.warning("主頁面已關閉，創建新頁面")
+                self._page = self._context.new_page()
+                self._pages = [self._page]
             
             logger.info(f"分頁清理完成，剩餘 {len(self._pages)} 個分頁")
             
@@ -682,9 +668,10 @@ class NikkeiScraper(PlaywrightBase):
             try:
                 for page in self._context.pages:
                     if not page.is_closed():
-                        page.close()
+                        page.close(run_before_unload=False)
                 if keep_main:
                     self._page = self._context.new_page()
+                    self._pages = [self._page]
             except Exception as e2:
                 logger.error(f"強制清理分頁時發生錯誤: {str(e2)}")
 
@@ -694,24 +681,51 @@ class NikkeiScraper(PlaywrightBase):
             return
             
         try:
-            # 強制保持單一分頁
-            self._ensure_single_page()
+            # 獲取所有頁面
+            pages = self._context.pages
+            pages_count = len(pages)
             
+            if pages_count > 1:
+                logger.warning(f"檢測到 {pages_count} 個頁面，開始清理...")
+                
+                # 保留主頁面
+                main_page = self._page if self._page and not self._page.is_closed() else pages[0]
+                
+                # 關閉其他頁面
+                for page in pages:
+                    if page != main_page and not page.is_closed():
+                        try:
+                            url = page.url
+                            page.close()
+                            logger.info(f"已關閉多餘頁面: {url}")
+                        except Exception as e:
+                            logger.warning(f"關閉頁面時發生錯誤: {str(e)}")
+                
+                # 更新內部狀態
+                self._page = main_page
+                self._pages = [p for p in self._context.pages if not p.is_closed()]
+                
+                # 再次檢查頁面數量
+                final_count = len(self._pages)
+                if final_count > 1:
+                    logger.error(f"頁面清理後仍有 {final_count} 個頁面，嘗試強制清理")
+                    self.close_pages(keep_main=True)
+                
+                logger.info(f"頁面管理完成，當前共有 {len(self._pages)} 個頁面")
+                
         except Exception as e:
             logger.error(f"管理頁面時發生錯誤: {str(e)}")
-            # 發生錯誤時，嘗試強制關閉所有分頁並重新創建主分頁
+            # 發生錯誤時，嘗試強制關閉所有頁面並重新創建主分頁
             try:
                 self.close_pages(keep_main=False)
                 self._page = self._context.new_page()
-                logger.info("已重置所有分頁")
+                self._pages = [self._page]
+                logger.info("已重置所有頁面")
             except Exception as e2:
-                logger.error(f"重置分頁時發生錯誤: {str(e2)}")
+                logger.error(f"重置頁面時發生錯誤: {str(e2)}")
 
     def _register_page_event_handlers(self):
-        """註冊頁面事件處理器，監控頁面創建
-        
-        此方法會監聽頁面創建和關閉事件，以便追蹤頁面數量
-        """
+        """註冊頁面事件處理器，監控頁面創建"""
         if not self._context:
             return
             
@@ -721,17 +735,25 @@ class NikkeiScraper(PlaywrightBase):
             
             # 定期檢查並管理頁面
             def check_pages():
-                pages_count = len(self._context.pages) if self._context else 0
-                logger.info(f"定期檢查: 目前有 {pages_count} 個頁面開啟")
-                if pages_count > 3:  # 如果超過閾值，執行清理
-                    self.manage_pages()
+                try:
+                    pages_count = len(self._context.pages) if self._context else 0
+                    logger.info(f"定期檢查: 目前有 {pages_count} 個頁面開啟")
+                    if pages_count > 3:  # 如果超過閾值，執行清理
+                        self.manage_pages()
+                    
+                    # 重新設置定時器，實現循環檢查
+                    if self._context and not self._context.is_closed():
+                        threading_timer = threading.Timer(30.0, check_pages)
+                        threading_timer.daemon = True
+                        threading_timer.start()
+                        self._timers.append(threading_timer)
+                except Exception as e:
+                    logger.error(f"定期檢查頁面時發生錯誤: {str(e)}")
             
-            # 每隔一段時間檢查一次頁面狀態
-            threading_timer = threading.Timer(30.0, check_pages)  # 30 秒檢查一次
-            threading_timer.daemon = True  # 設為守護線程，不阻塞程式結束
+            # 啟動第一次檢查
+            threading_timer = threading.Timer(30.0, check_pages)
+            threading_timer.daemon = True
             threading_timer.start()
-            
-            # 存儲定時器引用，便於清理
             self._timers.append(threading_timer)
             
             logger.info("已註冊頁面事件處理器")
@@ -767,15 +789,12 @@ def save_results(filename: str, data: List[Dict[str, Any]]) -> None:
         data: 要儲存的資料
     """
     try:
-        # 確保目錄存在
-        save_dir = Path("data") / "json"
+        # 儲存目錄與 config 保持一致
+        save_dir = Path(SITE_CONFIG["save_path"]) / "json"
         save_dir.mkdir(parents=True, exist_ok=True)
-        
-        # 儲存至檔案
         file_path = save_dir / filename
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-            
         logger.info(f"已儲存資料至: {file_path}")
     except Exception as e:
         logger.error(f"儲存資料時發生錯誤: {e}")
@@ -783,6 +802,8 @@ def save_results(filename: str, data: List[Dict[str, Any]]) -> None:
 def main() -> None:
     """主程序入口點，處理整個爬取流程 - 每次只執行 1 組關鍵字"""
     scraper = None
+    all_results: List[Dict[str, Any]] = []  # 確保 finally 可用
+    current_keyword = ""
     try:
         # 初始化爬蟲器
         logger.info("初始化 Nikkei 爬蟲器...")
@@ -793,7 +814,7 @@ def main() -> None:
         logger.info(f"載入關鍵字完成，共 {len(keywords)} 個")
         
         # 儲存已處理關鍵字的檔案路徑
-        processed_file = Path("data") / "processed_keywords.json"
+        processed_file = Path(SITE_CONFIG["save_path"]) / "processed_keywords.json"
         
         # 讀取已處理的關鍵字
         processed_keywords = []
@@ -921,7 +942,7 @@ def main() -> None:
                 logger.error(f"關閉爬蟲器時發生錯誤: {str(e)}")
         
         # 最終保存結果
-        if 'all_results' in locals() and all_results:
+        if all_results:
             final_filename = f"nikkei_{current_keyword.replace(' ', '_')}_final_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
             save_results(final_filename, all_results)
             logger.info(f"已最終保存 {len(all_results)} 筆結果至 {final_filename}")

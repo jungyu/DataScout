@@ -19,6 +19,7 @@ from datetime import datetime
 import random
 from loguru import logger
 from playwright.sync_api import Page
+import threading
 
 
 class PageManager:
@@ -36,14 +37,16 @@ class PageManager:
         self.context = browser_context
         self.main_page = None
         self.current_list_page = None
-        self.content_urls = []  # 存儲所有內容頁 URL
-        self.visited_urls = set()  # 已訪問過的 URL
-        self.max_retry = 3  # 最大重試次數
-        self.retry_delay = 5  # 重試延遲（秒）
-        self.page_delay_range = (2, 5)  # 頁面間延遲範圍（秒）
-        self.content_batch_size = 1  # 內容頁批次大小，預設為 1（序列化處理）
-        self.next_page_selector = None  # 下一頁按鈕選擇器
-        self.content_selectors = []  # 內容頁鏈接選擇器
+        self.content_page = None  # 新增：用於內容頁處理的單一頁面
+        self.content_urls = []
+        self.visited_urls = set()
+        self.max_retry = 3
+        self.retry_delay = 5
+        self.page_delay_range = (2, 5)
+        self.content_batch_size = 1
+        self.next_page_selector = None
+        self.content_selectors = []
+        self._page_lock = threading.Lock()  # 新增：頁面操作鎖
         
     def set_main_page(self, page: Page) -> None:
         """
@@ -240,96 +243,96 @@ class PageManager:
         max_pages: int = None
     ) -> List[Any]:
         """
-        依次處理內容頁
+        序列化處理內容頁
         
         Args:
-            processor_func: 頁面處理函數，參數為 (page, url)
-            urls: 內容頁 URL 列表，如未提供則使用之前收集的 URL
-            max_pages: 最大處理頁數
+            processor_func: 處理函數，接收頁面和 URL 作為參數
+            urls: 內容頁 URL 列表，如果為 None 則使用內部存儲的 URL
+            max_pages: 最大處理頁面數，None 表示不限制
             
         Returns:
-            List[Any]: 頁面處理結果列表
+            List[Any]: 處理結果列表
         """
         if not urls:
             urls = self.content_urls
             
         if not urls:
-            logger.error("沒有可處理的內容頁 URL")
+            logger.warning("沒有內容頁 URL 需要處理")
             return []
             
-        if max_pages and max_pages > 0:
+        if max_pages:
             urls = urls[:max_pages]
             
         results = []
         processed_count = 0
         
-        # 創建一個新頁面用於內容頁處理
-        content_page = self.context.new_page()
-        
-        try:
-            for i, url in enumerate(urls):
-                # 檢查 URL 是否已訪問
-                if url in self.visited_urls:
-                    logger.info(f"跳過已訪問的 URL: {url}")
-                    continue
-                    
-                # 嘗試訪問頁面
-                success = False
-                retry_count = 0
-                
-                while retry_count < self.max_retry and not success:
-                    try:
-                        logger.info(f"處理內容頁 ({i+1}/{len(urls)}): {url}")
-                        
-                        # 導航到頁面
-                        response = content_page.goto(
-                            url,
-                            wait_until="domcontentloaded"
-                        )
-                        
-                        if not response:
-                            logger.warning(f"導航到 {url} 未收到響應")
-                            retry_count += 1
-                            time.sleep(self.retry_delay)
-                            continue
-                            
-                        if response.status >= 400:
-                            logger.warning(f"導航到 {url} 返回錯誤狀態碼: {response.status}")
-                            retry_count += 1
-                            time.sleep(self.retry_delay)
-                            continue
-                            
-                        # 處理頁面
-                        result = processor_func(content_page, url)
-                        results.append(result)
-                        
-                        # 標記為已訪問
-                        self.visited_urls.add(url)
-                        processed_count += 1
-                        success = True
-                        
-                    except Exception as e:
-                        retry_count += 1
-                        logger.warning(f"處理頁面 {url} 時發生錯誤: {str(e)}，重試 {retry_count}/{self.max_retry}")
-                        time.sleep(self.retry_delay)
-                        
-                # 隨機延遲
-                delay = random.uniform(self.page_delay_range[0], self.page_delay_range[1])
-                time.sleep(delay)
-                
-        except Exception as e:
-            logger.error(f"處理內容頁時發生錯誤: {str(e)}")
-            
-        finally:
-            # 關閉內容頁
+        with self._page_lock:
             try:
-                if content_page and not content_page.is_closed():
-                    content_page.close()
-            except:
-                pass
+                # 如果沒有內容頁，創建一個
+                if not self.content_page or self.content_page.is_closed():
+                    self.content_page = self.context.new_page()
+                    logger.info("創建新的內容處理頁面")
                 
-        logger.info(f"已處理 {processed_count}/{len(urls)} 個內容頁")
-        return results
+                for i, url in enumerate(urls):
+                    if url in self.visited_urls:
+                        logger.info(f"跳過已訪問的 URL: {url}")
+                        continue
+                        
+                    success = False
+                    retry_count = 0
+                    
+                    while retry_count < self.max_retry and not success:
+                        try:
+                            logger.info(f"處理內容頁 ({i+1}/{len(urls)}): {url}")
+                            
+                            response = self.content_page.goto(
+                                url,
+                                wait_until="domcontentloaded"
+                            )
+                            
+                            if not response or response.status >= 400:
+                                logger.warning(f"導航到 {url} 失敗或返回錯誤狀態碼")
+                                retry_count += 1
+                                time.sleep(self.retry_delay)
+                                continue
+                                
+                            result = processor_func(self.content_page, url)
+                            results.append(result)
+                            
+                            self.visited_urls.add(url)
+                            processed_count += 1
+                            success = True
+                            
+                            # 添加隨機延遲
+                            delay = random.uniform(*self.page_delay_range)
+                            time.sleep(delay)
+                            
+                        except Exception as e:
+                            logger.error(f"處理內容頁 {url} 時發生錯誤: {str(e)}")
+                            retry_count += 1
+                            time.sleep(self.retry_delay)
+                            
+                    if not success:
+                        logger.error(f"處理內容頁 {url} 失敗，已達到最大重試次數")
+                        
+                # 處理完成後關閉內容頁
+                if self.content_page and not self.content_page.is_closed():
+                    self.content_page.close()
+                    self.content_page = None
+                    
+                logger.info(f"內容頁處理完成，共處理 {processed_count} 個頁面")
+                return results
+                
+            except Exception as e:
+                logger.error(f"處理內容頁時發生錯誤: {str(e)}")
+                # 確保在發生錯誤時也關閉頁面
+                if self.content_page and not self.content_page.is_closed():
+                    try:
+                        self.content_page.close()
+                    except:
+                        pass
+                    self.content_page = None
+                return results
         
     def process_batch_content_pages(
         self, 
@@ -338,120 +341,123 @@ class PageManager:
         max_pages: int = None
     ) -> List[Any]:
         """
-        批次處理內容頁（適用於資源較豐富的情況，但批次大小有限制，預設為 1）
+        批量處理內容頁
         
         Args:
-            processor_func: 頁面處理函數，參數為 (page, url)
-            urls: 內容頁 URL 列表，如未提供則使用之前收集的 URL
-            max_pages: 最大處理頁數
+            processor_func: 處理函數，接收頁面和 URL 作為參數
+            urls: 內容頁 URL 列表，如果為 None 則使用內部存儲的 URL
+            max_pages: 最大處理頁面數，None 表示不限制
             
         Returns:
-            List[Any]: 頁面處理結果列表
+            List[Any]: 處理結果列表
         """
-        if self.content_batch_size <= 1:
-            # 如果批次大小為 1，則使用序列化處理
-            return self.process_content_pages(processor_func, urls, max_pages)
-            
         if not urls:
             urls = self.content_urls
             
         if not urls:
-            logger.error("沒有可處理的內容頁 URL")
+            logger.warning("沒有內容頁 URL 需要處理")
             return []
             
-        if max_pages and max_pages > 0:
+        if max_pages:
             urls = urls[:max_pages]
             
         results = []
         processed_count = 0
         active_pages = {}  # 當前活動的頁面 {url: page}
         
-        try:
-            # 處理所有 URL
-            i = 0
-            while i < len(urls):
-                # 填充活動頁面至批次大小
-                while len(active_pages) < self.content_batch_size and i < len(urls):
-                    url = urls[i]
-                    i += 1
-                    
-                    # 檢查 URL 是否已訪問
-                    if url in self.visited_urls:
-                        logger.info(f"跳過已訪問的 URL: {url}")
-                        continue
+        with self._page_lock:
+            try:
+                i = 0
+                while i < len(urls):
+                    # 填充活動頁面至批次大小
+                    while len(active_pages) < self.content_batch_size and i < len(urls):
+                        url = urls[i]
+                        i += 1
                         
-                    # 創建新頁面
-                    page = self.context.new_page()
-                    
-                    # 導航到頁面
-                    try:
-                        logger.info(f"導航到內容頁 ({processed_count+1}/{len(urls)}): {url}")
-                        response = page.goto(
-                            url,
-                            wait_until="domcontentloaded"
-                        )
-                        
-                        if not response or response.status >= 400:
-                            logger.warning(f"導航到 {url} 失敗或返回錯誤狀態碼")
-                            page.close()
-                        else:
-                            active_pages[url] = page
+                        if url in self.visited_urls:
+                            logger.info(f"跳過已訪問的 URL: {url}")
+                            continue
                             
-                    except Exception as e:
-                        logger.error(f"導航到 {url} 時發生錯誤: {str(e)}")
-                        try:
-                            page.close()
-                        except:
-                            pass
-                
-                # 處理當前活動的頁面
-                completed_urls = []
-                for url, page in active_pages.items():
-                    try:
-                        # 處理頁面
-                        result = processor_func(page, url)
-                        results.append(result)
-                        
-                        # 標記為已訪問
-                        self.visited_urls.add(url)
-                        processed_count += 1
-                        completed_urls.append(url)
-                        
-                    except Exception as e:
-                        logger.error(f"處理頁面 {url} 時發生錯誤: {str(e)}")
-                        completed_urls.append(url)
-                        
-                    finally:
-                        # 關閉頁面
-                        try:
-                            if not page.is_closed():
-                                page.close()
-                        except:
-                            pass
-                
-                # 從活動頁面中移除已完成的頁面
-                for url in completed_urls:
-                    if url in active_pages:
-                        del active_pages[url]
-                
-                # 隨機延遲
-                delay = random.uniform(self.page_delay_range[0], self.page_delay_range[1])
-                time.sleep(delay)
-                
-        except Exception as e:
-            logger.error(f"批次處理內容頁時發生錯誤: {str(e)}")
-            
-        finally:
-            # 關閉所有活動頁面
-            for page in active_pages.values():
-                try:
-                    if not page.is_closed():
-                        page.close()
-                except:
-                    pass
+                        # 重用現有頁面或創建新頁面
+                        if len(active_pages) < self.content_batch_size:
+                            try:
+                                page = self.context.new_page()
+                                active_pages[url] = page
+                                
+                                logger.info(f"導航到內容頁 ({processed_count+1}/{len(urls)}): {url}")
+                                response = page.goto(
+                                    url,
+                                    wait_until="domcontentloaded"
+                                )
+                                
+                                if not response or response.status >= 400:
+                                    logger.warning(f"導航到 {url} 失敗或返回錯誤狀態碼")
+                                    page.close()
+                                    del active_pages[url]
+                                    continue
+                                    
+                            except Exception as e:
+                                logger.error(f"導航到 {url} 時發生錯誤: {str(e)}")
+                                if url in active_pages:
+                                    try:
+                                        active_pages[url].close()
+                                    except:
+                                        pass
+                                    del active_pages[url]
+                                continue
                     
-        logger.info(f"已處理 {processed_count}/{len(urls)} 個內容頁")
-        return results
+                    # 處理當前活動的頁面
+                    for url, page in list(active_pages.items()):
+                        try:
+                            result = processor_func(page, url)
+                            results.append(result)
+                            self.visited_urls.add(url)
+                            processed_count += 1
+                            
+                            # 關閉已處理的頁面
+                            page.close()
+                            del active_pages[url]
+                            
+                            # 添加隨機延遲
+                            delay = random.uniform(*self.page_delay_range)
+                            time.sleep(delay)
+                            
+                        except Exception as e:
+                            logger.error(f"處理內容頁 {url} 時發生錯誤: {str(e)}")
+                            try:
+                                page.close()
+                            except:
+                                pass
+                            if url in active_pages:
+                                del active_pages[url]
+                    
+                    # 檢查是否所有頁面都已處理
+                    if i >= len(urls) and not active_pages:
+                        break
+                    
+                    # 添加批次間延遲
+                    if active_pages:
+                        time.sleep(random.uniform(*self.page_delay_range))
+                
+                # 確保所有頁面都已關閉
+                for page in active_pages.values():
+                    try:
+                        page.close()
+                    except:
+                        pass
+                
+                logger.info(f"批量內容頁處理完成，共處理 {processed_count} 個頁面")
+                return results
+                
+            except Exception as e:
+                logger.error(f"批量處理內容頁時發生錯誤: {str(e)}")
+                # 確保在發生錯誤時關閉所有頁面
+                for page in active_pages.values():
+                    try:
+                        page.close()
+                    except:
+                        pass
+                return results
         
     def add_content_urls(self, urls: List[str]) -> None:
         """
@@ -479,6 +485,37 @@ class PageManager:
             List[str]: 內容頁 URL 列表
         """
         return self.content_urls
+
+    def get_page_count(self) -> int:
+        """
+        獲取當前頁面數量
+        
+        Returns:
+            int: 當前頁面數量
+        """
+        return len(self.context.pages) if self.context else 0
+
+    def close(self) -> None:
+        """
+        關閉所有頁面並清理資源
+        """
+        try:
+            if self.main_page and not self.main_page.is_closed():
+                self.main_page.close()
+            if self.current_list_page and not self.current_list_page.is_closed():
+                self.current_list_page.close()
+            if self.content_page and not self.content_page.is_closed():
+                self.content_page.close()
+                
+            self.main_page = None
+            self.current_list_page = None
+            self.content_page = None
+            self.content_urls = []
+            self.visited_urls.clear()
+            
+            logger.info("頁面管理器已關閉")
+        except Exception as e:
+            logger.error(f"關閉頁面管理器時發生錯誤: {str(e)}")
 
 # 請勿在此模組頂層執行任何流程或實例化，僅保留 PageManager 類定義。
 # 如需範例，請參考 docs/ 或 examples/ 目錄。

@@ -61,31 +61,11 @@
       "sameSite": "Lax"
     },
     {
-      "name": "sp_t",
-      "value": "5640955501fca6eda60a8d659fd6bb5d",
-      "domain": ".spotify.com",
-      "path": "/",
-      "expires": 1778217406.511022,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "sp_landing",
-      "value": "https%3A%2F%2Fasia.nikkei.com%2F%3Fsp_cid%3D5640955501fca6eda60a8d659fd6bb5d%26device%3Ddesktop",
-      "domain": ".spotify.com",
-      "path": "/",
-      "expires": 1746767806.511268,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
       "name": "_fbp",
-      "value": "fb.1.1746681406690.159633612111152753",
+      "value": "fb.1.1746747572226.762003766529183230",
       "domain": ".nikkei.com",
       "path": "/",
-      "expires": 1754468364,
+      "expires": 1754549391,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
@@ -102,20 +82,20 @@
     },
     {
       "name": "_ga",
-      "value": "GA1.3.1614782022.1746682029",
+      "value": "GA1.3.375746268.1746747572",
       "domain": ".asia.nikkei.com",
       "path": "/",
-      "expires": 1781252364.783861,
+      "expires": 1781333392.074304,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "_gid",
-      "value": "GA1.3.589537313.1746682029",
+      "value": "GA1.3.716938142.1746747572",
       "domain": ".asia.nikkei.com",
       "path": "/",
-      "expires": 1746778764,
+      "expires": 1746859792,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
@@ -125,27 +105,27 @@
       "value": "%7Bu%7DN4IgrgzgpgThIC4B2YA2qA05owMoBcBDfSREQpAeyRCwgEt8oBJAEzICYAWAdgA4uAZi4AGAKwBGAGw9uE-jy4gAvkA",
       "domain": ".nikkei.com",
       "path": "/",
-      "expires": 1780820365,
+      "expires": 1780901393,
       "httpOnly": false,
       "secure": true,
       "sameSite": "Lax"
     },
     {
       "name": "_pcid",
-      "value": "%7B%22browserId%22%3A%22maexdr4md9mvh3td%22%7D",
+      "value": "%7B%22browserId%22%3A%22mag0eky6wiv64civ%22%7D",
       "domain": ".nikkei.com",
       "path": "/",
-      "expires": 1780820365,
+      "expires": 1780901393,
       "httpOnly": false,
       "secure": true,
       "sameSite": "Lax"
     },
     {
       "name": "atlasId",
-      "value": "196ae5ca140.16h7ash1bdhr8477vjjs",
+      "value": "196b244bfac.10qgtoe3866c1v375ls3l",
       "domain": ".nikkei.com",
       "path": "/",
-      "expires": 1781252364.354681,
+      "expires": 1781333392.795873,
       "httpOnly": false,
       "secure": true,
       "sameSite": "Lax"
@@ -155,147 +135,37 @@
       "value": "32400000",
       "domain": ".nikkei.com",
       "path": "/",
-      "expires": 1749284366,
+      "expires": 1749365394,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "_ga",
-      "value": "GA1.1.1614782022.1746682029",
+      "value": "GA1.1.375746268.1746747572",
       "domain": ".nikkei.com",
       "path": "/",
-      "expires": 1781245641.511666,
+      "expires": 1781333394.389748,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "_gcl_au",
-      "value": "1.1.949407812.1746682029",
+      "value": "1.1.1864440571.1746747573",
       "domain": ".nikkei.com",
       "path": "/",
-      "expires": 1754458029,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "cX_P",
-      "value": "maexdr4md9mvh3td",
-      "domain": ".nikkei.com",
-      "path": "/",
-      "expires": 1780812172,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "FTAllocation",
-      "value": "7b68c6da-0170-4fab-93cf-9cd17bdd6b3a",
-      "domain": ".ft.com",
-      "path": "/",
-      "expires": 1778220429.872038,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "FTClientSessionId",
-      "value": "44b8deb5-393f-4f35-b626-623d9f936b51",
-      "domain": ".ft.com",
-      "path": "/",
-      "expires": 1781244429.8721,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "spoor-id",
-      "value": "44b8deb5-393f-4f35-b626-623d9f936b51",
-      "domain": ".ft.com",
-      "path": "/",
-      "expires": 1778220429.872156,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_cb",
-      "value": "BVxsdkC6rBznDO5kGA",
-      "domain": ".ft.com",
-      "path": "/",
-      "expires": 1780812431,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_chartbeat2",
-      "value": ".1746684431630.1746684431630.1.C2cvH1gmTWyDwBlVlC_pn5LCfs2ts.1",
-      "domain": ".ft.com",
-      "path": "/",
-      "expires": 1780812431,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_ga_5H36ZEETNT",
-      "value": "GS2.1.s1746682029$o1$g1$t1746685641$j60$l0$h1748447255",
-      "domain": ".nikkei.com",
-      "path": "/",
-      "expires": 1781245641.546185,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_gat",
-      "value": "1",
-      "domain": ".asia.nikkei.com",
-      "path": "/",
-      "expires": 1746692424,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "__pvi",
-      "value": "eyJpZCI6InYtbWFmM2piMmg0NWE5c3dvNCIsImRvbWFpbiI6Ii5uaWtrZWkuY29tIiwidGltZSI6MTc0NjY5MjM2NTc3MH0%3D",
-      "domain": ".nikkei.com",
-      "path": "/",
-      "expires": 1746778765,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "__tbc",
-      "value": "%7Bkpex%7D5R_CEA8nVk26HmwGq1FKLBhL140bZi514xRvguIjeasAkFdcGU6trnNTXjB_MeGQ",
-      "domain": ".nikkei.com",
-      "path": "/",
-      "expires": 1781252366.70182,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "xbc",
-      "value": "%7Bkpex%7Dfr9RLsc0tv1wCg4sccB2SQ",
-      "domain": ".nikkei.com",
-      "path": "/",
-      "expires": 1781252366.702734,
+      "expires": 1754523573,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "_pcus",
-      "value": "eyJ1c2VyU2VnbWVudHMiOnsiQ09NUE9TRVIxWCI6eyJzZWdtZW50cyI6WyJMVHM6OWIxM2RmMzM2ZmRiNzg5MDM3NzRmNWJkNWQ4MzQ5ZmJmNzgwMjY2Nzo4Il19fX0%3D",
+      "value": "eyJ1c2VyU2VnbWVudHMiOnsiQ09NUE9TRVIxWCI6eyJzZWdtZW50cyI6WyJMVHM6OWIxM2RmMzM2ZmRiNzg5MDM3NzRmNWJkNWQ4MzQ5ZmJmNzgwMjY2Nzo3Il19fX0%3D",
       "domain": ".nikkei.com",
       "path": "/",
-      "expires": 1780820366,
+      "expires": 1780901394,
       "httpOnly": false,
       "secure": true,
       "sameSite": "Lax"
@@ -309,6 +179,66 @@
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
+    },
+    {
+      "name": "_gat",
+      "value": "1",
+      "domain": ".asia.nikkei.com",
+      "path": "/",
+      "expires": 1746773452,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__pvi",
+      "value": "eyJpZCI6InYtbWFnZnMwNDNwbm1uZmdtYyIsImRvbWFpbiI6Ii5uaWtrZWkuY29tIiwidGltZSI6MTc0Njc3MzM5MzA0M30%3D",
+      "domain": ".nikkei.com",
+      "path": "/",
+      "expires": 1746859793,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__tbc",
+      "value": "%7Bkpex%7D5P2GVPRYKo6VETfnOABn061R8p8haW_Z2SnGW1cMR5cAkFdcGU6trnNTXjB_MeGQ",
+      "domain": ".nikkei.com",
+      "path": "/",
+      "expires": 1781333394.417805,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "xbc",
+      "value": "%7Bkpex%7DHQP3zwc5j1cQFHus_k3mWw",
+      "domain": ".nikkei.com",
+      "path": "/",
+      "expires": 1781333394.419397,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga_5H36ZEETNT",
+      "value": "GS2.1.s1746773394$o2$g0$t1746773394$j60$l0$h1391649278",
+      "domain": ".nikkei.com",
+      "path": "/",
+      "expires": 1781333394.451717,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "cX_P",
+      "value": "mag0eky6wiv64civ",
+      "domain": ".nikkei.com",
+      "path": "/",
+      "expires": 1780901395,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
     }
   ],
   "origins": [
@@ -316,69 +246,36 @@
       "origin": "https://asia.nikkei.com",
       "localStorage": [
         {
+          "name": "_cX_atfr",
+          "value": "&altm=1746773395036&arnd=magfs03xk8wea255&aatm=0&axtl=&awsz=1920x1080&amvw=1920x1080&ascp=0x0&aclk=0&ause=8"
+        },
+        {
+          "name": "_gcl_ls",
+          "value": "{\"schema\":\"gcl\",\"version\":1,\"gcl_ctr\":{\"value\":{\"value\":0,\"creationTimeMs\":1746747573167},\"expires\":1754523573167}}"
+        },
+        {
           "name": "lastExternalReferrer",
           "value": "empty"
+        },
+        {
+          "name": "lastExternalReferrerTime",
+          "value": "1746773391505"
+        },
+        {
+          "name": "topicsLastReferenceTime",
+          "value": "1746748503999"
         },
         {
           "name": "previousArticleIdHistory:previousArticleIdHistory",
           "value": "[null,null]"
         },
         {
-          "name": "_gcl_ls",
-          "value": "{\"schema\":\"gcl\",\"version\":1,\"gcl_ctr\":{\"value\":{\"value\":0,\"creationTimeMs\":1746682029249},\"expires\":1754458029249}}"
-        },
-        {
-          "name": "lastExternalReferrerTime",
-          "value": "1746692364059"
+          "name": "_ls_ttl",
+          "value": "{\"_cX_lastP1Time\":\"maqfv0cc\"}"
         },
         {
           "name": "_cX_lastP1Time",
-          "value": "1746684172981"
-        },
-        {
-          "name": "topicsLastReferenceTime",
-          "value": "1746692364073"
-        },
-        {
-          "name": "_ls_ttl",
-          "value": "{\"_cX_lastP1Time\":\"maoyqo51\"}"
-        }
-      ]
-    },
-    {
-      "origin": "https://www.ft.com",
-      "localStorage": [
-        {
-          "name": "_cb",
-          "value": "BVxsdkC6rBznDO5kGA"
-        },
-        {
-          "name": "_cb_svref",
-          "value": "external"
-        },
-        {
-          "name": "o-tracking_session",
-          "value": "{\"value\":\"cmaeyt87l00003b72fddn31gi\",\"expiry\":1746686236036,\"timestamp\":1746684431595}"
-        },
-        {
-          "name": "_chartbeat2_expires",
-          "value": "1780812431631"
-        },
-        {
-          "name": "spoor-id",
-          "value": "44b8deb5-393f-4f35-b626-623d9f936b51"
-        },
-        {
-          "name": "_chartbeat2",
-          "value": ".1746684431630.1746684431630.1.C2cvH1gmTWyDwBlVlC_pn5LCfs2ts.1"
-        },
-        {
-          "name": "_cb_svref_expires",
-          "value": "1746686231634"
-        },
-        {
-          "name": "_cb_expires",
-          "value": "1780812431631"
+          "value": "1746773395068"
         }
       ]
     }

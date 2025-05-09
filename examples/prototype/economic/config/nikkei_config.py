@@ -12,7 +12,7 @@ SITE_CONFIG: Dict[str, Any] = {
     "request": {
         "timeout": 60000,
     },
-    "max_pages": 5,
+    "max_pages": 1,
     "scroll": {
         "enabled": True,
         "max_scrolls": 6,
@@ -29,11 +29,7 @@ SITE_CONFIG: Dict[str, Any] = {
         "browser_type": "chromium",
         "launch_options": {
             "args": [
-                "--disable-web-security",
-                "--disable-features=IsolateOrigins,site-per-process",
                 "--disable-blink-features=AutomationControlled",
-                "--disable-blink-features=SameSiteByDefaultCookies",
-                "--disable-site-isolation-trials",
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
             ]
