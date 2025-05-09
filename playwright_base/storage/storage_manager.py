@@ -1,361 +1,310 @@
-from typing import Any, Dict, List, Optional, Union
-import json
-import csv
+"""
+存儲管理模組
+
+提供瀏覽器會話存儲（cookies、localStorage 等）的管理功能。
+"""
+
 import os
-from pathlib import Path
-import pandas as pd
+import json
+import time
+from typing import Dict, List, Optional, Any, Union
 from datetime import datetime
-from loguru import logger
 
-from ..utils.exceptions import StorageException
+from playwright_base.utils.logger import setup_logger
+from playwright_base.utils.exceptions import StorageException
 
+# 設置日誌
+logger = setup_logger(name=__name__)
 
 class StorageManager:
-    def __init__(self, base_dir: str = "data"):
+    """
+    瀏覽器存儲管理類。
+    
+    提供 cookies、localStorage 等存儲數據的管理功能。
+    """
+    
+    def __init__(self, storage_dir: str = "data/storage"):
         """
-        初始化存儲管理器
-
-        Args:
-            base_dir: 基礎存儲目錄
-        """
-        self.base_dir = Path(base_dir)
-        self.base_dir.mkdir(parents=True, exist_ok=True)
+        初始化 StorageManager 實例。
         
-        # 創建子目錄
-        self.json_dir = self.base_dir / "json"
-        self.csv_dir = self.base_dir / "csv"
-        self.excel_dir = self.base_dir / "excel"
-        self.raw_dir = self.base_dir / "raw"
+        參數:
+            storage_dir (str): 存儲文件的目錄路徑。
+        """
+        self.storage_dir = storage_dir
         
-        for dir_path in [self.json_dir, self.csv_dir, self.excel_dir, self.raw_dir]:
-            dir_path.mkdir(parents=True, exist_ok=True)
-
-    def save_json(
-        self,
-        data: Union[Dict[str, Any], List[Any]],
-        filename: str,
-        append: bool = False,
-        pretty: bool = True,
-        encoding: str = "utf-8",
-        ensure_ascii: bool = False,
-    ) -> str:
-        """
-        保存數據為 JSON 格式
-
-        Args:
-            data: 要保存的數據，可以是字典或列表
-            filename: 文件名
-            append: 是否追加到現有文件，如果為 True 且文件存在，會將數據合併
-            pretty: 是否美化輸出，美化後的 JSON 會有縮進
-            encoding: 文件編碼
-            ensure_ascii: 是否確保 ASCII 編碼，設為 False 以保留中文等非 ASCII 字符
-
-        Returns:
-            str: 保存的文件路徑
-
-        Raises:
-            StorageException: 保存過程中發生錯誤
-        """
-        try:
-            # 確保文件路徑有 .json 後綴
-            file_path = self.json_dir / filename
-            if not file_path.suffix or file_path.suffix.lower() != '.json':
-                file_path = file_path.with_suffix(".json")
-
-            # 處理追加模式
-            if append and file_path.exists():
-                try:
-                    with open(file_path, "r", encoding=encoding) as f:
-                        existing_data = json.load(f)
-
-                    # 合併數據
-                    if isinstance(existing_data, list) and isinstance(data, list):
-                        existing_data.extend(data)
-                        data = existing_data
-                    elif isinstance(existing_data, list):
-                        existing_data.append(data)
-                        data = existing_data
-                    elif isinstance(existing_data, dict) and isinstance(data, dict):
-                        existing_data.update(data)
-                        data = existing_data
-                    else:
-                        data = [existing_data, data]
-                except json.JSONDecodeError:
-                    logger.warning(f"追加模式: 現有文件 {file_path} 不是有效的 JSON，將被覆蓋")
-
-            # 寫入文件
-            with open(file_path, "w", encoding=encoding) as f:
-                json_kwargs = {"ensure_ascii": ensure_ascii}
-                if pretty:
-                    json_kwargs["indent"] = 2
-
-                json.dump(data, f, **json_kwargs)
-
-            logger.info(f"JSON 數據已保存到: {file_path}")
-            return str(file_path)
-
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON 編碼錯誤: {str(e)}")
-            raise StorageException(f"JSON 編碼錯誤: {str(e)}")
-        except PermissionError:
-            logger.error(f"無法寫入文件，權限被拒絕: {file_path}")
-            raise StorageException(f"保存 JSON 失敗: 無權限寫入文件 {file_path}")
-        except Exception as e:
-            logger.error(f"保存 JSON 數據時發生錯誤: {str(e)}")
-            raise StorageException(f"保存 JSON 數據失敗: {str(e)}")
-
-    def save_csv(
-        self,
-        data: List[Dict],
-        filename: str,
-        append: bool = False,
-        headers: Optional[List[str]] = None,
-    ) -> str:
-        """
-        保存 CSV 數據
-
-        Args:
-            data: 要保存的數據
-            filename: 文件名
-            append: 是否追加到現有文件
-            headers: 列標題
-
-        Returns:
-            str: 保存的文件路徑
-        """
-        try:
-            file_path = self.csv_dir / filename
-            if not file_path.suffix:
-                file_path = file_path.with_suffix(".csv")
-
-            if not data:
-                raise StorageException("沒有數據可保存")
-
-            if headers is None:
-                headers = list(data[0].keys())
-
-            mode = "a" if append and file_path.exists() else "w"
-            with open(file_path, mode, newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=headers)
-                if mode == "w":
-                    writer.writeheader()
-                writer.writerows(data)
-
-            logger.info(f"CSV 數據已保存到: {file_path}")
-            return str(file_path)
-        except Exception as e:
-            logger.error(f"保存 CSV 數據時發生錯誤: {str(e)}")
-            raise StorageException(f"保存 CSV 數據失敗: {str(e)}")
-
-    def save_excel(
-        self,
-        data: Union[Dict[str, List[Dict]], List[Dict]],
-        filename: str,
-        sheet_name: str = "Sheet1",
-    ) -> str:
-        """
-        保存 Excel 數據
-
-        Args:
-            data: 要保存的數據
-            filename: 文件名
-            sheet_name: 工作表名稱
-
-        Returns:
-            str: 保存的文件路徑
-        """
-        try:
-            file_path = self.excel_dir / filename
-            if not file_path.suffix:
-                file_path = file_path.with_suffix(".xlsx")
-
-            if isinstance(data, list):
-                df = pd.DataFrame(data)
-                with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
-                    df.to_excel(writer, sheet_name=sheet_name, index=False)
-            else:
-                with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
-                    for sheet_name, sheet_data in data.items():
-                        df = pd.DataFrame(sheet_data)
-                        df.to_excel(writer, sheet_name=sheet_name, index=False)
-
-            logger.info(f"Excel 數據已保存到: {file_path}")
-            return str(file_path)
-        except Exception as e:
-            logger.error(f"保存 Excel 數據時發生錯誤: {str(e)}")
-            raise StorageException(f"保存 Excel 數據失敗: {str(e)}")
-
-    def save_raw(
-        self,
-        data: Union[str, bytes],
-        filename: str,
-        encoding: str = "utf-8",
-    ) -> str:
-        """
-        保存原始數據
-
-        Args:
-            data: 要保存的數據
-            filename: 文件名
-            encoding: 文件編碼
-
-        Returns:
-            str: 保存的文件路徑
-        """
-        try:
-            file_path = self.raw_dir / filename
-            
-            if isinstance(data, str):
-                with open(file_path, "w", encoding=encoding) as f:
-                    f.write(data)
-            else:
-                with open(file_path, "wb") as f:
-                    f.write(data)
-
-            logger.info(f"原始數據已保存到: {file_path}")
-            return str(file_path)
-        except Exception as e:
-            logger.error(f"保存原始數據時發生錯誤: {str(e)}")
-            raise StorageException(f"保存原始數據失敗: {str(e)}")
-
-    def load_json(self, filename: str) -> Union[Dict, List]:
-        """
-        加載 JSON 數據
-
-        Args:
-            filename: 文件名
-
-        Returns:
-            Union[Dict, List]: 加載的數據
-        """
-        try:
-            file_path = self.json_dir / filename
-            if not file_path.suffix:
-                file_path = file_path.with_suffix(".json")
-
-            if not file_path.exists():
-                raise StorageException(f"文件不存在: {file_path}")
-
-            with open(file_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            logger.info(f"已從 {file_path} 加載 JSON 數據")
-            return data
-        except Exception as e:
-            logger.error(f"加載 JSON 數據時發生錯誤: {str(e)}")
-            raise StorageException(f"加載 JSON 數據失敗: {str(e)}")
-
-    def load_csv(self, filename: str) -> List[Dict]:
-        """
-        加載 CSV 數據
-
-        Args:
-            filename: 文件名
-
-        Returns:
-            List[Dict]: 加載的數據
-        """
-        try:
-            file_path = self.csv_dir / filename
-            if not file_path.suffix:
-                file_path = file_path.with_suffix(".csv")
-
-            if not file_path.exists():
-                raise StorageException(f"文件不存在: {file_path}")
-
-            with open(file_path, "r", encoding="utf-8", newline="") as f:
-                reader = csv.DictReader(f)
-                data = list(reader)
-
-            logger.info(f"已從 {file_path} 加載 CSV 數據")
-            return data
-        except Exception as e:
-            logger.error(f"加載 CSV 數據時發生錯誤: {str(e)}")
-            raise StorageException(f"加載 CSV 數據失敗: {str(e)}")
-
-    def load_excel(self, filename: str, sheet_name: Optional[str] = None) -> Union[Dict[str, List[Dict]], List[Dict]]:
-        """
-        加載 Excel 數據
-
-        Args:
-            filename: 文件名
-            sheet_name: 工作表名稱
-
-        Returns:
-            Union[Dict[str, List[Dict]], List[Dict]]: 加載的數據
-        """
-        try:
-            file_path = self.excel_dir / filename
-            if not file_path.suffix:
-                file_path = file_path.with_suffix(".xlsx")
-
-            if not file_path.exists():
-                raise StorageException(f"文件不存在: {file_path}")
-
-            if sheet_name:
-                df = pd.read_excel(file_path, sheet_name=sheet_name)
-                data = df.to_dict("records")
-            else:
-                data = {}
-                xls = pd.ExcelFile(file_path)
-                for sheet in xls.sheet_names:
-                    df = pd.read_excel(file_path, sheet_name=sheet)
-                    data[sheet] = df.to_dict("records")
-
-            logger.info(f"已從 {file_path} 加載 Excel 數據")
-            return data
-        except Exception as e:
-            logger.error(f"加載 Excel 數據時發生錯誤: {str(e)}")
-            raise StorageException(f"加載 Excel 數據失敗: {str(e)}")
-
-    def load_raw(self, filename: str, encoding: str = "utf-8") -> Union[str, bytes]:
-        """
-        加載原始數據
-
-        Args:
-            filename: 文件名
-            encoding: 文件編碼
-
-        Returns:
-            Union[str, bytes]: 加載的數據
-        """
-        try:
-            file_path = self.raw_dir / filename
-
-            if not file_path.exists():
-                raise StorageException(f"文件不存在: {file_path}")
-
-            # 嘗試以文本方式讀取
+        # 創建存儲目錄
+        if not os.path.exists(self.storage_dir):
             try:
-                with open(file_path, "r", encoding=encoding) as f:
-                    data = f.read()
-            except UnicodeDecodeError:
-                # 如果解碼失敗，則以二進制方式讀取
-                with open(file_path, "rb") as f:
-                    data = f.read()
-
-            logger.info(f"已從 {file_path} 加載原始數據")
-            return data
-        except Exception as e:
-            logger.error(f"加載原始數據時發生錯誤: {str(e)}")
-            raise StorageException(f"加載原始數據失敗: {str(e)}")
-
-    def get_latest_file(self, directory: Path, pattern: str = "*") -> Optional[Path]:
+                os.makedirs(self.storage_dir)
+                logger.info(f"已創建存儲目錄: {self.storage_dir}")
+            except Exception as e:
+                logger.error(f"創建存儲目錄時發生錯誤: {str(e)}")
+    
+    def save_storage_state(self, context, name: str = None) -> Optional[str]:
         """
-        獲取目錄中最新的文件
-
-        Args:
-            directory: 目錄路徑
-            pattern: 文件匹配模式
-
-        Returns:
-            Optional[Path]: 最新文件的路徑
+        保存瀏覽器上下文的存儲狀態（cookies、localStorage 等）。
+        
+        參數:
+            context: Playwright 瀏覽器上下文對象。
+            name (str): 存儲狀態的名稱，用於後續識別和載入，默認使用時間戳。
+            
+        返回:
+            Optional[str]: 保存的檔案路徑，若保存失敗則返回 None。
+        """
+        if not context:
+            logger.warning("無法保存存儲狀態：瀏覽器上下文為空")
+            return None
+            
+        try:
+            # 如果沒有指定名稱，使用時間戳
+            if not name:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                name = f"storage_{timestamp}"
+                
+            # 確保副檔名是 .json
+            if not name.endswith(".json"):
+                name = f"{name}.json"
+                
+            file_path = os.path.join(self.storage_dir, name)
+            
+            # 保存存儲狀態
+            context.storage_state(path=file_path)
+            
+            logger.info(f"已保存瀏覽器存儲狀態到: {file_path}")
+            return file_path
+        except Exception as e:
+            logger.error(f"保存瀏覽器存儲狀態時發生錯誤: {str(e)}")
+            return None
+    
+    def load_storage_state(self, path_or_name: str) -> Optional[Dict[str, Any]]:
+        """
+        載入瀏覽器存儲狀態。
+        
+        參數:
+            path_or_name (str): 存儲狀態的檔案路徑或名稱。
+            
+        返回:
+            Optional[Dict[str, Any]]: 載入的存儲狀態數據，若載入失敗則返回 None。
         """
         try:
-            files = list(directory.glob(pattern))
-            if not files:
-                return None
-            return max(files, key=lambda x: x.stat().st_mtime)
+            # 檢查是否為完整路徑
+            if os.path.exists(path_or_name):
+                file_path = path_or_name
+            else:
+                # 嘗試作為名稱在存儲目錄中查找
+                if not path_or_name.endswith(".json"):
+                    path_or_name = f"{path_or_name}.json"
+                file_path = os.path.join(self.storage_dir, path_or_name)
+                
+                if not os.path.exists(file_path):
+                    logger.warning(f"存儲狀態檔案不存在: {file_path}")
+                    return None
+            
+            # 讀取存儲狀態
+            with open(file_path, "r", encoding="utf-8") as f:
+                storage_state = json.load(f)
+                
+            logger.info(f"已載入存儲狀態: {file_path}")
+            return storage_state
         except Exception as e:
-            logger.error(f"獲取最新文件時發生錯誤: {str(e)}")
+            logger.error(f"載入存儲狀態時發生錯誤: {str(e)}")
             return None
+    
+    def get_cookies_for_domain(self, storage_state: Dict[str, Any], domain: str) -> List[Dict[str, Any]]:
+        """
+        從存儲狀態中獲取指定網域的 cookies。
+        
+        參數:
+            storage_state (Dict[str, Any]): 存儲狀態數據。
+            domain (str): 要過濾的網域名稱。
+            
+        返回:
+            List[Dict[str, Any]]: 指定網域的 cookies 列表。
+        """
+        if not storage_state or "cookies" not in storage_state:
+            logger.warning("存儲狀態無效或不包含 cookies")
+            return []
+            
+        # 過濾指定網域的 cookies
+        domain_cookies = []
+        for cookie in storage_state["cookies"]:
+            cookie_domain = cookie.get("domain", "")
+            if domain in cookie_domain or (domain.startswith(".") and domain[1:] in cookie_domain):
+                domain_cookies.append(cookie)
+                
+        logger.info(f"找到 {len(domain_cookies)} 個屬於網域 '{domain}' 的 cookies")
+        return domain_cookies
+    
+    def merge_cookies(self, target_state: Dict[str, Any], source_state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        合併兩個存儲狀態中的 cookies。
+        
+        參數:
+            target_state (Dict[str, Any]): 目標存儲狀態，將合併至此。
+            source_state (Dict[str, Any]): 源存儲狀態，將被合併的數據來源。
+            
+        返回:
+            Dict[str, Any]: 合併後的存儲狀態。
+        """
+        if not target_state:
+            target_state = {"cookies": [], "origins": []}
+            
+        if not source_state or "cookies" not in source_state:
+            logger.warning("源存儲狀態無效或不包含 cookies")
+            return target_state
+            
+        # 複製目標存儲狀態
+        merged_state = {
+            "cookies": list(target_state.get("cookies", [])),
+            "origins": list(target_state.get("origins", []))
+        }
+        
+        # 記錄現有的 cookie 名稱和網域
+        existing_cookies = {(c.get("name", ""), c.get("domain", "")): i 
+                           for i, c in enumerate(merged_state["cookies"])}
+        
+        # 合併 cookies
+        for cookie in source_state.get("cookies", []):
+            key = (cookie.get("name", ""), cookie.get("domain", ""))
+            if key in existing_cookies:
+                # 更新現有 cookie
+                merged_state["cookies"][existing_cookies[key]] = cookie
+            else:
+                # 添加新 cookie
+                merged_state["cookies"].append(cookie)
+                
+        # 合併 origins
+        for origin in source_state.get("origins", []):
+            if origin not in merged_state["origins"]:
+                merged_state["origins"].append(origin)
+                
+        logger.info(f"合併後的存儲狀態包含 {len(merged_state['cookies'])} 個 cookies 和 "
+                   f"{len(merged_state['origins'])} 個 origins")
+        return merged_state
+    
+    def save_merged_storage(self, states: List[Dict[str, Any]], name: str = None) -> Optional[str]:
+        """
+        合併並保存多個存儲狀態。
+        
+        參數:
+            states (List[Dict[str, Any]]): 要合併的存儲狀態列表。
+            name (str): 保存的檔案名稱，默認使用時間戳。
+            
+        返回:
+            Optional[str]: 保存的檔案路徑，若保存失敗則返回 None。
+        """
+        if not states:
+            logger.warning("無存儲狀態可合併")
+            return None
+            
+        try:
+            # 初始化合併狀態
+            merged_state = {}
+            
+            # 逐個合併
+            for state in states:
+                merged_state = self.merge_cookies(merged_state, state)
+                
+            # 如果沒有指定名稱，使用時間戳
+            if not name:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                name = f"merged_storage_{timestamp}"
+                
+            # 確保副檔名是 .json
+            if not name.endswith(".json"):
+                name = f"{name}.json"
+                
+            file_path = os.path.join(self.storage_dir, name)
+            
+            # 保存合併後的存儲狀態
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(merged_state, f, indent=2)
+                
+            logger.info(f"已保存合併的存儲狀態到: {file_path}")
+            return file_path
+        except Exception as e:
+            logger.error(f"保存合併的存儲狀態時發生錯誤: {str(e)}")
+            return None
+    
+    def list_storage_files(self) -> List[Dict[str, Any]]:
+        """
+        列出所有可用的存儲狀態文件。
+        
+        返回:
+            List[Dict[str, Any]]: 包含檔案資訊的列表。
+        """
+        files = []
+        
+        try:
+            if os.path.exists(self.storage_dir):
+                for filename in os.listdir(self.storage_dir):
+                    if filename.endswith(".json"):
+                        file_path = os.path.join(self.storage_dir, filename)
+                        file_info = {
+                            "name": filename,
+                            "path": file_path,
+                            "size": os.path.getsize(file_path),
+                            "modified": datetime.fromtimestamp(os.path.getmtime(file_path)).strftime(
+                                "%Y-%m-%d %H:%M:%S"
+                            )
+                        }
+                        
+                        # 嘗試讀取檔案內容以獲取更多資訊
+                        try:
+                            with open(file_path, "r", encoding="utf-8") as f:
+                                data = json.load(f)
+                                file_info["cookies_count"] = len(data.get("cookies", []))
+                                file_info["origins_count"] = len(data.get("origins", []))
+                                
+                                # 提取網域資訊
+                                domains = set()
+                                for cookie in data.get("cookies", []):
+                                    if "domain" in cookie:
+                                        domains.add(cookie["domain"])
+                                file_info["domains"] = list(domains)
+                        except Exception:
+                            # 讀取失敗時不添加額外資訊
+                            pass
+                            
+                        files.append(file_info)
+                        
+                # 按修改時間降序排序
+                files.sort(key=lambda x: x["modified"], reverse=True)
+                
+            logger.info(f"找到 {len(files)} 個存儲狀態檔案")
+        except Exception as e:
+            logger.error(f"列出存儲檔案時發生錯誤: {str(e)}")
+            
+        return files
+    
+    def delete_storage_file(self, path_or_name: str) -> bool:
+        """
+        刪除指定的存儲狀態檔案。
+        
+        參數:
+            path_or_name (str): 存儲狀態的檔案路徑或名稱。
+            
+        返回:
+            bool: 是否成功刪除。
+        """
+        try:
+            # 檢查是否為完整路徑
+            if os.path.exists(path_or_name):
+                file_path = path_or_name
+            else:
+                # 嘗試作為名稱在存儲目錄中查找
+                if not path_or_name.endswith(".json"):
+                    path_or_name = f"{path_or_name}.json"
+                file_path = os.path.join(self.storage_dir, path_or_name)
+                
+                if not os.path.exists(file_path):
+                    logger.warning(f"存儲狀態檔案不存在: {file_path}")
+                    return False
+            
+            # 刪除檔案
+            os.remove(file_path)
+            logger.info(f"已刪除存儲狀態檔案: {file_path}")
+            return True
+        except Exception as e:
+            logger.error(f"刪除存儲狀態檔案時發生錯誤: {str(e)}")
+            return False

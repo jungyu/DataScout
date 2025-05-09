@@ -1,257 +1,348 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 """
-用戶代理管理模組
+用戶代理（User-Agent）管理模組
 
-此模組提供用戶代理管理功能，包括：
-1. 用戶代理生成
-2. 用戶代理驗證
-3. 用戶代理輪換
-4. 用戶代理黑名單管理
+提供管理和輪換用戶代理的功能，用於模擬不同瀏覽器和設備。
 """
 
-from typing import Dict, Any, List, Optional
 import random
 import json
 import os
-from datetime import datetime
-from loguru import logger
+from typing import List, Dict, Optional, Union
+from pathlib import Path
 
-from ..utils.exceptions import AntiDetectionException
+try:
+    import user_agents
+    from user_agents.parsers import UserAgent
+    HAS_USER_AGENTS_LIB = True
+except ImportError:
+    HAS_USER_AGENTS_LIB = False
 
+from playwright_base.utils.logger import setup_logger
+
+# 設置日誌
+logger = setup_logger(name=__name__)
 
 class UserAgentManager:
-    """用戶代理管理器"""
+    """
+    用戶代理管理類。
+    提供用戶代理的生成、輪換和分析功能。
+    """
     
-    def __init__(self):
-        """初始化用戶代理管理器"""
-        # 用戶代理配置
-        self.ua_config = {
-            "enabled": True,
-            "rotation_interval": 3600,  # 1小時
-            "last_rotation": None,
-            "blacklist": [],
-            "blacklist_duration": 86400,  # 24小時
-            "current_ua": None
-        }
-        
-        # 用戶代理模板
-        self.ua_templates = {
-            "chrome": {
-                "windows": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36",
-                "macos": "Mozilla/5.0 (Macintosh; Intel Mac OS X {os_version}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36",
-                "linux": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36"
-            },
-            "firefox": {
-                "windows": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:{version}) Gecko/20100101 Firefox/{version}",
-                "macos": "Mozilla/5.0 (Macintosh; Intel Mac OS X {os_version}; rv:{version}) Gecko/20100101 Firefox/{version}",
-                "linux": "Mozilla/5.0 (X11; Linux i686; rv:{version}) Gecko/20100101 Firefox/{version}"
-            },
-            "safari": {
-                "windows": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/{version} Safari/605.1.15",
-                "macos": "Mozilla/5.0 (Macintosh; Intel Mac OS X {os_version}) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/{version} Safari/605.1.15"
-            }
-        }
-        
-        # 版本範圍
-        self.version_ranges = {
-            "chrome": {
-                "min": "110.0.0.0",
-                "max": "120.0.0.0"
-            },
-            "firefox": {
-                "min": "110.0",
-                "max": "120.0"
-            },
-            "safari": {
-                "min": "16.0",
-                "max": "17.0"
-            }
-        }
-        
-        # 操作系統版本
-        self.os_versions = {
-            "windows": ["10.0", "11.0"],
-            "macos": ["10_15", "11_0", "12_0", "13_0"],
-            "linux": ["x86_64", "i686"]
-        }
-    
-    def set_ua_config(self, config: Dict[str, Any]) -> None:
+    def __init__(self, user_agents_file: str = None, browser_type: str = "chrome"):
         """
-        設置用戶代理配置
+        初始化 UserAgentManager 實例。
         
-        Args:
-            config: 用戶代理配置字典
+        參數:
+            user_agents_file (str): 包含用戶代理列表的 JSON 檔案路徑。
+            browser_type (str): 優先使用的瀏覽器類型，例如 'chrome', 'firefox', 'safari'。
         """
-        try:
-            self.ua_config.update(config)
-            logger.info("已更新用戶代理配置")
-        except Exception as e:
-            logger.error(f"更新用戶代理配置時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"更新用戶代理配置失敗: {str(e)}")
-    
-    def generate_random_ua(self) -> str:
-        """
-        生成隨機用戶代理
+        self.browser_type = browser_type.lower()
+        self.user_agents_list = []
+        self.current_index = 0
         
-        Returns:
-            str: 用戶代理字符串
-        """
-        try:
-            # 隨機選擇瀏覽器
-            browser = random.choice(list(self.ua_templates.keys()))
-            
-            # 隨機選擇操作系統
-            os_type = random.choice(list(self.ua_templates[browser].keys()))
-            
-            # 生成版本號
-            version_range = self.version_ranges[browser]
-            version = f"{random.uniform(float(version_range['min'].split('.')[0]), float(version_range['max'].split('.')[0])):.1f}"
-            
-            # 選擇操作系統版本
-            os_version = random.choice(self.os_versions[os_type])
-            
-            # 增加隨機化參數
-            random_suffix = random.randint(1000, 9999)
-            
-            # 生成用戶代理
-            ua = self.ua_templates[browser][os_type].format(
-                version=version,
-                os_version=os_version
-            ) + f"-{random_suffix}"
-            
-            return ua
-        except Exception as e:
-            logger.error(f"生成隨機用戶代理時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"生成隨機用戶代理失敗: {str(e)}")
-    
-    def get_consistent_ua(self) -> str:
-        """
-        獲取一致的用戶代理（每次調用返回相同的用戶代理）
-        
-        Returns:
-            str: 用戶代理字符串
-        """
-        try:
-            if self.ua_config["current_ua"]:
-                return self.ua_config["current_ua"]
-            
-            # 生成新的用戶代理
-            ua = self.generate_random_ua()
-            self.ua_config["current_ua"] = ua
-            
-            return ua
-        except Exception as e:
-            logger.error(f"獲取一致用戶代理時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"獲取一致用戶代理失敗: {str(e)}")
-    
-    def rotate_ua(self) -> Optional[str]:
-        """
-        根據設定的間隔輪換用戶代理
-        
-        如果距離上次輪換時間未滿設定的間隔，則返回當前代理
-        否則生成新的用戶代理並更新輪換時間
-        
-        Returns:
-            Optional[str]: 用戶代理字符串，如未啟用則返回 None
-        
-        Raises:
-            AntiDetectionException: 輪換過程中出現錯誤
-        """
-        if not self.ua_config.get("enabled", False):
-            return None
-        
-        try:
-            current_time = datetime.now()
-            rotation_interval = self.ua_config.get("rotation_interval", 3600)
-            
-            # 檢查是否需要輪換
-            last_rotation = self.ua_config.get("last_rotation")
-            if (last_rotation and 
-                (current_time - last_rotation).total_seconds() < rotation_interval):
-                return self.ua_config.get("current_ua")
-            
-            # 篩選非黑名單的用戶代理
-            blacklist = set(item.get("ua") for item in self.ua_config.get("blacklist", []))
-            
-            # 嘗試生成非黑名單的用戶代理
-            for _ in range(10):  # 最多嘗試10次
-                new_ua = self.generate_random_ua()
-                if new_ua not in blacklist:
-                    break
-            
-            self.ua_config["current_ua"] = new_ua
-            self.ua_config["last_rotation"] = current_time
-            
-            logger.info(f"已輪換到新用戶代理: {new_ua[:30]}...")
-            return new_ua
-            
-        except Exception as e:
-            logger.error(f"輪換用戶代理時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"輪換用戶代理失敗: {str(e)}")
-        
-    def add_to_blacklist(self, ua: str) -> None:
-        """
-        將用戶代理添加到黑名單
-        
-        Args:
-            ua: 用戶代理字符串
-        """
-        try:
-            if ua not in self.ua_config["blacklist"]:
-                self.ua_config["blacklist"].append({
-                    "ua": ua,
-                    "added_at": datetime.now()
-                })
-                logger.info(f"已將用戶代理添加到黑名單: {ua}")
-        except Exception as e:
-            logger.error(f"添加用戶代理到黑名單時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"添加用戶代理到黑名單失敗: {str(e)}")
-    
-    def clean_blacklist(self) -> None:
-        """清理過期的黑名單用戶代理"""
-        try:
-            current_time = datetime.now()
-            self.ua_config["blacklist"] = [
-                item for item in self.ua_config["blacklist"]
-                if (current_time - item["added_at"]).total_seconds() < self.ua_config["blacklist_duration"]
+        # 預設常用用戶代理
+        self._default_user_agents = {
+            "chrome": [
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            ],
+            "firefox": [
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:123.0) Gecko/20100101 Firefox/123.0",
+                "Mozilla/5.0 (X11; Linux x86_64; rv:123.0) Gecko/20100101 Firefox/123.0",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+            ],
+            "safari": [
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+                "Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+            ],
+            "edge": [
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
             ]
-            logger.info("已清理過期的黑名單用戶代理")
-        except Exception as e:
-            logger.error(f"清理黑名單時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"清理黑名單失敗: {str(e)}")
-    
-    async def apply_ua(self, page) -> None:
-        """
-        應用用戶代理到 Playwright 頁面
+        }
         
-        Args:
-            page: Playwright 頁面對象
+        # 如果提供了用戶代理檔案，則從檔案載入
+        if user_agents_file and os.path.exists(user_agents_file):
+            self._load_user_agents_from_file(user_agents_file)
+        else:
+            # 否則使用預設的用戶代理列表
+            self._use_default_user_agents()
+            
+        logger.info(f"用戶代理管理器已初始化，共載入 {len(self.user_agents_list)} 個用戶代理")
+    
+    def _load_user_agents_from_file(self, file_path: str) -> None:
+        """
+        從檔案載入用戶代理列表。
+        
+        參數:
+            file_path (str): JSON 檔案路徑。
         """
         try:
-            if not self.ua_config["enabled"]:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                
+            if isinstance(data, list):
+                # 直接列表格式
+                self.user_agents_list = data
+            elif isinstance(data, dict) and 'user_agents' in data:
+                # 包含 'user_agents' 鍵的字典
+                self.user_agents_list = data['user_agents']
+            else:
+                logger.warning(f"從 {file_path} 載入的用戶代理格式無效，使用預設用戶代理")
+                self._use_default_user_agents()
                 return
+                
+            logger.info(f"已從 {file_path} 載入 {len(self.user_agents_list)} 個用戶代理")
             
-            ua = self.rotate_ua()
-            if not ua:
-                return
-            
-            # 設置用戶代理
-            await page.set_extra_http_headers({
-                "User-Agent": ua
-            })
-            
-            # 注入用戶代理到頁面
-            await page.add_init_script(f"""
-                Object.defineProperty(navigator, 'userAgent', {{
-                    get: function() {{
-                        return '{ua}';
-                    }}
-                }});
-            """)
-            
-            logger.info(f"已應用用戶代理: {ua}")
         except Exception as e:
-            logger.error(f"應用用戶代理時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"應用用戶代理失敗: {str(e)}")
+            logger.error(f"載入用戶代理檔案時發生錯誤: {str(e)}")
+            self._use_default_user_agents()
+    
+    def _use_default_user_agents(self) -> None:
+        """使用預設用戶代理列表"""
+        # 優先使用指定瀏覽器類型的用戶代理，若不存在則使用所有類型
+        if self.browser_type in self._default_user_agents:
+            self.user_agents_list = self._default_user_agents[self.browser_type]
+            logger.info(f"使用 {self.browser_type} 的預設用戶代理 ({len(self.user_agents_list)} 個)")
+        else:
+            # 合併所有預設用戶代理
+            self.user_agents_list = []
+            for browser, agents in self._default_user_agents.items():
+                self.user_agents_list.extend(agents)
+            logger.info(f"使用所有瀏覽器的預設用戶代理 ({len(self.user_agents_list)} 個)")
+    
+    def get_random_user_agent(self) -> str:
+        """
+        隨機獲取一個用戶代理。
+        
+        返回:
+            str: 隨機的用戶代理字符串。
+        """
+        if not self.user_agents_list:
+            logger.warning("用戶代理列表為空，返回預設用戶代理")
+            return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+        
+        ua = random.choice(self.user_agents_list)
+        logger.debug(f"隨機選擇用戶代理: {ua}")
+        return ua
+    
+    def next_user_agent(self) -> str:
+        """
+        順序獲取下一個用戶代理。
+        
+        返回:
+            str: 下一個用戶代理字符串。
+        """
+        if not self.user_agents_list:
+            logger.warning("用戶代理列表為空，返回預設用戶代理")
+            return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+        
+        ua = self.user_agents_list[self.current_index]
+        self.current_index = (self.current_index + 1) % len(self.user_agents_list)
+        logger.debug(f"選擇下一個用戶代理: {ua}")
+        return ua
+    
+    def get_user_agent_by_pattern(self, pattern: str) -> Optional[str]:
+        """
+        根據模式字符串獲取匹配的用戶代理。
+        
+        參數:
+            pattern (str): 用於匹配的字符串，例如 'chrome', 'windows', 'mobile'。
+            
+        返回:
+            Optional[str]: 匹配的用戶代理字符串，若無匹配則返回 None。
+        """
+        pattern = pattern.lower()
+        matching_agents = [ua for ua in self.user_agents_list if pattern in ua.lower()]
+        
+        if not matching_agents:
+            logger.warning(f"沒有找到符合 '{pattern}' 的用戶代理")
+            return None
+            
+        ua = random.choice(matching_agents)
+        logger.debug(f"根據模式 '{pattern}' 選擇用戶代理: {ua}")
+        return ua
+    
+    def analyze_user_agent(self, user_agent: str) -> Dict[str, str]:
+        """
+        分析用戶代理字符串，獲取瀏覽器、操作系統等資訊。
+        
+        參數:
+            user_agent (str): 要分析的用戶代理字符串。
+            
+        返回:
+            Dict[str, str]: 包含分析結果的字典。
+        """
+        # 檢查是否安裝了 user_agents 庫
+        if not HAS_USER_AGENTS_LIB:
+            logger.warning("未安裝 user_agents 庫，無法詳細分析用戶代理")
+            return self._simple_analyze_user_agent(user_agent)
+        
+        try:
+            ua = user_agents.parse(user_agent)
+            return {
+                'browser_family': ua.browser.family,
+                'browser_version': ua.browser.version_string,
+                'os_family': ua.os.family,
+                'os_version': ua.os.version_string,
+                'device_family': ua.device.family,
+                'is_mobile': str(ua.is_mobile),
+                'is_tablet': str(ua.is_tablet),
+                'is_pc': str(ua.is_pc),
+                'is_bot': str(ua.is_bot)
+            }
+        except Exception as e:
+            logger.error(f"分析用戶代理時發生錯誤: {str(e)}")
+            return self._simple_analyze_user_agent(user_agent)
+    
+    def _simple_analyze_user_agent(self, user_agent: str) -> Dict[str, str]:
+        """
+        簡單分析用戶代理字符串（不依賴外部庫）。
+        
+        參數:
+            user_agent (str): 要分析的用戶代理字符串。
+            
+        返回:
+            Dict[str, str]: 包含簡單分析結果的字典。
+        """
+        ua_lower = user_agent.lower()
+        result = {
+            'user_agent': user_agent,
+            'browser_family': 'Unknown',
+            'os_family': 'Unknown',
+            'is_mobile': 'False'
+        }
+        
+        # 瀏覽器檢測
+        if 'chrome' in ua_lower and 'edg' in ua_lower:
+            result['browser_family'] = 'Edge'
+        elif 'chrome' in ua_lower:
+            result['browser_family'] = 'Chrome'
+        elif 'firefox' in ua_lower:
+            result['browser_family'] = 'Firefox'
+        elif 'safari' in ua_lower:
+            result['browser_family'] = 'Safari'
+        elif 'msie' in ua_lower or 'trident' in ua_lower:
+            result['browser_family'] = 'Internet Explorer'
+        elif 'opera' in ua_lower:
+            result['browser_family'] = 'Opera'
+        
+        # 操作系統檢測
+        if 'windows' in ua_lower:
+            result['os_family'] = 'Windows'
+        elif 'macintosh' in ua_lower or 'mac os x' in ua_lower:
+            result['os_family'] = 'Mac OS X'
+        elif 'linux' in ua_lower:
+            result['os_family'] = 'Linux'
+        elif 'android' in ua_lower:
+            result['os_family'] = 'Android'
+            result['is_mobile'] = 'True'
+        elif 'iphone' in ua_lower or 'ipad' in ua_lower or 'ipod' in ua_lower:
+            result['os_family'] = 'iOS'
+            result['is_mobile'] = 'True'
+        
+        # 移動設備檢測
+        if 'mobile' in ua_lower or 'android' in ua_lower or 'iphone' in ua_lower:
+            result['is_mobile'] = 'True'
+        
+        return result
+        
+    def save_user_agents_to_file(self, file_path: str) -> bool:
+        """
+        將目前的用戶代理列表保存到檔案。
+        
+        參數:
+            file_path (str): 要保存的檔案路徑。
+            
+        返回:
+            bool: 保存是否成功。
+        """
+        try:
+            directory = os.path.dirname(file_path)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory)
+                
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump({'user_agents': self.user_agents_list}, f, indent=2)
+                
+            logger.info(f"已將 {len(self.user_agents_list)} 個用戶代理保存到 {file_path}")
+            return True
+        except Exception as e:
+            logger.error(f"保存用戶代理到檔案時發生錯誤: {str(e)}")
+            return False
+    
+    def add_user_agent(self, user_agent: str) -> None:
+        """
+        添加一個用戶代理到列表中。
+        
+        參數:
+            user_agent (str): 要添加的用戶代理字符串。
+        """
+        if user_agent and user_agent not in self.user_agents_list:
+            self.user_agents_list.append(user_agent)
+            logger.debug(f"已添加新的用戶代理: {user_agent}")
+            
+    def get_matching_user_agents(self, browser: str = None, os: str = None, mobile: bool = None) -> List[str]:
+        """
+        獲取符合指定條件的用戶代理列表。
+        
+        參數:
+            browser (str): 瀏覽器類型，例如 'chrome', 'firefox'。
+            os (str): 操作系統類型，例如 'windows', 'macos', 'android'。
+            mobile (bool): 是否為移動設備。
+            
+        返回:
+            List[str]: 符合條件的用戶代理列表。
+        """
+        result = []
+        
+        for ua in self.user_agents_list:
+            ua_lower = ua.lower()
+            match = True
+            
+            # 檢查瀏覽器
+            if browser:
+                browser_lower = browser.lower()
+                if browser_lower == 'chrome' and 'chrome' not in ua_lower:
+                    match = False
+                elif browser_lower == 'firefox' and 'firefox' not in ua_lower:
+                    match = False
+                elif browser_lower == 'safari' and 'safari' not in ua_lower:
+                    match = False
+                elif browser_lower == 'edge' and 'edg' not in ua_lower:
+                    match = False
+                    
+            # 檢查操作系統
+            if os and match:
+                os_lower = os.lower()
+                if os_lower == 'windows' and 'windows' not in ua_lower:
+                    match = False
+                elif os_lower in ('macos', 'mac') and ('macintosh' not in ua_lower and 'mac os x' not in ua_lower):
+                    match = False
+                elif os_lower == 'linux' and 'linux' not in ua_lower:
+                    match = False
+                elif os_lower == 'android' and 'android' not in ua_lower:
+                    match = False
+                elif os_lower == 'ios' and ('iphone' not in ua_lower and 'ipad' not in ua_lower and 'ipod' not in ua_lower):
+                    match = False
+                    
+            # 檢查是否為移動設備
+            if mobile is not None and match:
+                is_mobile = 'mobile' in ua_lower or 'android' in ua_lower or 'iphone' in ua_lower or 'ipad' in ua_lower
+                if mobile != is_mobile:
+                    match = False
+                    
+            if match:
+                result.append(ua)
+                
+        logger.debug(f"找到 {len(result)} 個符合條件的用戶代理")
+        return result

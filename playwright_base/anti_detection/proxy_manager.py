@@ -1,196 +1,342 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 """
 代理管理模組
 
-此模組提供代理管理功能，包括：
-1. 代理配置管理
-2. 代理輪換
-3. 代理驗證
-4. 代理黑名單管理
+提供代理服務器的管理、輪換和測試功能。
 """
 
-from typing import Dict, Any, List, Optional
+import os
+import json
 import random
+import requests
 import time
-from datetime import datetime, timedelta
-from loguru import logger
+from typing import Dict, List, Optional, Union, Any
+from urllib.parse import urlparse
 
-from ..utils.exceptions import AntiDetectionException
+from playwright_base.utils.logger import setup_logger
+from playwright_base.utils.exceptions import ProxyException
 
+# 設置日誌
+logger = setup_logger(name=__name__)
 
 class ProxyManager:
-    """代理管理器"""
+    """
+    代理服務器管理類。
     
-    def __init__(self):
-        """初始化代理管理器"""
-        # 代理配置
-        self.proxy_config = {
-            "enabled": False,
-            "proxy_list": [],
-            "current_proxy": None,
-            "rotation_interval": 300,  # 5分鐘
-            "last_rotation": None,
-            "blacklist": [],
-            "blacklist_duration": 3600,  # 1小時
-            "max_retries": 3,
-            "retry_delay": 5  # 5秒
-        }
+    提供代理的獲取、輪換、測試和管理功能。
+    """
     
-    def set_proxy_config(self, config: Dict[str, Any]) -> None:
+    def __init__(self, proxies_file: str = None, test_url: str = "https://httpbin.org/ip", timeout: int = 10):
         """
-        設置代理配置
+        初始化 ProxyManager 實例。
         
-        Args:
-            config: 代理配置字典
+        參數:
+            proxies_file (str): 包含代理列表的 JSON 檔案路徑。
+            test_url (str): 用於測試代理連通性的 URL。
+            timeout (int): 代理測試超時時間（秒）。
+        """
+        self.proxies = []
+        self.current_index = 0
+        self.test_url = test_url
+        self.timeout = timeout
+        
+        # 如果提供了代理檔案，則從檔案載入
+        if proxies_file and os.path.exists(proxies_file):
+            self._load_proxies_from_file(proxies_file)
+            
+        logger.info(f"代理管理器已初始化，共載入 {len(self.proxies)} 個代理")
+    
+    def _load_proxies_from_file(self, file_path: str) -> None:
+        """
+        從檔案載入代理列表。
+        
+        參數:
+            file_path (str): JSON 檔案路徑。
         """
         try:
-            self.proxy_config.update(config)
-            logger.info("已更新代理配置")
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                
+            if isinstance(data, list):
+                # 直接列表格式
+                for item in data:
+                    if isinstance(item, str):
+                        self.add_proxy_from_string(item)
+                    elif isinstance(item, dict):
+                        self.add_proxy(item)
+            elif isinstance(data, dict) and 'proxies' in data:
+                # 包含 'proxies' 鍵的字典
+                for item in data['proxies']:
+                    if isinstance(item, str):
+                        self.add_proxy_from_string(item)
+                    elif isinstance(item, dict):
+                        self.add_proxy(item)
+            else:
+                logger.warning(f"從 {file_path} 載入的代理格式無效")
+                return
+                
+            logger.info(f"已從 {file_path} 載入 {len(self.proxies)} 個代理")
+            
         except Exception as e:
-            logger.error(f"更新代理配置時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"更新代理配置失敗: {str(e)}")
+            logger.error(f"載入代理檔案時發生錯誤: {str(e)}")
     
     def add_proxy(self, proxy: Dict[str, Any]) -> None:
         """
-        添加代理
+        添加一個代理到代理列表。
         
-        Args:
-            proxy: 代理配置字典
+        參數:
+            proxy (Dict[str, Any]): 代理配置字典，格式如：
+                {
+                    "server": "http://example.com:8080",
+                    "username": "user",  # 可選
+                    "password": "pass"   # 可選
+                }
         """
-        try:
-            if proxy not in self.proxy_config["proxy_list"]:
-                self.proxy_config["proxy_list"].append(proxy)
-                logger.info(f"已添加代理: {proxy['host']}:{proxy['port']}")
-        except Exception as e:
-            logger.error(f"添加代理時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"添加代理失敗: {str(e)}")
+        if not proxy.get("server"):
+            logger.warning("代理缺少伺服器地址，無法添加")
+            return
+            
+        # 檢查是否已經存在
+        for existing in self.proxies:
+            if existing["server"] == proxy["server"]:
+                logger.debug(f"代理 {proxy['server']} 已存在，跳過添加")
+                return
+                
+        self.proxies.append(proxy)
+        logger.debug(f"已添加代理: {proxy['server']}")
     
-    def remove_proxy(self, proxy: Dict[str, Any]) -> None:
+    def add_proxy_from_string(self, proxy_string: str) -> None:
         """
-        移除代理
+        從字符串添加代理。
+        支持格式：
+        - "http://user:pass@host:port"
+        - "host:port"
         
-        Args:
-            proxy: 代理配置字典
+        參數:
+            proxy_string (str): 代理服務器字符串。
         """
         try:
-            if proxy in self.proxy_config["proxy_list"]:
-                self.proxy_config["proxy_list"].remove(proxy)
-                logger.info(f"已移除代理: {proxy['host']}:{proxy['port']}")
+            proxy = {}
+            
+            # 檢查是否包含協議
+            if "://" not in proxy_string:
+                proxy_string = f"http://{proxy_string}"
+                
+            # 解析 URL
+            parsed = urlparse(proxy_string)
+            
+            # 構建代理配置
+            protocol = parsed.scheme or "http"
+            host = parsed.hostname
+            port = parsed.port or (443 if protocol == "https" else 80)
+            
+            if not host:
+                logger.warning(f"無法從 '{proxy_string}' 解析主機名")
+                return
+                
+            proxy["server"] = f"{protocol}://{host}:{port}"
+            
+            # 解析認證資訊
+            if parsed.username and parsed.password:
+                proxy["username"] = parsed.username
+                proxy["password"] = parsed.password
+                
+            self.add_proxy(proxy)
+            
         except Exception as e:
-            logger.error(f"移除代理時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"移除代理失敗: {str(e)}")
+            logger.error(f"解析代理字符串 '{proxy_string}' 時發生錯誤: {str(e)}")
     
     def get_random_proxy(self) -> Optional[Dict[str, Any]]:
         """
-        獲取隨機代理
+        隨機獲取一個代理。
         
-        Returns:
-            Optional[Dict[str, Any]]: 代理配置字典
+        返回:
+            Optional[Dict[str, Any]]: 隨機代理配置字典，若無代理則返回 None。
         """
-        try:
-            if not self.proxy_config["enabled"] or not self.proxy_config["proxy_list"]:
-                return None
+        if not self.proxies:
+            logger.warning("代理列表為空")
+            return None
             
-            available_proxies = [
-                proxy for proxy in self.proxy_config["proxy_list"]
-                if proxy not in self.proxy_config["blacklist"]
-            ]
-            
-            if not available_proxies:
-                return None
-            
-            return random.choice(available_proxies)
-        except Exception as e:
-            logger.error(f"獲取隨機代理時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"獲取隨機代理失敗: {str(e)}")
+        proxy = random.choice(self.proxies)
+        logger.debug(f"隨機選擇代理: {proxy['server']}")
+        return proxy
     
-    def rotate_proxy(self) -> Optional[Dict[str, Any]]:
+    def next_proxy(self) -> Optional[Dict[str, Any]]:
         """
-        輪換代理
+        順序獲取下一個代理。
         
-        Returns:
-            Optional[Dict[str, Any]]: 新的代理配置字典
+        返回:
+            Optional[Dict[str, Any]]: 下一個代理配置字典，若無代理則返回 None。
         """
-        try:
-            if not self.proxy_config["enabled"]:
-                return None
+        if not self.proxies:
+            logger.warning("代理列表為空")
+            return None
             
-            current_time = datetime.now()
-            
-            # 檢查是否需要輪換
-            if (self.proxy_config["last_rotation"] and
-                (current_time - self.proxy_config["last_rotation"]).total_seconds() < self.proxy_config["rotation_interval"]):
-                return self.proxy_config["current_proxy"]
-            
-            # 獲取新代理
-            new_proxy = self.get_random_proxy()
-            if new_proxy:
-                self.proxy_config["current_proxy"] = new_proxy
-                self.proxy_config["last_rotation"] = current_time
-                logger.info(f"已輪換到新代理: {new_proxy['host']}:{new_proxy['port']}")
-            
-            return new_proxy
-        except Exception as e:
-            logger.error(f"輪換代理時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"輪換代理失敗: {str(e)}")
+        proxy = self.proxies[self.current_index]
+        self.current_index = (self.current_index + 1) % len(self.proxies)
+        logger.debug(f"選擇下一個代理: {proxy['server']}")
+        return proxy
     
-    def add_to_blacklist(self, proxy: Dict[str, Any]) -> None:
+    def test_proxy(self, proxy: Dict[str, Any]) -> Dict[str, Any]:
         """
-        將代理添加到黑名單
+        測試代理的連通性。
         
-        Args:
-            proxy: 代理配置字典
+        參數:
+            proxy (Dict[str, Any]): 要測試的代理配置字典。
+            
+        返回:
+            Dict[str, Any]: 測試結果字典，包含是否成功、響應時間等信息。
         """
-        try:
-            if proxy not in self.proxy_config["blacklist"]:
-                self.proxy_config["blacklist"].append({
-                    "proxy": proxy,
-                    "added_at": datetime.now()
-                })
-                logger.info(f"已將代理添加到黑名單: {proxy['host']}:{proxy['port']}")
-        except Exception as e:
-            logger.error(f"添加代理到黑名單時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"添加代理到黑名單失敗: {str(e)}")
-    
-    def clean_blacklist(self) -> None:
-        """清理過期的黑名單代理"""
-        try:
-            current_time = datetime.now()
-            self.proxy_config["blacklist"] = [
-                item for item in self.proxy_config["blacklist"]
-                if (current_time - item["added_at"]).total_seconds() < self.proxy_config["blacklist_duration"]
-            ]
-            logger.info("已清理過期的黑名單代理")
-        except Exception as e:
-            logger.error(f"清理黑名單時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"清理黑名單失敗: {str(e)}")
-    
-    def apply_proxy(self, page) -> None:
-        """
-        應用代理到 Playwright 頁面
+        result = {
+            "proxy": proxy["server"],
+            "success": False,
+            "response_time": None,
+            "error": None,
+            "ip": None
+        }
         
-        Args:
-            page: Playwright 頁面對象
+        # 構建 requests 使用的代理格式
+        req_proxy = {}
+        
+        protocol = proxy["server"].split("://")[0]
+        req_proxy[protocol] = proxy["server"]
+        
+        # 添加認證信息
+        if proxy.get("username") and proxy.get("password"):
+            auth = f"{proxy['username']}:{proxy['password']}"
+            server = proxy["server"].replace("://", f"://{auth}@")
+            req_proxy[protocol] = server
+            
+        try:
+            start_time = time.time()
+            response = requests.get(self.test_url, proxies=req_proxy, timeout=self.timeout)
+            end_time = time.time()
+            
+            if response.status_code == 200:
+                result["success"] = True
+                result["response_time"] = round((end_time - start_time) * 1000)  # 毫秒
+                
+                # 嘗試從 httpbin.org/ip 獲取 IP
+                try:
+                    data = response.json()
+                    if "origin" in data:
+                        result["ip"] = data["origin"]
+                except Exception:
+                    pass
+                    
+                logger.info(f"代理 {proxy['server']} 測試成功，響應時間: {result['response_time']}ms，IP: {result['ip']}")
+            else:
+                result["error"] = f"HTTP 錯誤: {response.status_code}"
+                logger.warning(f"代理 {proxy['server']} 返回錯誤狀態碼: {response.status_code}")
+                
+        except requests.exceptions.Timeout:
+            result["error"] = "超時"
+            logger.warning(f"代理 {proxy['server']} 連接超時")
+        except requests.exceptions.ProxyError as e:
+            result["error"] = f"代理錯誤: {str(e)}"
+            logger.warning(f"代理 {proxy['server']} 發生錯誤: {str(e)}")
+        except Exception as e:
+            result["error"] = str(e)
+            logger.warning(f"測試代理 {proxy['server']} 時發生錯誤: {str(e)}")
+            
+        return result
+    
+    def test_all_proxies(self) -> List[Dict[str, Any]]:
+        """
+        測試所有代理的連通性。
+        
+        返回:
+            List[Dict[str, Any]]: 所有代理的測試結果列表。
+        """
+        results = []
+        
+        if not self.proxies:
+            logger.warning("代理列表為空，無法測試")
+            return results
+            
+        logger.info(f"開始測試 {len(self.proxies)} 個代理...")
+        
+        for proxy in self.proxies:
+            result = self.test_proxy(proxy)
+            results.append(result)
+            # 避免過快測試
+            time.sleep(1)
+            
+        # 統計結果
+        success_count = sum(1 for r in results if r["success"])
+        logger.info(f"代理測試完成，{success_count}/{len(results)} 個代理可用")
+        
+        return results
+    
+    def get_working_proxies(self) -> List[Dict[str, Any]]:
+        """
+        獲取所有可用的代理。
+        
+        返回:
+            List[Dict[str, Any]]: 可用代理列表。
+        """
+        if not self.proxies:
+            logger.warning("代理列表為空")
+            return []
+            
+        working_proxies = []
+        results = self.test_all_proxies()
+        
+        for result, proxy in zip(results, self.proxies):
+            if result["success"]:
+                working_proxies.append(proxy)
+                
+        logger.info(f"找到 {len(working_proxies)} 個可用代理")
+        return working_proxies
+    
+    def save_proxies_to_file(self, file_path: str) -> bool:
+        """
+        將目前的代理列表保存到檔案。
+        
+        參數:
+            file_path (str): 要保存的檔案路徑。
+            
+        返回:
+            bool: 保存是否成功。
         """
         try:
-            if not self.proxy_config["enabled"]:
-                return
-            
-            proxy = self.rotate_proxy()
-            if not proxy:
-                return
-            
-            page.route("**/*", lambda route: route.continue_(
-                proxy={
-                    "server": f"{proxy['protocol']}://{proxy['host']}:{proxy['port']}",
-                    "username": proxy.get("username"),
-                    "password": proxy.get("password")
-                }
-            ))
-            
-            logger.info(f"已應用代理: {proxy['host']}:{proxy['port']}")
+            directory = os.path.dirname(file_path)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory)
+                
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump({'proxies': self.proxies}, f, indent=2)
+                
+            logger.info(f"已將 {len(self.proxies)} 個代理保存到 {file_path}")
+            return True
         except Exception as e:
-            logger.error(f"應用代理時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"應用代理失敗: {str(e)}") 
+            logger.error(f"保存代理到檔案時發生錯誤: {str(e)}")
+            return False
+    
+    def get_playwright_proxy(self, proxy: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        """
+        獲取 Playwright 格式的代理配置。
+        如果不指定代理，則隨機選擇一個。
+        
+        參數:
+            proxy (Optional[Dict[str, Any]]): 代理配置字典，若為 None 則隨機選擇。
+            
+        返回:
+            Optional[Dict[str, Any]]: Playwright 格式的代理配置，若無可用代理則返回 None。
+        """
+        if proxy is None:
+            proxy = self.get_random_proxy()
+            
+        if not proxy:
+            return None
+            
+        # 轉換為 Playwright 代理格式
+        pw_proxy = {
+            "server": proxy["server"]
+        }
+        
+        # 添加認證信息
+        if proxy.get("username") and proxy.get("password"):
+            pw_proxy["username"] = proxy["username"]
+            pw_proxy["password"] = proxy["password"]
+            
+        return pw_proxy

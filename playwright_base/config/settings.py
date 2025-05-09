@@ -1,172 +1,328 @@
 """
-配置模塊
-提供框架的各種配置選項
+配置管理模組
+
+提供框架的全局配置設置和讀取功能。
 """
 
-from typing import Dict, Any, Optional
 import os
 import json
-from pathlib import Path
-from dotenv import load_dotenv
+import logging
+from typing import Dict, Any, Optional, Union
 
-# 配置位置優先級：
-# 1. 環境變量
-# 2. 配置文件
-# 3. 默認值
+from playwright_base.utils.logger import setup_logger
+from playwright_base.utils.exceptions import ConfigException
 
-# 加載環境變量
-load_dotenv()
+# 設置日誌
+logger = setup_logger(name=__name__)
 
-# 配置文件路徑
-CONFIG_PATH = os.getenv("PLAYWRIGHT_CONFIG_PATH", "config/config.json")
-
-# 嘗試從配置文件加載
-def load_config_file() -> Dict[str, Any]:
-    """從配置文件加載配置"""
-    config_path = Path(CONFIG_PATH)
-    if not config_path.exists():
-        return {}
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-# 配置文件中的設置
-FILE_CONFIG = load_config_file()
-
-# 獲取配置值的輔助函數
-def get_config_value(
-    key: str, 
-    default: Any, 
-    config_section: Optional[str] = None
-) -> Any:
-    """
-    按優先級獲取配置值:
-    1. 環境變量 (例如 PLAYWRIGHT_HEADLESS)
-    2. 配置文件中的值
-    3. 默認值
-
-    Args:
-        key: 配置鍵名
-        default: 默認值
-        config_section: 配置文件中的部分名稱
-
-    Returns:
-        Any: 配置值
-    """
-    # 先查找環境變量
-    env_key = f"PLAYWRIGHT_{key.upper()}"
-    env_value = os.getenv(env_key)
-    if env_value is not None:
-        # 嘗試將字符串轉換為適當類型
-        if env_value.lower() in ["true", "false"]:
-            return env_value.lower() == "true"
-        try:
-            # 嘗試轉換為數字
-            if "." in env_value:
-                return float(env_value)
-            return int(env_value)
-        except ValueError:
-            return env_value
-
-    # 其次查找配置文件
-    if config_section:
-        return FILE_CONFIG.get(config_section, {}).get(key, default)
-    return FILE_CONFIG.get(key, default)
-
-# 瀏覽器配置
-BROWSER_CONFIG: Dict[str, Any] = {
-    "headless": get_config_value("headless", False, "browser"),
-    "slow_mo": get_config_value("slow_mo", 50, "browser"),
-    "viewport": {
-        "width": get_config_value("viewport_width", 1920, "browser"),
-        "height": get_config_value("viewport_height", 1080, "browser"),
+# 預設配置
+DEFAULT_CONFIG = {
+    "browser": {
+        "browser_type": "chromium",  # 'chromium', 'firefox', 'webkit'
+        "headless": False,
+        "slow_mo": 0,  # 操作間延遲毫秒數，用於調試
+        "launch_options": {
+            "args": ["--start-maximized"]
+        },
+        "context_options": {
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            },
+            "ignore_https_errors": True
+        }
     },
-    "user_agent": get_config_value("user_agent", None, "browser"),
-    "launch_options": {
-        "args": get_config_value("browser_args", [], "browser"),
+    "storage": {
+        "storage_dir": "data/storage",
+        "default_storage_file": "storage.json",
+        "auto_save": True,
+        "auto_load": True
+    },
+    "network": {
+        "timeout": 30000,  # 網絡請求超時（毫秒）
+        "navigation_timeout": 60000,  # 頁面導航超時（毫秒）
+        "retry": {
+            "max_retries": 3,
+            "retry_delay": 1000  # 重試間隔（毫秒）
+        },
+        "wait_until": "domcontentloaded"  # 'load', 'domcontentloaded', 'networkidle'
+    },
+    "proxy": {
+        "enabled": False,
+        "proxies_file": "data/proxies.json",
+        "rotation": {
+            "enabled": False,
+            "max_requests": 10,  # 每個代理的最大請求數
+            "rotation_policy": "sequential"  # 'sequential', 'random'
+        }
+    },
+    "user_agent": {
+        "enabled": True,
+        "user_agents_file": "data/user_agents.json",
+        "rotation": {
+            "enabled": False,
+            "max_requests": 10,  # 每個用戶代理的最大請求數
+            "rotation_policy": "sequential"  # 'sequential', 'random'
+        }
+    },
+    "anti_detection": {
+        "stealth_mode": True,
+        "webgl_spoof": True,
+        "canvas_spoof": True,
+        "audio_spoof": False,
+        "human_like_behavior": {
+            "enabled": True,
+            "scroll": {
+                "enabled": True,
+                "min_scroll_times": 3,
+                "max_scroll_times": 8,
+                "min_scroll_distance": 300,
+                "max_scroll_distance": 800,
+                "min_delay": 0.5,
+                "max_delay": 2.0
+            },
+            "mouse": {
+                "enabled": True,
+                "min_moves": 3,
+                "max_moves": 10,
+                "min_delay": 0.1,
+                "max_delay": 0.5
+            },
+            "keyboard": {
+                "enabled": True,
+                "min_delay": 0.05,
+                "max_delay": 0.2,
+                "mistake_probability": 0.05
+            }
+        }
+    },
+    "page_management": {
+        "max_pages": 3,  # 最大允許的頁面數量
+        "auto_close_popups": True
+    },
+    "logging": {
+        "level": "INFO",  # 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        "log_dir": "logs",
+        "log_file": None,  # 設置後將同時輸出到檔案
+        "console": True  # 是否輸出到控制台
+    },
+    "screenshot": {
+        "enabled": True,
+        "on_error": True,  # 錯誤時是否自動截圖
+        "save_path": "data/screenshots",
+        "full_page": True
+    },
+    "debug": {
+        "enabled": False,
+        "trace": False,  # 是否啟用 Playwright 的 trace 功能
+        "trace_path": "data/trace",
+        "devtools": False  # 是否自動打開 devtools
     }
 }
 
-# 代理配置
-PROXY_CONFIG = {
-    "enabled": get_config_value("proxy_enabled", False, "proxy"),
-    "server": get_config_value("proxy_server", None, "proxy"),
-    "username": get_config_value("proxy_username", None, "proxy"),
-    "password": get_config_value("proxy_password", None, "proxy"),
-    "rotation_interval": get_config_value("proxy_rotation_interval", 300, "proxy"),
-}
+class ConfigManager:
+    """
+    配置管理類。
+    
+    負責載入、保存和訪問框架配置。
+    """
+    
+    def __init__(self, config_path: str = None):
+        """
+        初始化 ConfigManager 實例。
+        
+        參數:
+            config_path (str): 配置檔案路徑。
+        """
+        self.config = DEFAULT_CONFIG.copy()
+        self.config_path = config_path
+        
+        # 如果提供了配置檔案路徑，則從檔案載入
+        if config_path and os.path.exists(config_path):
+            self.load_config(config_path)
+        else:
+            logger.info("使用默認配置")
+    
+    def load_config(self, config_path: str) -> None:
+        """
+        從檔案載入配置。
+        
+        參數:
+            config_path (str): 配置檔案路徑。
+            
+        異常:
+            ConfigException: 載入配置失敗時拋出。
+        """
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                user_config = json.load(f)
+                
+            # 合併配置
+            self._merge_config(self.config, user_config)
+            self.config_path = config_path
+            
+            logger.info(f"已從 {config_path} 載入配置")
+        except Exception as e:
+            logger.error(f"載入配置檔案時發生錯誤: {str(e)}")
+            raise ConfigException(f"載入配置失敗: {str(e)}")
+    
+    def _merge_config(self, target: Dict[str, Any], source: Dict[str, Any]) -> None:
+        """
+        深度合併兩個配置字典。
+        
+        參數:
+            target (Dict[str, Any]): 目標配置字典，將被修改。
+            source (Dict[str, Any]): 源配置字典，提供要合併的值。
+        """
+        for key, value in source.items():
+            if key in target and isinstance(target[key], dict) and isinstance(value, dict):
+                # 兩者都是字典，遞迴合併
+                self._merge_config(target[key], value)
+            else:
+                # 覆蓋或添加值
+                target[key] = value
+    
+    def save_config(self, config_path: str = None) -> None:
+        """
+        保存當前配置到檔案。
+        
+        參數:
+            config_path (str): 保存的檔案路徑，若為 None 則使用初始化時的路徑。
+            
+        異常:
+            ConfigException: 保存配置失敗時拋出。
+        """
+        path = config_path or self.config_path
+        if not path:
+            logger.warning("未指定配置檔案路徑，無法保存")
+            return
+            
+        try:
+            directory = os.path.dirname(path)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory)
+                
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, indent=2)
+                
+            logger.info(f"已保存配置到 {path}")
+        except Exception as e:
+            logger.error(f"保存配置檔案時發生錯誤: {str(e)}")
+            raise ConfigException(f"保存配置失敗: {str(e)}")
+    
+    def get(self, key_path: str, default: Any = None) -> Any:
+        """
+        獲取指定路徑的配置值。
+        
+        參數:
+            key_path (str): 配置鍵路徑，使用 '.' 分隔層級，例如 'browser.headless'。
+            default (Any): 如果指定路徑不存在，返回的默認值。
+            
+        返回:
+            Any: 配置值或默認值。
+        """
+        keys = key_path.split('.')
+        config = self.config
+        
+        try:
+            for key in keys:
+                config = config[key]
+            return config
+        except (KeyError, TypeError):
+            return default
+    
+    def set(self, key_path: str, value: Any) -> None:
+        """
+        設置指定路徑的配置值。
+        
+        參數:
+            key_path (str): 配置鍵路徑，使用 '.' 分隔層級，例如 'browser.headless'。
+            value (Any): 要設置的值。
+            
+        異常:
+            ConfigException: 設置配置失敗時拋出。
+        """
+        keys = key_path.split('.')
+        config = self.config
+        
+        try:
+            # 導航到最後一個鍵的父級
+            for key in keys[:-1]:
+                if key not in config or not isinstance(config[key], dict):
+                    config[key] = {}
+                config = config[key]
+                
+            # 設置最後一個鍵的值
+            config[keys[-1]] = value
+            logger.debug(f"已設置配置 {key_path} = {value}")
+        except Exception as e:
+            logger.error(f"設置配置 {key_path} 時發生錯誤: {str(e)}")
+            raise ConfigException(f"設置配置失敗: {str(e)}")
+    
+    def get_browser_config(self) -> Dict[str, Any]:
+        """
+        獲取瀏覽器配置。
+        
+        返回:
+            Dict[str, Any]: 瀏覽器配置字典。
+        """
+        return self.config.get("browser", {})
+    
+    def get_network_config(self) -> Dict[str, Any]:
+        """
+        獲取網絡配置。
+        
+        返回:
+            Dict[str, Any]: 網絡配置字典。
+        """
+        return self.config.get("network", {})
+    
+    def get_anti_detection_config(self) -> Dict[str, Any]:
+        """
+        獲取反檢測配置。
+        
+        返回:
+            Dict[str, Any]: 反檢測配置字典。
+        """
+        return self.config.get("anti_detection", {})
+    
+    def get_logging_level(self) -> int:
+        """
+        獲取日誌級別。
+        
+        返回:
+            int: 日誌級別數值。
+        """
+        level_map = {
+            "DEBUG": logging.DEBUG,
+            "INFO": logging.INFO,
+            "WARNING": logging.WARNING,
+            "ERROR": logging.ERROR,
+            "CRITICAL": logging.CRITICAL
+        }
+        
+        level_str = self.get("logging.level", "INFO").upper()
+        return level_map.get(level_str, logging.INFO)
+    
+    def get_all_config(self) -> Dict[str, Any]:
+        """
+        獲取所有配置。
+        
+        返回:
+            Dict[str, Any]: 完整配置字典。
+        """
+        return self.config
 
-# 反偵測配置
-ANTI_DETECTION_CONFIG = {
-    "random_delay": get_config_value("random_delay", True, "anti_detection"),
-    "delay_min": get_config_value("delay_min", 1, "anti_detection"),
-    "delay_max": get_config_value("delay_max", 3, "anti_detection"),
-    # 你可以根據需要擴充更多反偵測參數
-}
 
-# 請求攔截配置
-REQUEST_INTERCEPT_CONFIG = {
-    "enabled": get_config_value("request_intercept_enabled", False, "request_intercept"),
-    "block_resource_types": get_config_value("block_resource_types", ["image", "stylesheet", "font"], "request_intercept"),
-    "block_urls": get_config_value("block_urls", [], "request_intercept"),
-    # 可根據需求擴充更多請求攔截相關參數
-}
+# 創建全局配置管理器實例
+config_manager = ConfigManager()
 
-# 超時相關配置
-TIMEOUT_CONFIG = {
-    "page_load": get_config_value("page_load_timeout", 30000, "timeout"),
-    "element": get_config_value("element_timeout", 10000, "timeout"),
-    "captcha": get_config_value("captcha_timeout", 60000, "timeout"),
-    "network_idle": get_config_value("network_idle_timeout", 30000, "timeout"),
-    # 可根據需求擴充更多超時參數
-}
-
-# 日誌相關設定
-LOGGING_CONFIG = {
-    "level": get_config_value("log_level", "INFO", "logging"),
-    "log_to_file": get_config_value("log_to_file", True, "logging"),
-    "log_file_path": get_config_value("log_file_path", "logs/app.log", "logging"),
-    "rotation": get_config_value("log_rotation", "10 MB", "logging"),
-    "retention": get_config_value("log_retention", "7 days", "logging"),
-    "format": get_config_value("log_format", "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>", "logging"),
-}
-
-# 重試相關設定
-RETRY_CONFIG = {
-    "max_retries": get_config_value("max_retries", 3, "retry"),
-    "retry_interval": get_config_value("retry_interval", 2, "retry"),  # 單位：秒
-    "backoff_factor": get_config_value("backoff_factor", 2, "retry"),
-}
-
-# 資料儲存相關設定
-STORAGE_CONFIG = {
-    "base_dir": get_config_value("storage_base_dir", "data", "storage"),
-    "json_dir": get_config_value("storage_json_dir", "data/json", "storage"),
-    "csv_dir": get_config_value("storage_csv_dir", "data/csv", "storage"),
-    "excel_dir": get_config_value("storage_excel_dir", "data/excel", "storage"),
-    "raw_dir": get_config_value("storage_raw_dir", "data/raw", "storage"),
-}
-
-# 多 User-Agent 輪換清單
-USER_AGENT_LIST = get_config_value(
-    "user_agent_list",
-    [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    ],
-    "browser"
-)
-
-# 自訂 HTTP headers 設定
-HEADERS_CONFIG = get_config_value(
-    "headers",
-    {
-        "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
-        "Cache-Control": "no-cache",
-        "Pragma": "no-cache",
-    },
-    "http"
-)
+def get_config() -> ConfigManager:
+    """
+    獲取全局配置管理器實例。
+    
+    返回:
+        ConfigManager: 配置管理器實例。
+    """
+    return config_manager
