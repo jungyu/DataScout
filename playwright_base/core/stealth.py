@@ -11,11 +11,13 @@ def inject_stealth_js(context) -> None:
     """
     stealth_js = """
     () => {
+        // 修補 navigator 屬性
         Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
         Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
         Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
         Object.defineProperty(navigator, 'language', { get: () => 'en-US' });
         Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel' });
+        
         // 模擬正常的 Cookie 行為
         const cookieDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie') || {};
         const cookieGetter = cookieDesc.get || function() {};
@@ -25,6 +27,7 @@ def inject_stealth_js(context) -> None:
             set: function(val) { cookieSetter.call(document, val); return true; },
             enumerable: true
         });
+        
         // 模擬滑鼠事件
         const simulateHumanInteractions = () => {
             const randomMoveInterval = setInterval(() => {
@@ -41,9 +44,14 @@ def inject_stealth_js(context) -> None:
                 });
                 document.dispatchEvent(mouseEvent);
             }, 2000 + Math.random() * 3000);
+            
+            // 5分鐘後清除模擬
             setTimeout(() => { clearInterval(randomMoveInterval); }, 300000);
         };
+        
+        // 啟動模擬
         setTimeout(simulateHumanInteractions, 5000);
+        
         // 覆蓋 Permissions API
         if (navigator.permissions) {
             const originalQuery = navigator.permissions.query;
@@ -54,6 +62,35 @@ def inject_stealth_js(context) -> None:
                 return originalQuery.apply(this, arguments);
             };
         }
+        
+        // 隱藏自動化控制台
+        const originalConsole = console;
+        Object.defineProperty(window, 'console', {
+            get: function() {
+                if (originalConsole._commandLineAPI) {
+                    throw "檢測到使用開發人員工具";
+                }
+                return originalConsole;
+            }
+        });
+        
+        // 修改 plugins 和 mimeTypes
+        Object.defineProperty(navigator, 'plugins', {
+            get: () => {
+                return [
+                    {
+                        0: {
+                            type: "application/pdf",
+                            suffixes: "pdf",
+                            description: "Portable Document Format"
+                        },
+                        name: "PDF Viewer",
+                        filename: "internal-pdf-viewer",
+                        description: "Portable Document Format"
+                    }
+                ];
+            }
+        });
     }
     """
     context.add_init_script(stealth_js)

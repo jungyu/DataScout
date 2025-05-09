@@ -11,11 +11,9 @@
 4. 語言和地區偽裝
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, Optional
 import random
 from loguru import logger
-
-from ..utils.exceptions import AntiDetectionException
 
 
 class PlatformSpoofer:
@@ -99,6 +97,16 @@ class PlatformSpoofer:
             "es-ES",
             "it-IT"
         ]
+        
+        # 屏幕分辨率
+        self.screen_resolutions = [
+            {"width": 1366, "height": 768},
+            {"width": 1920, "height": 1080},
+            {"width": 1440, "height": 900},
+            {"width": 1536, "height": 864},
+            {"width": 2560, "height": 1440},
+            {"width": 1680, "height": 1050}
+        ]
     
     def get_random_platform_fingerprint(self) -> Dict[str, Any]:
         """
@@ -110,6 +118,7 @@ class PlatformSpoofer:
         os = random.choice(self.operating_systems)
         browser = random.choice(self.browsers)
         hardware = random.choice(self.hardware_platforms)
+        screen = random.choice(self.screen_resolutions)
         
         return {
             "os": {
@@ -133,7 +142,8 @@ class PlatformSpoofer:
                 "memory": random.choice(hardware["memory"]),
                 "cores": random.choice(hardware["cores"])
             },
-            "language": random.choice(self.languages)
+            "language": random.choice(self.languages),
+            "screen": screen
         }
     
     def get_consistent_platform_fingerprint(self) -> Dict[str, Any]:
@@ -161,18 +171,24 @@ class PlatformSpoofer:
                 "memory": 16,
                 "cores": 8
             },
-            "language": "en-US"
+            "language": "en-US",
+            "screen": {
+                "width": 1920,
+                "height": 1080
+            }
         }
     
-    def apply_spoof(self, page) -> None:
+    def apply_spoof(self, page, fingerprint: Optional[Dict[str, Any]] = None) -> None:
         """
         應用平台指紋偽裝
         
         Args:
             page: Playwright 頁面對象
+            fingerprint: 自定義指紋，如果為 None 則使用內置的一致指紋
         """
         try:
-            fingerprint = self.get_consistent_platform_fingerprint()
+            if fingerprint is None:
+                fingerprint = self.get_consistent_platform_fingerprint()
             
             script = f"""
             // 修改 navigator 屬性
@@ -274,4 +290,4 @@ class PlatformSpoofer:
             logger.info("已應用平台指紋偽裝")
         except Exception as e:
             logger.error(f"應用平台指紋偽裝時發生錯誤: {str(e)}")
-            raise AntiDetectionException(f"應用平台指紋偽裝失敗: {str(e)}") 
+            raise Exception(f"應用平台指紋偽裝失敗: {str(e)}")

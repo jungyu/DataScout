@@ -1,7 +1,3 @@
 [
-  ["fed", "usd"],
-  ["japan", "economy"],
-  ["taiwan", "semiconductor"],
-  ["tsmc", "chips"],
-  ["inflation", "asia"]
+  ["VIX", "spikes"]
 ]

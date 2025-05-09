@@ -13,12 +13,15 @@ setup(
         "user-agents>=2.2.0",
         "requests>=2.28.0",
         "pillow>=9.0.0",
+        "loguru>=0.7.0",
+        "beautifulsoup4>=4.12.0"
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],

@@ -15,10 +15,51 @@ from typing import List, Dict, Any, Optional
 import logging
 from pathlib import Path
 
-# 導入 playwright_base 框架
+# 導入 playwright_base 框架，使用 try-except 處理可能的導入錯誤
 from playwright_base import PlaywrightBase, setup_logger
-from playwright_base.storage.storage_manager import StorageManager
-from playwright_base.anti_detection.human_like import HumanLikeBehavior
+
+try:
+    from playwright_base.storage.storage_manager import StorageManager
+    from playwright_base.anti_detection.human_like import HumanLikeBehavior
+except ImportError:
+    # 如果無法找到舊模組，使用備用模組路徑
+    import sys
+    import os
+    
+    # 添加父級目錄到 sys.path
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    
+    # 自定義簡易版本的必要類
+    class StorageManager:
+        def __init__(self, base_dir):
+            self.base_dir = base_dir
+        
+        def save_json(self, data, filename, **kwargs):
+            import json
+            import os
+            filepath = os.path.join(self.base_dir, filename)
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, **kwargs)
+            return filepath
+    
+    class HumanLikeBehavior:
+        def random_delay(self, min_delay=1.0, max_delay=3.0):
+            import random
+            import time
+            delay = random.uniform(min_delay, max_delay)
+            time.sleep(delay)
+            return delay
+        
+        def scroll_page(self, page):
+            # 簡單模擬頁面滾動
+            page.evaluate("""
+                () => {
+                    window.scrollTo(0, 300);
+                    setTimeout(() => { window.scrollTo(0, 700); }, 500);
+                    setTimeout(() => { window.scrollTo(0, 1000); }, 1000);
+                }
+            """)
 
 # 設置日誌
 logger = setup_logger(
@@ -308,7 +349,7 @@ class NikkeiScraper:
                             page_new_articles += 1
                             logger.info(f"已新增文章: {title}")
                     except Exception as e:
-                        logger.error(f"處理文章時發生錯誤: {str(e)})
+                        logger.error(f"處理文章時發生錯誤: {str(e)}")
                 
                 # 儲存整批新增項目
                 if page_new_articles > 0:
