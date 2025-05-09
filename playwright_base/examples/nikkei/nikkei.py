@@ -97,6 +97,18 @@ class NikkeiScraper:
         """構建查詢字符串"""
         return "&".join([f"{k}={v}" for k, v in params.items()])
 
+    def _is_duplicate_url(self, url: str) -> bool:
+        """
+        檢查 URL 是否已存在於列表中
+        
+        參數:
+            url: 要檢查的文章 URL
+            
+        返回:
+            如果 URL 已存在於列表中，則返回 True，否則返回 False
+        """
+        return any(item['url'] == url for item in self.lists)
+
     def init_crawler(self) -> None:
         """初始化爬蟲實例並處理登入"""
         browser_config = self.config["browser"]
@@ -223,6 +235,7 @@ class NikkeiScraper:
             self.crawler.wait_for_load_state("networkidle")
             
             current_page = 1
+            duplicate_count = 0
             while current_page <= max_pages:
                 # 比對是否已爬過
                 if any(r["keyword"] == keywords and r["page"] == current_page for r in results_record["records"]):
@@ -257,6 +270,7 @@ class NikkeiScraper:
                     break
                 
                 # 處理每一篇文章
+                page_new_articles = 0
                 for idx, article in enumerate(articles, 1):
                     try:
                         title_element = article.query_selector(selectors["title"])
@@ -264,6 +278,12 @@ class NikkeiScraper:
                             title = title_element.inner_text()
                             link = title_element.get_attribute("href")
                             url = self.base_url + link if link.startswith("/") else link
+                            
+                            # 檢查 URL 是否重複
+                            if self._is_duplicate_url(url):
+                                logger.debug(f"發現重複文章: {title} - {url}")
+                                duplicate_count += 1
+                                continue
                             
                             category_element = article.query_selector(selectors["category"])
                             category = category_element.inner_text() if category_element else ""
@@ -274,23 +294,30 @@ class NikkeiScraper:
                             description_element = article.query_selector(selectors["description"])
                             description = description_element.inner_text() if description_element else ""
                             
-                            # 檢查是否已存在
-                            exist = next((item for item in self.lists if item['url'] == url), None)
-                            if not exist:
-                                list_item = {
-                                    "url": url,
-                                    "title": title,
-                                    "category": category,
-                                    "publish_time": publish_time,
-                                    "description": description,
-                                    "content_fetched": False,
-                                    "last_fetch_time": None
-                                }
-                                self.lists.append(list_item)
-                                self._save_json(self.lists, self.lists_file)
-                                logger.info(f"已儲存列表: {title}")
+                            # 建立並保存新文章
+                            list_item = {
+                                "url": url,
+                                "title": title,
+                                "category": category,
+                                "publish_time": publish_time,
+                                "description": description,
+                                "content_fetched": False,
+                                "last_fetch_time": None
+                            }
+                            self.lists.append(list_item)
+                            page_new_articles += 1
+                            logger.info(f"已新增文章: {title}")
                     except Exception as e:
-                        logger.error(f"處理文章時發生錯誤: {str(e)}")
+                        logger.error(f"處理文章時發生錯誤: {str(e)})
+                
+                # 儲存整批新增項目
+                if page_new_articles > 0:
+                    self._save_json(self.lists, self.lists_file)
+                    logger.info(f"已儲存 {page_new_articles} 篇新文章到列表")
+                
+                if duplicate_count > 0:
+                    logger.info(f"在第 {current_page} 頁發現 {duplicate_count} 篇重複文章，已跳過")
+                    duplicate_count = 0  # 重置計數器以便下一頁統計
                 
                 # 記錄本頁已爬取
                 results_record["records"].append({"keyword": keywords, "page": current_page})

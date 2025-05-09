@@ -142,6 +142,20 @@ data/errors/
 data/screenshots/
 data/search/
 
+# 爬取資料 - 忽略所有位置的 storage 目錄
+**/storage/
+*/storage/*
+**/*/storage/
+**/*/storage/*
+
+
+# 螢幕截圖目錄 - 忽略所有位置的 screenshots 目錄
+screenshots/
+**/screenshots/
+*/screenshots/*
+**/*/screenshots/
+**/*/screenshots/*
+
 # Logs
 *.log
 
