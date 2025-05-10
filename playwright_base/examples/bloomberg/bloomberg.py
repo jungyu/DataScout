@@ -730,17 +730,17 @@ class BloombergScraper:
         try:
             # 檢查是否已爬過
             if any(r["keyword"] == keyword for r in results_record["records"]):
-                logger.info(f"已爬過關鍵詞 {keyword}，略過")
+                logger.info(f"關鍵詞 {keyword} 已經爬取過，跳過...")
                 return self.lists
             
             # 訪問搜尋頁面
             search_params = {"query": keyword.replace(" ", "%20")}
             search_url = f"{self.search_url}?{self._build_query_string(search_params)}"
             
-            # 使用新的重試機制訪問 URL
+            # 使用重構後的方法訪問 URL
             if not self.goto_url_with_retry(search_url, max_retries=3):
                 logger.error(f"無法成功訪問搜尋頁面: {search_url}")
-                return self.lists  # 返回現有列表，不繼續處理
+                return []
             
             # 抓取初始頁面文章
             articles = self.crawler.page.query_selector_all(selectors["article"])
@@ -757,14 +757,11 @@ class BloombergScraper:
             
             # 點擊「加載更多」按鈕
             while load_more_count < max_load_more:
-                # 尋找加載更多按鈕
-                load_more_button = self.crawler.page.query_selector(selectors["load_more_button"])
-                
+                load_more_button = self.crawler.page.query_selector(selectors["load_more"])
                 if not load_more_button:
-                    logger.info("未找到加載更多按鈕，可能已到達最後一頁")
+                    logger.info("沒有找到「加載更多」按鈕，已到達最後一頁")
                     break
-                
-                logger.info(f"點擊加載更多按鈕 ({load_more_count + 1}/{max_load_more})")
+                    
                 load_more_button.scroll_into_view_if_needed()
                 self.human_like.random_delay(1, 2)
                 load_more_button.click()
@@ -786,8 +783,8 @@ class BloombergScraper:
                 
                 load_more_count += 1
                 
-                if duplicate_count > 10:  # 如果連續出現多個重複，可能已經沒有新內容
-                    logger.info(f"發現大量重複文章，已停止加載更多")
+                if duplicate_count > 10:
+                    logger.info("連續檢測到過多重複文章，停止加載更多")
                     break
             
             # 儲存搜尋結果記錄
@@ -820,7 +817,7 @@ class BloombergScraper:
                 
                 # 確保 URL 是完整的
                 if not url.startswith("http"):
-                    if url.startswith("/"):
+                    if (url.startswith("/")):
                         url = f"{self.base_url}{url}"
                     else:
                         url = f"{self.base_url}/{url}"
@@ -867,505 +864,36 @@ class BloombergScraper:
         return page_new_articles
 
     def _handle_popups(self) -> bool:
-        """處理彈窗，避免使用含有 :contains 的選擇器"""
+        """處理彈窗，使用通用處理方法"""
+        from playwright_base.core.popup_handler import handle_popups
+        from playwright_base.utils.error_handler import ErrorHandler
+        
         # 先檢查是否遇到 Bloomberg 的人機驗證頁面
-        if self._handle_hold_button_verification():
+        if ErrorHandler.handle_hold_button_verification(self.crawler.page):
             logger.info("已處理 Bloomberg 按住不放驗證")
             return True
-
+            
         if self.config["scraping"]["auto_close_popups"]:
-            try:
-                # 使用標準的 CSS 選擇器，避免使用不支援的選擇器語法
-                popup_selectors = {
-                    'popup': ['.modal', '.popup', '[id*="popup"]', '[class*="popup"]', '.overlay', '.dialog'],
-                    'paywall': ['.paywall', '.require-subscription', '.subscription-banner'],
-                    'cookie': ['.cookie-banner', '.cookie-policy', '[class*="cookie"]', '.cookie-consent', '.cookie-notice'],
-                    'newsletter': ['.newsletter-signup', '.subscription-form'],
-                    'close': [
-                        '.close', '.dismiss', '.close-button', '[aria-label="Close"]',
-                        '.modal-close', '.btn-close', 'button[data-dismiss="modal"]',
-                        'button.media-ui-IconButton_wrapper-ZtMlyZ3p34k-[aria-label="Close"]'
-                    ],
-                    'accept': [
-                        '.accept-cookies', '.accept-button', '.agree-button',
-                        'button.accept', 'button.ok', 'button.confirm',
-                        'button[value="Accept"]', 'button.allow'
-                    ],
-                    # 針對 XPath 的按鈕處理（不含 :contains 操作）
-                    'xpath_buttons': [
-                        "//button[text()='OK']",
-                        "//button[text()='Accept']",
-                        "//button[text()='Close']",
-                        "//button[text()='Allow']",
-                        "//button[text()='I Agree']"
-                    ]
-                }
-                
-                # 先嘗試標準 CSS 選擇器
-                popups_handled = check_and_handle_popup(self.crawler.page, popup_selectors)
-                
-                # 如果沒有成功處理，嘗試使用 XPath 選擇器手動處理
-                if not popups_handled:
-                    logger.debug("嘗試使用 XPath 處理彈窗")
-                    for xpath in popup_selectors['xpath_buttons']:
-                        try:
-                            # 檢查是否存在匹配的按鈕
-                            button = self.crawler.page.query_selector(f"xpath={xpath}")
-                            if button:
-                                logger.info(f"找到彈窗按鈕: {xpath}")
-                                button.click()
-                                self.human_like.random_delay(0.5, 1.0)
-                                popups_handled = True
-                                break
-                        except Exception as e:
-                            logger.debug(f"XPath 按鈕點擊失敗: {xpath}, 錯誤: {str(e)}")
-                
-                if popups_handled:
-                    logger.info("已自動關閉彈窗/廣告")
-                    return True
-                    
-            except Exception as e:
-                # 特別處理可能的 :contains 選擇器錯誤
-                error_str = str(e)
-                if "querySelectorAll" in error_str and ":contains" in error_str:
-                    logger.error(
-                        "偵測到不合法的 CSS selector ':contains'，"
-                        "請檢查 popup handler 的選擇器設定，移除所有 :contains 用法"
-                    )
-                else:
-                    logger.warning(f"處理彈窗時出錯: {error_str}")
+            # 使用通用的彈窗處理方法
+            return handle_popups(
+                self.crawler.page, 
+                auto_close_popups=True
+            )
         
         return False
 
     def _handle_hold_button_verification(self) -> bool:
-        """處理 Bloomberg 特殊的按住不放驗證
-        
-        Bloomberg 網站有時會顯示「We've detected unusual activity」頁面，
-        要求使用者按住「按住不放」按鈕一段時間才能通過驗證。
-        
-        返回:
-            bool: 如果檢測到並處理了驗證頁面則返回 True，否則返回 False
-        """
-        try:
-            # 首先保存完整頁面截圖和源碼到指定日誌目錄，方便診斷問題
-            try:
-                logs_dir = Path("logs")
-                logs_dir.mkdir(exist_ok=True)
-                timestamp = int(time.time())
-                
-                # 保存截圖
-                screenshot_path = f"logs/page_capture_{timestamp}.png"
-                self.crawler.screenshot(path=screenshot_path)
-                
-                # 保存頁面源碼
-                html_path = f"logs/page_html_{timestamp}.html"
-                html_content = self.crawler.page.content()
-                with open(html_path, "w", encoding="utf-8") as f:
-                    f.write(html_content)
-                    
-                logger.info(f"已保存頁面截圖至 {screenshot_path} 和源碼至 {html_path}")
-            except Exception as e:
-                logger.debug(f"保存頁面診斷信息出錯: {str(e)}")
-            
-            # 檢測是否是403頁面
-            try:
-                http_status_code = 0
-                # 嘗試從頁面標題解析狀態碼
-                title = self.crawler.page.title()
-                if "403" in title or "Forbidden" in title:
-                    logger.info("從標題檢測到403頁面")
-                    return self._handle_403_error()
-                    
-                # 從頁面內容檢測是否為403錯誤
-                content = self.crawler.page.content()
-                if "403 Forbidden" in content or "Access Denied" in content:
-                    logger.info("從內容檢測到403頁面")
-                    return self._handle_403_error()
-            except Exception:
-                pass
-            
-            # 檢查是否存在驗證頁面特徵
-            verification_detected = False
-            
-            # 檢查頁面上是否有明確的反爬蟲驗證提示
-            try:
-                page_text = self.crawler.page.inner_text('body')
-                verification_phrases = [
-                    "We've detected unusual activity",
-                    "我們檢測到不尋常的活動",
-                    "按住不放",
-                    "Hold to continue",
-                    "Please hold the button",
-                    "Press and hold",
-                    "Verify you're not a robot"
-                ]
-                
-                for phrase in verification_phrases:
-                    if phrase in page_text:
-                        verification_detected = True
-                        logger.info(f"檢測到驗證頁面關鍵詞: '{phrase}'")
-                        break
-            except Exception:
-                pass
-
-            # 如果沒有檢測到驗證頁面，嘗試查找驗證按鈕
-            if not verification_detected:
-                # 嘗試直接查找驗證按鈕的存在
-                button_texts = ["按住不放", "Hold", "Hold And Release", "Press"]
-                for text in button_texts:
-                    try:
-                        button = self.crawler.page.get_by_text(text, exact=False)
-                        if button.count() > 0 and button.first.is_visible():
-                            verification_detected = True
-                            logger.info(f"找到可能的驗證按鈕: '{text}'")
-                            break
-                    except Exception:
-                        pass
-                        
-            # 最後嘗試通過頁面 URL 來判斷
-            try:
-                url = self.crawler.page.url
-                if "captcha" in url or "verification" in url or "challenge" in url:
-                    verification_detected = True
-                    logger.info(f"從 URL 檢測到潛在的驗證頁面: {url}")
-            except Exception:
-                pass
-
-            # 如果沒有檢測到驗證頁面，返回 False
-            if not verification_detected:
-                logger.info("沒有檢測到驗證頁面")
-                return False
-                
-            # 直接打印頁面上所有按鈕的文字，用於診斷
-            try:
-                logger.info("頁面上的所有按鈕:")
-                buttons = self.crawler.page.query_selector_all("button")
-                for i, button in enumerate(buttons):
-                    try:
-                        text = button.inner_text()
-                        is_visible = button.is_visible()
-                        logger.info(f"按鈕 {i+1}: '{text}' (可見: {is_visible})")
-                    except:
-                        pass
-            except Exception as e:
-                logger.debug(f"列出按鈕時出錯: {str(e)}")
-            
-            logger.info("嘗試處理 Bloomberg 驗證...")
-            
-            # 使用更靈活的方法查找和處理驗證按鈕
-            verification_button = None
-            
-            # 1. 嘗試通過內容查找
-            try:
-                content_matches = [
-                    self.crawler.page.get_by_text("按住不放"),
-                    self.crawler.page.get_by_text("Hold"),
-                    self.crawler.page.get_by_text("Press and hold"),
-                    self.crawler.page.get_by_role("button", name="Hold"),
-                    self.crawler.page.get_by_role("button", name="按住不放")
-                ]
-                
-                for match in content_matches:
-                    try:
-                        if match.count() > 0:
-                            verification_button = match.first
-                            if verification_button.is_visible():
-                                logger.info("找到驗證按鈕通過文本內容")
-                                break
-                            verification_button = None
-                    except Exception:
-                        pass
-            except Exception as e:
-                logger.debug(f"通過內容查找按鈕時出錯: {str(e)}")
-                
-            # 2. 如果找不到明確的按鈕，嘗試模糊匹配
-            if not verification_button:
-                try:
-                    # 獲取所有可見按鈕
-                    buttons = self.crawler.page.query_selector_all("button")
-                    
-                    for button in buttons:
-                        try:
-                            # 檢查按鈕是否可見
-                            if not button.is_visible():
-                                continue
-                                
-                            # 檢查按鈕文本
-                            text = button.inner_text().strip().lower()
-                            if any(keyword in text for keyword in ["按住", "按住不放", "hold", "press"]):
-                                verification_button = button
-                                logger.info(f"找到驗證按鈕通過模糊匹配: '{text}'")
-                                break
-                        except Exception:
-                            continue
-                except Exception as e:
-                    logger.debug(f"模糊匹配按鈕時出錯: {str(e)}")
-            
-            # 3. 如果仍然找不到按鈕，嘗試針對具體頁面結構查找
-            if not verification_button:
-                try:
-                    # 常見容器中的按鈕
-                    containers = [
-                        ".captcha-container button",
-                        ".verification-container button",
-                        ".challenge-container button",
-                        ".modal-body button",
-                        ".main-container button",
-                        ".container button"
-                    ]
-                    
-                    for container in containers:
-                        try:
-                            buttons = self.crawler.page.query_selector_all(container)
-                            if buttons and len(buttons) > 0:
-                                for button in buttons:
-                                    if button.is_visible():
-                                        verification_button = button
-                                        logger.info(f"找到驗證按鈕通過容器選擇器: '{container}'")
-                                        break
-                                if verification_button:
-                                    break
-                        except Exception:
-                            continue
-                except Exception as e:
-                    logger.debug(f"通過容器查找按鈕時出錯: {str(e)}")
-            
-            # 如果無法找到按鈕，則嘗試直接操作頁面中央位置
-            if not verification_button:
-                logger.warning("無法找到具體的驗證按鈕，嘗試點擊頁面中央")
-                try:
-                    # 獲取頁面尺寸
-                    viewport = self.crawler.page.viewport_size
-                    center_x = viewport["width"] // 2
-                    center_y = viewport["height"] // 2
-                    
-                    # 模擬在頁面中央按住滑鼠
-                    self.crawler.page.mouse.move(center_x, center_y)
-                    self.crawler.page.wait_for_timeout(1000)
-                    self.crawler.page.mouse.down()
-                    
-                    # 保持按住 8 秒
-                    logger.info("在頁面中央按住滑鼠 8 秒...")
-                    self.crawler.page.wait_for_timeout(8000)
-                    
-                    # 釋放滑鼠
-                    self.crawler.page.mouse.up()
-                    logger.info("已釋放滑鼠")
-                    
-                    # 等待頁面可能的變化
-                    self.crawler.page.wait_for_timeout(3000)
-                    
-                    # 檢查頁面是否變化
-                    current_url = self.crawler.page.url
-                    if "captcha" not in current_url and "verification" not in current_url:
-                        logger.info("頁面已變化，可能驗證成功")
-                        return True
-                    
-                    return False
-                except Exception as e:
-                    logger.error(f"嘗試點擊頁面中央時出錯: {str(e)}")
-                    return False
-            
-            # 執行按住操作
-            try:
-                # 確保按鈕在視窗內
-                verification_button.scroll_into_view_if_needed()
-                self.crawler.page.wait_for_timeout(1000)
-                
-                # 獲取按鈕位置
-                box = verification_button.bounding_box()
-                if not box:
-                    logger.error("無法獲取按鈕位置")
-                    return False
-                
-                center_x = box["x"] + box["width"] / 2
-                center_y = box["y"] + box["height"] / 2
-                
-                # 先嘗試點擊按鈕（有時需要先點擊激活）
-                self.crawler.page.mouse.click(center_x, center_y)
-                self.crawler.page.wait_for_timeout(1000)
-                
-                # 移動到按鈕上方
-                self.crawler.page.mouse.move(center_x, center_y)
-                self.crawler.page.wait_for_timeout(500)
-                
-                # 按下滑鼠
-                logger.info("開始按住按鈕...")
-                self.crawler.page.mouse.down()
-                
-                # 隨機生成較長的按住時間 (8-10秒)，增加成功率
-                hold_time = random.uniform(8000, 10000)
-                logger.info(f"按住滑鼠 {hold_time/1000:.1f} 秒...")
-                self.crawler.page.wait_for_timeout(int(hold_time))
-                
-                # 釋放滑鼠按鍵
-                self.crawler.page.mouse.up()
-                logger.info("已釋放滑鼠按鈕")
-                
-                # 等待頁面可能的跳轉或變化
-                logger.info("等待頁面變化...")
-                self.crawler.page.wait_for_timeout(5000)
-                
-                # 檢查頁面是否變化
-                try:
-                    current_url = self.crawler.page.url
-                    page_text = self.crawler.page.inner_text('body')
-                    
-                    # 檢查是否還有驗證相關文字
-                    verification_still_present = any(phrase in page_text for phrase in verification_phrases)
-                    
-                    if not verification_still_present:
-                        logger.info("驗證成功，頁面已變化!")
-                        return True
-                    else:
-                        logger.warning("驗證可能未成功，頁面仍顯示驗證內容")
-                        return False
-                except Exception as e:
-                    logger.error(f"檢查驗證結果時出錯: {str(e)}")
-                    return False
-                
-            except Exception as e:
-                logger.error(f"執行按住操作時出錯: {str(e)}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"處理 Bloomberg 驗證頁面時出錯: {str(e)}")
-            return False
+        """處理 Bloomberg 特殊的按住不放驗證，使用通用方法"""
+        from playwright_base.utils.error_handler import ErrorHandler
+        return ErrorHandler.handle_hold_button_verification(self.crawler.page)
 
     def _handle_403_error(self) -> bool:
-        """處理 403 Forbidden 錯誤
-        
-        Bloomberg 網站經常返回 403 錯誤來阻止爬蟲。
-        此方法嘗試通過各種方式來繞過這個限制。
-        
-        返回:
-            bool: 如果成功處理了 403 錯誤則返回 True，否則返回 False
-        """
-        try:
-            # 檢查頁面內容是否包含 403 或 "Access Denied" 相關文字
-            page_content = self.crawler.page.content().lower()
-            page_text = self.crawler.page.inner_text('body').lower()
-            
-            is_403_page = (
-                "403" in page_text or
-                "forbidden" in page_text or 
-                "access denied" in page_text or
-                "403" in page_content or
-                "forbidden" in page_content or
-                "access denied" in page_content
-            )
-            
-            if not is_403_page:
-                return False
-            
-            logger.warning("檢測到 403 錯誤頁面，嘗試繞過...")
-            
-            # 保存錯誤頁面截圖
-            try:
-                timestamp = int(time.time())
-                self.crawler.screenshot(path=f"logs/error403_{timestamp}.png")
-            except Exception:
-                pass
-            
-            # 方法 1: 清除所有 cookies 並重新載入
-            try:
-                self.crawler.context.clear_cookies()
-                logger.info("已清除所有 cookies")
-                self.crawler.page.reload(wait_until="domcontentloaded")
-                self.crawler.wait_for_load_state("networkidle")
-                
-                # 檢查是否仍然有 403 錯誤
-                if "403" not in self.crawler.page.content() and "access denied" not in self.crawler.page.content().lower():
-                    logger.info("清除 cookies 後成功繞過 403 錯誤")
-                    return True
-            except Exception as e:
-                logger.debug(f"清除 cookies 方法失敗: {str(e)}")
-            
-            # 方法 2: 修改 User-Agent 並重新載入
-            try:
-                current_url = self.crawler.page.url
-                # 選擇一個非常普通的 Chrome/Firefox User-Agent
-                new_user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-                
-                # 通過 JavaScript 修改 User-Agent
-                self.crawler.page.evaluate(f"""
-                    () => {{
-                        Object.defineProperty(navigator, 'userAgent', {{
-                            get: function() {{ return '{new_user_agent}'; }}
-                        }});
-                    }}
-                """)
-                
-                logger.info(f"已修改 User-Agent")
-                self.crawler.page.reload(wait_until="domcontentloaded")
-                
-                # 檢查是否仍然有 403 錯誤
-                if "403" not in self.crawler.page.content() and "access denied" not in self.crawler.page.content().lower():
-                    logger.info("修改 User-Agent 後成功繞過 403 錯誤")
-                    return True
-            except Exception as e:
-                logger.debug(f"修改 User-Agent 方法失敗: {str(e)}")
-                
-            # 方法 3: 等待後再次嘗試
-            logger.info("等待 5 秒後再嘗試...")
-            self.crawler.page.wait_for_timeout(5000)
-            self.crawler.page.reload(wait_until="domcontentloaded")
-            
-            # 檢查是否仍然有 403 錯誤
-            if "403" not in self.crawler.page.content() and "access denied" not in self.crawler.page.content().lower():
-                logger.info("等待後重試成功繞過 403 錯誤")
-                return True
-                
-            # 方法 4: 使用 JS fetch API 嘗試繞過
-            try:
-                logger.info("使用 fetch API 嘗試繞過 403 錯誤...")
-                
-                # 使用自定義標頭進行 fetch 請求
-                html_content = self.crawler.page.evaluate("""
-                    async (url) => {
-                        try {
-                            const response = await fetch(url, {
-                                method: 'GET',
-                                headers: {
-                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0',
-                                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                                    'Accept-Language': 'en-US,en;q=0.9',
-                                    'Referer': 'https://www.google.com/',
-                                    'DNT': '1',
-                                    'Connection': 'keep-alive',
-                                    'Upgrade-Insecure-Requests': '1'
-                                },
-                                credentials: 'include'
-                            });
-                            
-                            if (!response.ok) {
-                                return null;
-                            }
-                            
-                            return await response.text();
-                        } catch(e) {
-                            return null;
-                        }
-                    }
-                """, current_url)
-                
-                if html_content:
-                    # 如果成功獲取內容，將其設置為當前頁面內容
-                    self.crawler.page.set_content(html_content)
-                    logger.info("成功使用 fetch API 繞過 403 錯誤")
-                    return True
-            except Exception as e:
-                logger.debug(f"使用 fetch API 方法失敗: {str(e)}")
-            
-            logger.warning("所有嘗試繞過 403 錯誤的方法都失敗了")
-            return False
-            
-        except Exception as e:
-            logger.debug(f"處理 403 錯誤時出現問題: {str(e)}")
-            return False
+        """處理 403 Forbidden 錯誤，使用通用方法"""
+        from playwright_base.utils.error_handler import ErrorHandler
+        return ErrorHandler.handle_403_error(self.crawler.page)
 
     def goto_url_with_retry(self, url: str, max_retries: int = 3, wait_time: int = 3) -> bool:
-        """訪問 URL 並處理可能的阻礙
+        """訪問 URL 並處理可能的阻礙，使用通用方法
         
         參數:
             url: 要訪問的 URL
@@ -1375,94 +903,13 @@ class BloombergScraper:
         返回:
             bool: 如果成功訪問則返回 True，否則返回 False
         """
-        for attempt in range(max_retries):
-            try:
-                logger.info(f"正在訪問: {url} (嘗試 {attempt + 1}/{max_retries})")
-                
-                # 訪問頁面前先清除 cookies 嘗試解決 403 問題
-                if attempt > 0:
-                    try:
-                        self.crawler.context.clear_cookies()
-                        logger.info("已清除 cookies 嘗試避免 403 錯誤")
-                    except Exception:
-                        pass
-                
-                # 訪問頁面
-                response = self.crawler.goto(url, wait_until="domcontentloaded", timeout=60000)
-                
-                # 檢查狀態碼
-                status_code = response.status if response else 0
-                if status_code == 403:
-                    logger.warning("收到 403 Forbidden 響應，嘗試處理")
-                    if self._handle_403_error():
-                        logger.info("已成功處理 403 錯誤")
-                    else:
-                        logger.warning("處理 403 錯誤失敗")
-                        
-                # 優先檢查是否需要驗證
-                if self._handle_hold_button_verification():
-                    logger.info("已處理驗證頁面")
-                    return True
-                
-                # 等待頁面載入
-                try:
-                    self.crawler.wait_for_load_state("networkidle", timeout=30000)
-                except Exception as e:
-                    logger.warning(f"等待頁面載入時出錯: {str(e)}，但繼續執行")
-                
-                # 檢查頁面是否為 403 錯誤頁面
-                if self._handle_403_error():
-                    logger.info("處理了 403 錯誤頁面")
-                
-                # 處理彈窗
-                if self._handle_popups():
-                    logger.info("處理了彈窗")
-                
-                # 再次檢查驗證
-                if self._handle_hold_button_verification():
-                    logger.info("處理了延遲出現的驗證頁面")
-                    return True
-                
-                # 確認頁面是否可訪問（不是錯誤頁面或驗證頁面）
-                page_text = self.crawler.page.inner_text('body').lower()
-                error_phrases = [
-                    "403 forbidden", 
-                    "access denied",
-                    "unusual activity",
-                    "we've detected unusual",
-                    "不尋常的活動"
-                ]
-                
-                if not any(phrase in page_text for phrase in error_phrases):
-                    logger.info(f"成功訪問 URL: {url}")
-                    return True
-                else:
-                    logger.warning("頁面似乎仍有錯誤或需要驗證")
-                    # 保存頁面截圖和源碼用於診斷
-                    try:
-                        timestamp = int(time.time())
-                        self.crawler.screenshot(path=f"logs/error_page_{timestamp}.png")
-                        with open(f"logs/error_html_{timestamp}.html", "w", encoding="utf-8") as f:
-                            f.write(self.crawler.page.content())
-                        logger.info(f"已保存錯誤頁面診斷信息")
-                    except Exception:
-                        pass
-                    
-                    # 如果是最後一次嘗試，返回 False
-                    if attempt == max_retries - 1:
-                        return False
-                
-            except Exception as e:
-                logger.error(f"訪問 {url} 時出錯: {str(e)}")
-                
-            # 如果不是最後一次嘗試，等待後重試
-            if attempt < max_retries - 1:
-                wait_seconds = wait_time * (attempt + 1)  # 漸進式增加等待時間
-                logger.info(f"等待 {wait_seconds} 秒後重試...")
-                time.sleep(wait_seconds)
-        
-        logger.error(f"多次嘗試後仍無法成功訪問 {url}")
-        return False
+        return self.crawler.goto_url_with_retry(
+            url=url,
+            max_retries=max_retries,
+            wait_time=wait_time,
+            handle_popups=self.config["scraping"]["auto_close_popups"],
+            handle_errors=True
+        )
 
     def scrape_article_content(self, url: str) -> Optional[Dict[str, Any]]:
         """
@@ -1480,7 +927,7 @@ class BloombergScraper:
         selectors = self.config["selectors"]["article_detail"]
         
         try:
-            # 使用重試機制訪問文章頁面
+            # 使用重構後的方法訪問文章頁面
             logger.info(f"正在訪問文章頁面: {url}")
             if not self.goto_url_with_retry(url, max_retries=3):
                 logger.error(f"無法成功訪問文章頁面: {url}")

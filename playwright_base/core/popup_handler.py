@@ -247,3 +247,87 @@ def check_and_handle_popup(page, selectors: Optional[Dict[str, List[str]]] = Non
     except Exception as e:
         logger.warning(f"處理彈窗過程中發生錯誤: {str(e)}")
         return handled
+
+
+def handle_popups(page, auto_close_popups: bool = True, custom_selectors: Optional[Dict[str, List[str]]] = None) -> bool:
+    """
+    通用的彈窗處理函數，支援自定義選擇器和各類型彈窗
+    
+    Args:
+        page: Playwright 頁面對象
+        auto_close_popups: 是否自動關閉彈窗
+        custom_selectors: 自定義的選擇器字典
+        
+    Returns:
+        bool: 如果處理了任何彈窗則返回 True，否則返回 False
+    """
+    if not auto_close_popups:
+        return False
+    
+    try:
+        # 使用標準的 CSS 選擇器，避免使用不支援的選擇器語法
+        popup_selectors = {
+            'popup': ['.modal', '.popup', '[id*="popup"]', '[class*="popup"]', '.overlay', '.dialog'],
+            'paywall': ['.paywall', '.require-subscription', '.subscription-banner'],
+            'cookie': ['.cookie-banner', '.cookie-policy', '[class*="cookie"]', '.cookie-consent', '.cookie-notice'],
+            'newsletter': ['.newsletter-signup', '.subscription-form'],
+            'close': [
+                '.close', '.dismiss', '.close-button', '[aria-label="Close"]',
+                '.modal-close', '.btn-close', 'button[data-dismiss="modal"]'
+            ],
+            'accept': [
+                '.accept-cookies', '.accept-button', '.agree-button',
+                'button.accept', 'button.ok', 'button.confirm',
+                'button[value="Accept"]', 'button.allow'
+            ],
+            'xpath_buttons': [
+                "//button[text()='OK']",
+                "//button[text()='Accept']",
+                "//button[text()='Close']",
+                "//button[text()='Allow']",
+                "//button[text()='I Agree']"
+            ]
+        }
+        
+        # 合併自定義選擇器
+        if custom_selectors:
+            for category, selectors in custom_selectors.items():
+                if category in popup_selectors:
+                    popup_selectors[category].extend(selectors)
+                else:
+                    popup_selectors[category] = selectors
+        
+        # 使用 check_and_handle_popup 處理彈窗
+        popups_handled = check_and_handle_popup(page, popup_selectors)
+        
+        # 如果沒有成功處理，嘗試使用 XPath 選擇器手動處理
+        if not popups_handled:
+            for xpath in popup_selectors.get("xpath_buttons", []):
+                try:
+                    # 使用 page.locator 的 xpath 方法處理 XPath 選擇器
+                    xpath_elements = page.locator(f"xpath={xpath}").all()
+                    for element in xpath_elements:
+                        if element.is_visible():
+                            element.click()
+                            logger.info(f"已點擊 XPath 按鈕: {xpath}")
+                            popups_handled = True
+                            break
+                except Exception as e:
+                    logger.debug(f"嘗試點擊 XPath 按鈕時出錯 ({xpath}): {str(e)}")
+        
+        if popups_handled:
+            logger.info("已自動關閉彈窗/廣告")
+            return True
+            
+    except Exception as e:
+        # 特別處理可能的 :contains 選擇器錯誤
+        error_str = str(e)
+        if "querySelectorAll" in error_str and ":contains" in error_str:
+            logger.error(
+                "偵測到不合法的 CSS selector ':contains'，"
+                "請檢查 popup handler 的選擇器設定，移除所有 :contains 用法"
+            )
+        else:
+            logger.warning(f"處理彈窗時出錯: {error_str}")
+    
+    return False

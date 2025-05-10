@@ -146,7 +146,7 @@ class PlaywrightBase:
                             with open(self.storage_state, 'r', encoding='utf-8') as f:
                                 import json
                                 content = f.read().strip()
-                                if content:
+                                if (content):
                                     json.loads(content)  # 僅驗證格式
                                     context_options['storage_state'] = self.storage_state
                                 else:
@@ -558,3 +558,127 @@ class PlaywrightBase:
         支持上下文管理器協議，退出時關閉瀏覽器。
         """
         self.close()
+    
+    def goto_url_with_retry(
+        self, 
+        url: str, 
+        max_retries: int = 3, 
+        wait_time: int = 3, 
+        handle_popups: bool = True, 
+        handle_errors: bool = True
+    ) -> bool:
+        """
+        訪問 URL 並處理可能的阻礙，包括彈窗、錯誤頁面和驗證頁面
+        
+        Args:
+            url: 要訪問的 URL
+            max_retries: 最大重試次數
+            wait_time: 重試間隔時間（秒）
+            handle_popups: 是否自動處理彈窗
+            handle_errors: 是否處理常見錯誤（403等）
+            
+        Returns:
+            bool: 如果成功訪問則返回 True，否則返回 False
+        """
+        from playwright_base.core.popup_handler import check_and_handle_popup
+        from playwright_base.utils.error_handler import ErrorHandler
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"正在訪問: {url} (嘗試 {attempt + 1}/{max_retries})")
+                
+                # 訪問頁面前先清除 cookies 嘗試解決 403 問題
+                if attempt > 0 and handle_errors:
+                    try:
+                        self.context.clear_cookies()
+                        logger.info("已清除 cookies 嘗試避免 403 錯誤")
+                    except Exception:
+                        pass
+                
+                # 訪問頁面
+                response = self.goto(url, wait_until="domcontentloaded", timeout=60000)
+                
+                # 檢查狀態碼
+                if handle_errors and response:
+                    status_code = response.status
+                    if status_code == 403:
+                        logger.warning("收到 403 Forbidden 響應，嘗試處理")
+                        if ErrorHandler.handle_403_error(self.page):
+                            logger.info("已成功處理 403 錯誤")
+                        else:
+                            logger.warning("處理 403 錯誤失敗")
+                
+                # 優先檢查是否需要驗證
+                if handle_errors and ErrorHandler.handle_hold_button_verification(self.page):
+                    logger.info("已處理驗證頁面")
+                    return True
+                
+                # 等待頁面載入
+                try:
+                    self.wait_for_load_state("networkidle", timeout=30000)
+                except Exception as e:
+                    logger.warning(f"等待頁面載入時出錯: {str(e)}，但繼續執行")
+                
+                # 處理彈窗
+                if handle_popups and check_and_handle_popup(self.page):
+                    logger.info("處理了彈窗")
+                
+                # 再次檢查錯誤和驗證
+                if handle_errors:
+                    # 檢查頁面是否為 403 錯誤頁面
+                    if ErrorHandler.handle_403_error(self.page):
+                        logger.info("處理了 403 錯誤頁面")
+                    
+                    # 再次檢查驗證
+                    if ErrorHandler.handle_hold_button_verification(self.page):
+                        logger.info("處理了延遲出現的驗證頁面")
+                        return True
+                
+                # 確認頁面是否可訪問（不是錯誤頁面或驗證頁面）
+                page_text = self.page.inner_text('body').lower()
+                error_phrases = [
+                    "403 forbidden", 
+                    "access denied",
+                    "unusual activity",
+                    "we've detected unusual",
+                    "不尋常的活動"
+                ]
+                
+                if not any(phrase in page_text for phrase in error_phrases):
+                    logger.info(f"成功訪問 URL: {url}")
+                    return True
+                else:
+                    logger.warning("頁面似乎仍有錯誤或需要驗證")
+                    # 保存頁面截圖和源碼用於診斷
+                    try:
+                        import time
+                        from pathlib import Path
+                        
+                        logs_dir = Path("logs")
+                        logs_dir.mkdir(exist_ok=True)
+                        timestamp = int(time.time())
+                        
+                        self.screenshot(path=f"logs/error_page_{timestamp}.png")
+                        with open(f"logs/error_html_{timestamp}.html", "w", encoding="utf-8") as f:
+                            f.write(self.page.content())
+                        logger.info(f"已保存錯誤頁面診斷信息")
+                    except Exception:
+                        pass
+                    
+                    # 如果是最後一次嘗試，返回 False
+                    if attempt == max_retries - 1:
+                        return False
+                
+            except Exception as e:
+                logger.error(f"訪問 {url} 時出錯: {str(e)}")
+                
+            # 如果不是最後一次嘗試，等待後重試
+            if attempt < max_retries - 1:
+                import time
+                
+                wait_seconds = wait_time * (attempt + 1)  # 漸進式增加等待時間
+                logger.info(f"等待 {wait_seconds} 秒後重試...")
+                time.sleep(wait_seconds)
+        
+        logger.error(f"多次嘗試後仍無法成功訪問 {url}")
+        return False

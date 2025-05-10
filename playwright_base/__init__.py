@@ -10,9 +10,10 @@ __version__ = '0.1.0'
 from playwright_base.core.base import PlaywrightBase
 from playwright_base.utils.logger import setup_logger
 
-# 添加新的反檢測模組導入
+# 添加反檢測和彈窗處理模組導入
 from playwright_base.core.stealth import inject_stealth_js
-from playwright_base.core.popup_handler import check_and_handle_popup
+from playwright_base.core.popup_handler import check_and_handle_popup, handle_popups
+from playwright_base.utils.error_handler import ErrorHandler
 
 # 只導入確定存在的模組
 try:
