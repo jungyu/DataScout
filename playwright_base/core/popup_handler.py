@@ -98,10 +98,24 @@ def check_and_handle_popup(page, selectors: Optional[Dict[str, List[str]]] = Non
             ".cookie-accept",
             "[class*='accept']",
             "[class*='agree']",
-            "button:contains('Accept')",
-            "button:contains('OK')",
-            "button:contains('I agree')",
-            "button:contains('Allow')"
+            "button[value='Accept']",
+            "button[value='OK']",
+            "button.accept",
+            "button.agree",
+            "button.ok",
+            "button.allow"
+        ],
+        "xpath_buttons": [
+            "//button[text()='Accept']",
+            "//button[text()='OK']",
+            "//button[text()='Allow']",
+            "//button[text()='I agree']",
+            "//button[text()='I Agree']",
+            "//button[text()='Accept All']",
+            "//button[text()='Accept all']",
+            "//button[text()='Accept Cookies']",
+            "//button[contains(text(), 'Accept')]",
+            "//button[contains(text(), 'Allow')]"
         ]
     }
     
@@ -146,6 +160,21 @@ def check_and_handle_popup(page, selectors: Optional[Dict[str, List[str]]] = Non
                             handled = True
             except Exception as e:
                 logger.debug(f"嘗試點擊接受按鈕時出錯 ({accept_selector}): {str(e)}")
+        
+        # 處理 XPath 按鈕選擇器 - 針對包含指定文字的按鈕
+        for xpath in default_selectors.get("xpath_buttons", []):
+            try:
+                # 使用 page.locator 的 xpath 方法處理 XPath 選擇器
+                xpath_elements = page.locator(f"xpath={xpath}").all()
+                for element in xpath_elements:
+                    visible = element.is_visible()
+                    if visible:
+                        element.click()
+                        logger.info(f"已點擊 XPath 按鈕: {xpath}")
+                        handled = True
+                        break
+            except Exception as e:
+                logger.debug(f"嘗試點擊 XPath 按鈕時出錯 ({xpath}): {str(e)}")
         
         # 檢查各種類型的彈窗
         for popup_type in ["cookie", "popup", "paywall", "welcome"]:

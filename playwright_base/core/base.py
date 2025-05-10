@@ -136,11 +136,30 @@ class PlaywrightBase:
                 'ignore_https_errors': self.ignore_https_errors
             }
             
+            # 處理 storage_state（支持字符串路徑或直接的狀態對象）
             if self.storage_state:
-                if os.path.exists(self.storage_state):
+                if isinstance(self.storage_state, str):
+                    # 檢查檔案是否存在且有效
+                    if os.path.exists(self.storage_state):
+                        try:
+                            # 嘗試載入並驗證 JSON
+                            with open(self.storage_state, 'r', encoding='utf-8') as f:
+                                import json
+                                content = f.read().strip()
+                                if content:
+                                    json.loads(content)  # 僅驗證格式
+                                    context_options['storage_state'] = self.storage_state
+                                else:
+                                    logger.warning(f"儲存狀態檔案 {self.storage_state} 是空的")
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"儲存狀態檔案 {self.storage_state} 格式錯誤: {str(e)}")
+                        except Exception as e:
+                            logger.warning(f"讀取儲存狀態檔案 {self.storage_state} 時發生錯誤: {str(e)}")
+                    else:
+                        logger.warning(f"存儲狀態檔案 {self.storage_state} 不存在")
+                elif isinstance(self.storage_state, dict):
+                    # 直接使用提供的狀態對象
                     context_options['storage_state'] = self.storage_state
-                else:
-                    logger.warning(f"存儲狀態檔案 {self.storage_state} 不存在")
             
             if self.user_agent:
                 context_options['user_agent'] = self.user_agent
@@ -158,6 +177,12 @@ class PlaywrightBase:
             logger.info("瀏覽器啟動成功！")
             return self
             
+        except json.JSONDecodeError as e:
+            error_msg = f"JSON 解析錯誤: {str(e)}"
+            details = {"file": self.storage_state if isinstance(self.storage_state, str) else "直接傳入的狀態對象"}
+            logger.error(error_msg)
+            self.close()  # 確保資源被釋放
+            raise BrowserException(error_msg, e, details)
         except Exception as e:
             logger.error(f"啟動瀏覽器時發生錯誤: {str(e)}")
             self.close()  # 確保資源被釋放
@@ -280,7 +305,7 @@ class PlaywrightBase:
             
         if path:
             directory = os.path.dirname(path)
-            if directory and not os.path.exists(directory):
+            if (directory and not os.path.exists(directory)):
                 os.makedirs(directory)
             logger.info(f"截取頁面截圖並保存到: {path}")
         else:

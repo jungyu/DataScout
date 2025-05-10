@@ -1,0 +1,59 @@
+{
+  "site": {
+    "base_url": "https://www.bloomberg.com",
+    "search_url": "https://www.bloomberg.com/search"
+  },
+  "browser": {
+    "headless": false,
+    "browser_type": "chromium",
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "storage": {
+    "lists_file": "bloomberg_articles_list.json",
+    "articles_file": "bloomberg_articles_content.json", 
+    "storage_file": "bloomberg_session.json",
+    "results_file": "bloomberg_search_results.json"
+  },
+  "scraping": {
+    "max_load_more_clicks": 5,
+    "delay_between_articles": {
+      "min": 2,
+      "max": 5
+    },
+    "delay_between_load_more": 3,
+    "auto_close_popups": true
+  },
+  "selectors": {
+    "search_results": {
+      "article": "div.storyItem__aaf871c1c5",
+      "title": "a.headline__3a97424275",
+      "category": "div.eyebrow__e77dd63365",
+      "publish_time": "div.publishedAt__dc9dff8db4",
+      "description": "a.summary__a759320e4a",
+      "load_more_button": "div.loadMoreButtonContainer__bbd655a679 button.button__f6b7ccfb8d.secondary__ed561f3e09[title='Load More Results']",
+      "text_container": "div.text__47d6cb9756",
+      "headline_link": "a.headline__3a97424275[data-testid='search-result-story-headline']",
+      "summary": "div.noAuthors__a6fdfa492c"
+    },
+    "article_detail": {
+      "wrapper": "div.gridLayout_centerContent__XTM8S",
+      "category": "div[data-testid='metadata-section-label'], div.media-ui-Eyebrow_eyebrow-KO8LpxCW2xI-",
+      "title": "h1.media-ui-HedAndDek_headline-D19MOidHYLI-, h1.article-header__title",
+      "subtitle": ".media-ui-HedAndDek_dek-iDJMnzi5pZ4-, p.NewsArticleHeader_newsArticleHeaderSubtitle__ZlvPp",
+      "image": "figure img.ui-image, div[data-trackable='image-main'] img",
+      "image_caption": "span.media-ui-Caption_caption-KKcpFT8qLQg-, p.NewsArticleCaption_newsArticleCaption__fxo8v",
+      "author": "div.media-ui-Byline_bylineAuthors-Ts-ifi4q-HY- a, div.NewsArticleDetails_newsArticleDetailsByline__VOUu6",
+      "publish_time": "div.media-ui-Timestamp_timestampWrapper-w-YevWapP-k- time, div[data-testid='timestamp'].ArticleTimestamp_articleTimestampCreated__WDqHG span",
+      "update_time": "div.media-ui-Timestamp_timestampWrapper-w-YevWapP-k- time[data-type='updated'], div[data-testid='timestamp'].ArticleTimestamp_articleTimestampUpdated__3hUKK span",
+      "content": "div#article-body-preview p, p.media-ui-Paragraph_text-SqIsdNjh0t0-, div.body-content p",
+      "popup_close": ".close-button, .btn-close, button[aria-label='Close']",
+      "next_data_script": "script#__NEXT_DATA__",
+      "ai_summary": "div[data-testid='ai-summary']",
+      "tags": "li.tag-item a, div[data-testid='article-tags'] a"
+    }
+  }
+}

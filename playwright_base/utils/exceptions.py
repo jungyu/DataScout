@@ -35,9 +35,26 @@ class BrowserException(PlaywrightBaseException):
 
     包括瀏覽器啟動、關閉、配置等操作中的錯誤
     """
-    def __init__(self, message: str = None, cause: Exception = None):
+    def __init__(self, message: str = None, cause: Exception = None, details: dict = None):
+        """
+        初始化瀏覽器異常
+
+        Args:
+            message: 錯誤訊息
+            cause: 導致此異常的原始異常
+            details: 額外的錯誤詳情字典
+        """
         message = message or "瀏覽器操作錯誤"
+        self.details = details or {}
         super().__init__(message, cause)
+
+    def __str__(self) -> str:
+        """格式化異常訊息，加入詳細信息"""
+        base_msg = super().__str__()
+        if self.details:
+            details_str = ", ".join(f"{k}={v}" for k, v in self.details.items())
+            return f"{base_msg} [詳情: {details_str}]"
+        return base_msg
 
 
 class PageException(PlaywrightBaseException):
