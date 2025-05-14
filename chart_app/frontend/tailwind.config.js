@@ -3,8 +3,18 @@ const path = require('path');
 
 module.exports = {
   content: [
-    "/Users/aaron/Projects/DataScout/chart_app/templates/**/*.html",
-    "/Users/aaron/Projects/DataScout/chart_app/static/**/*.js"
+    '../templates/**/*.{html,js}',
+    '../static/**/*.{js,css}',
+    './input.css',
+    // 使用更寬松的匹配模式
+    '../**/*.html',
+    '../**/*.js',
+  ],
+  safelist: [
+    {
+      pattern: /./, // 這將包含所有的 Tailwind 類
+      variants: ['hover', 'focus', 'md', 'lg', 'sm']
+    }
   ],
   theme: {
     extend: {

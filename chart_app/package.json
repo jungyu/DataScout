@@ -1,14 +1,33 @@
 {
   "name": "chart-app",
-  "version": "1.0.0",
-  "description": "FastAPI + TailwindCSS + ChartJS application",
+  "version": "1.1.0",
+  "description": "FastAPI + TailwindCSS + ChartJS data visualization application with multiple data sources",
   "scripts": {
     "build:css": "tailwindcss -i ./frontend/input.css -o ./static/css/output.css --watch",
-    "build:css:prod": "tailwindcss -i ./frontend/input.css -o ./static/css/output.css --minify"
+    "build:css:prod": "tailwindcss -i ./frontend/input.css -o ./static/css/output.css --minify",
+    "start": "python3 -m uvicorn app.main:app --reload --port 8000",
+    "start:prod": "python3 -m uvicorn app.main:app --port 8000",
+    "dev": "concurrently \"npm run build:css\" \"npm run start\"",
+    "install:deps": "pip install -r requirements.txt",
+    "test": "pytest",
+    "clean": "rm -rf __pycache__ .pytest_cache"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.16",
+    "concurrently": "^8.2.2",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/chart-app"
+  },
+  "keywords": [
+    "data-visualization",
+    "chart.js", 
+    "fastapi", 
+    "tailwindcss",
+    "olap",
+    "data-analysis"
+  ]
 }

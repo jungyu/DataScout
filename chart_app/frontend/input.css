@@ -2,10 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 強制包含所有 Tailwind 類別 */
+.all-classes {
+  @apply bg-blue-500 text-white p-4 m-2 rounded-lg shadow-md flex flex-col md:flex-row w-full md:w-1/2 lg:w-1/3;
+  @apply container mx-auto my-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4;
+  @apply border border-gray-200 hover:bg-gray-100 focus:ring-2 focus:ring-blue-500;
+  @apply transition-colors duration-200 transform hover:scale-105;
+}
+
 /* 自訂樣式 */
 @layer components {
   .chart-container {
-    @apply w-full max-w-4xl mx-auto p-4 bg-white rounded-lg shadow-lg;
+    @apply w-full max-w-5xl mx-auto p-4 bg-white rounded-lg shadow-lg;
   }
   
   .btn {
@@ -17,7 +25,22 @@
   }
   
   .btn-secondary {
-    @apply bg-gray-500 text-white hover:bg-gray-600;
+    @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
+  }
+  
+  /* 下拉選單樣式 */
+  .dropdown:hover .dropdown-menu {
+    @apply block;
+  }
+  
+  /* OLAP 操作區樣式 */
+  .hidden {
+    display: none;
+  }
+  
+  /* 文件上傳區域樣式 */
+  #fileUploadArea:hover {
+    @apply border-blue-400 bg-blue-50;
   }
 
   .btn-success {
