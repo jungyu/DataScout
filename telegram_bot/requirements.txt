@@ -11,3 +11,9 @@ pandas>=2.1.0
 
 # 日誌和配置
 python-dotenv>=1.0.0
+
+# 圖像處理
+Pillow>=10.0.0
+
+# Gemini API
+google-generativeai>=0.3.0

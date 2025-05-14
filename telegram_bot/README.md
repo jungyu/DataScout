@@ -7,6 +7,8 @@ DataScout Telegram Bot 是 DataScout 爬蟲框架的 Telegram 機器人介面，
 - 🔄 **爬蟲控制**：啟動、排程和取消爬蟲任務
 - 📊 **狀態監控**：實時追蹤任務狀態與進度
 - 📋 **結果處理**：查看和匯出不同格式的爬蟲結果
+- 📸 **圖像分析**：使用 Google Gemini AI 分析上傳的圖片內容
+- 🔍 **文字提取**：從圖片中識別與提取文字內容
 - 👥 **多用戶支援**：支援多用戶訪問，具有身份驗證機制
 - 🔒 **權限控制**：區分普通用戶和管理員權限
 - ⏱️ **頻率限制**：防止濫用的請求頻率控制
@@ -30,6 +32,11 @@ DataScout Telegram Bot 是 DataScout 爬蟲框架的 Telegram 機器人介面，
 ### 結果處理
 - `/result [任務ID]` - 獲取任務結果
 - `/export [任務ID] [格式]` - 匯出特定格式的結果
+
+### 圖像處理
+- `/image` - 顯示圖像分析功能說明
+- 直接發送圖片 - 自動分析圖片內容並提供互動按鈕
+- 發送圖片時添加說明 - 使用自定義提示詞引導分析
 
 ### 管理員指令
 - `/system` - 查看系統狀態
@@ -75,6 +82,7 @@ DataScout Telegram Bot 是 DataScout 爬蟲框架的 Telegram 機器人介面，
 - `ADMIN_USER_IDS`：管理員用戶 ID 列表
 - `AUTHORIZED_USERS`：授權用戶 ID 列表
 - `REQUIRE_AUTH`：是否啟用授權檢查
+- `GEMINI_API_KEY`：Google Gemini API 金鑰，用於圖像分析功能
 
 ## 架構設計
 

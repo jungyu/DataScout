@@ -184,3 +184,23 @@ def format_json_result(data: Union[Dict, List]) -> str:
         return f"```json\n{json.dumps(data, ensure_ascii=False, indent=2)}\n```"
     except:
         return f"```\n{str(data)}\n```"
+
+
+def format_message(text: str, footer: str = None) -> str:
+    """格式化通用消息文本
+    
+    Args:
+        text: 主體文本
+        footer: 可選的頁腳文本
+        
+    Returns:
+        格式化後的消息文本，準備好使用 Markdown 解析
+    """
+    # 移除可能存在的多餘空行
+    text = "\n".join(line for line in text.splitlines() if line.strip())
+    
+    if footer:
+        # 添加分隔線和頁腳
+        return f"{text}\n\n---\n{footer}"
+    else:
+        return text

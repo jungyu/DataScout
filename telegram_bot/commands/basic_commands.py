@@ -57,6 +57,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/result [任務ID] - 獲取任務結果\n"
         "/export [任務ID] [格式] - 匯出特定格式的結果\n\n"
         
+        "*圖像處理:*\n"
+        "/image - 圖像分析功能說明\n"
+        "您也可以直接發送圖片，系統將使用 AI 分析內容\n\n"
+        
         "*設定:*\n"
         "/config [參數] [值] - 設定爬蟲參數\n"
         "/profile - 顯示用戶設定\n\n"

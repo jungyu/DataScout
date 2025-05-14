@@ -34,6 +34,9 @@ def register_all_commands(application: Application):
     # 註冊管理員指令
     register_admin_commands(application)
     
-    # 註冊預設處理器 (處理未知指令)
-    from telegram_bot.handlers.message_handlers import unknown_command
-    application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
+    # 註冊圖像處理指令
+    from telegram_bot.handlers.image_handlers import image_help_command
+    application.add_handler(CommandHandler("image", image_help_command))
+    
+    # 註冊預設處理器已移到 handlers/__init__.py
+    # 這樣可以確保指令處理器優先於訊息處理器被調用

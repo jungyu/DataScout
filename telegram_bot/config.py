@@ -9,6 +9,9 @@ from typing import Dict, Any, Optional
 TELEGRAM_BOT_TOKEN = os.environ.get("DATASCOUT_BOT_TOKEN", "")
 ADMIN_USER_IDS = [int(id) for id in os.environ.get("ADMIN_USER_IDS", "").split(",") if id.strip()]
 
+# API 金鑰
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
 # 授權控制
 AUTHORIZED_USERS = [int(id) for id in os.environ.get("AUTHORIZED_USERS", "").split(",") if id.strip()]
 REQUIRE_AUTH = os.environ.get("REQUIRE_AUTH", "True").lower() in ("true", "1", "yes")

@@ -4,12 +4,15 @@ DataScout Telegram Bot 主入口
 
 import logging
 import asyncio
+import os
 from pathlib import Path
 from telegram import Update
 from telegram.ext import Application, CommandHandler
+from dotenv import load_dotenv
 
 from telegram_bot.config import TELEGRAM_BOT_TOKEN
 from telegram_bot.commands import register_all_commands
+from telegram_bot.handlers import register_all_handlers
 from telegram_bot.middlewares import setup_middlewares
 
 # 設定日誌
@@ -41,6 +44,9 @@ class DataScoutBot:
         # 註冊所有指令
         register_all_commands(self.application)
         
+        # 註冊所有訊息處理器
+        register_all_handlers(self.application)
+        
         # 設定中介軟體
         setup_middlewares(self.application)
         
@@ -62,6 +68,9 @@ class DataScoutBot:
     @classmethod
     def run(cls):
         """便捷方法：創建實例並運行 Bot"""
+        # 確保加載環境變量
+        load_dotenv()
+        
         bot = cls()
         
         # 在 python-telegram-bot 20.0+ 版本中，應該使用 asyncio.run() 來運行 Bot

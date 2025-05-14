@@ -46,6 +46,11 @@ def check_environment():
     if not os.environ.get("AUTHORIZED_USERS") and os.environ.get("REQUIRE_AUTH", "").lower() in ("true", "1", "yes"):
         print("警告：已啟用授權檢查，但未設定授權用戶列表 (AUTHORIZED_USERS)")
         print("將無法使用機器人，除非您是管理員")
+    
+    # 檢查 Gemini API 金鑰
+    if not os.environ.get("GEMINI_API_KEY"):
+        print("警告：未設定 Gemini API 金鑰 (GEMINI_API_KEY)")
+        print("圖像分析功能將無法使用")
 
 def main():
     """主函數"""
