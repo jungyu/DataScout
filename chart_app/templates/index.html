@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <!-- Tailwind CSS -->
+    <link href="{{ url_for('static', path='/css/output.css') }}" rel="stylesheet">
+    <!-- Chart.js 庫 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <header class="bg-blue-600 shadow-md p-4 text-white">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">資料視覺化平台</h1>
+        </div>
+    </header>
+
+    <main class="container mx-auto my-8 p-4">
+        <div class="chart-container">
+            <h2 class="text-xl font-bold mb-4 text-gray-700 text-center">銷售數據分析</h2>
+            
+            <!-- 圖表選擇器 -->
+            <div class="mb-4">
+                <label for="chartType" class="block text-sm font-medium text-gray-700">圖表類型：</label>
+                <select id="chartType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                    <option value="bar">長條圖</option>
+                    <option value="line">折線圖</option>
+                    <option value="pie">圓餅圖</option>
+                    <option value="radar">雷達圖</option>
+                </select>
+            </div>
+            
+            <!-- 圖表容器 -->
+            <div class="p-4 border rounded-lg bg-white shadow">
+                <canvas id="myChart" height="400"></canvas>
+            </div>
+            
+            <!-- 按鈕區域 -->
+            <div class="mt-6 flex justify-center space-x-4">
+                <button id="capturePngBtn" class="btn btn-primary">下載 PNG</button>
+                <button id="captureWebpBtn" class="btn btn-secondary">下載 WebP</button>
+                <button id="uploadChartBtn" class="btn btn-success">上傳至伺服器</button>
+            </div>
+            
+            <!-- 上傳狀態顯示 -->
+            <div id="uploadStatus" class="mt-4 text-center hidden">
+                <p id="uploadMessage" class="text-green-600"></p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 text-white p-4 mt-8">
+        <div class="container mx-auto text-center">
+            <p>&copy; 2025 DataScout - Chart App 展示</p>
+        </div>
+    </footer>
+
+    <!-- 自定義 JavaScript -->
+    <script src="{{ url_for('static', path='/js/script.js') }}"></script>
+</body>
+</html>

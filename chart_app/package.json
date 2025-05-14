@@ -1,0 +1,14 @@
+{
+  "name": "chart-app",
+  "version": "1.0.0",
+  "description": "FastAPI + TailwindCSS + ChartJS application",
+  "scripts": {
+    "build:css": "tailwindcss -i ./frontend/input.css -o ./static/css/output.css --watch",
+    "build:css:prod": "tailwindcss -i ./frontend/input.css -o ./static/css/output.css --minify"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.33",
+    "tailwindcss": "^3.4.0"
+  }
+}
