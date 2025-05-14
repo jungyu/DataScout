@@ -1,0 +1,13 @@
+# DataScout Telegram Bot 依賴
+
+# Telegram Bot API
+python-telegram-bot>=20.7
+
+# 系統監控
+psutil>=5.9.0
+
+# 數據處理
+pandas>=2.1.0
+
+# 日誌和配置
+python-dotenv>=1.0.0
