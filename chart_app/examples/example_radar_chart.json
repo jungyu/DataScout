@@ -1,0 +1,27 @@
+{
+  "type": "radar",
+  "labels": ["研發能力", "市場佔有率", "客戶滿意度", "品牌認知", "技術創新", "成本控制"],
+  "datasets": [
+    {
+      "label": "公司表現",
+      "data": [85, 75, 90, 70, 95, 65],
+      "backgroundColor": "rgba(75, 192, 192, 0.2)",
+      "borderColor": "rgba(75, 192, 192, 1)",
+      "pointBackgroundColor": "rgba(75, 192, 192, 1)",
+      "pointBorderColor": "#fff",
+      "pointHoverBackgroundColor": "#fff",
+      "pointHoverBorderColor": "rgba(75, 192, 192, 1)"
+    },
+    {
+      "label": "行業平均",
+      "data": [70, 80, 75, 65, 80, 75],
+      "backgroundColor": "rgba(255, 99, 132, 0.2)",
+      "borderColor": "rgba(255, 99, 132, 1)",
+      "pointBackgroundColor": "rgba(255, 99, 132, 1)",
+      "pointBorderColor": "#fff",
+      "pointHoverBackgroundColor": "#fff",
+      "pointHoverBorderColor": "rgba(255, 99, 132, 1)"
+    }
+  ],
+  "chartTitle": "公司與行業能力對比"
+}

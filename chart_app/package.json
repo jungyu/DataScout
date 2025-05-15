@@ -5,18 +5,26 @@
   "scripts": {
     "build:css": "tailwindcss -i ./frontend/input.css -o ./static/css/output.css --watch",
     "build:css:prod": "tailwindcss -i ./frontend/input.css -o ./static/css/output.css --minify",
+    "build:js": "webpack --watch",
+    "build:js:prod": "NODE_ENV=production webpack",
     "start": "python3 -m uvicorn app.main:app --reload --port 8000",
     "start:prod": "python3 -m uvicorn app.main:app --port 8000",
-    "dev": "concurrently \"npm run build:css\" \"npm run start\"",
+    "dev": "concurrently \"npm run build:css\" \"npm run build:js\" \"npm run start\"",
     "install:deps": "pip install -r requirements.txt",
     "test": "pytest",
-    "clean": "rm -rf __pycache__ .pytest_cache"
+    "clean": "rm -rf __pycache__ .pytest_cache static/js/dist"
   },
   "devDependencies": {
+    "@babel/core": "^7.27.1",
+    "@babel/preset-env": "^7.27.2",
     "autoprefixer": "^10.4.16",
+    "babel-loader": "^10.0.0",
     "concurrently": "^8.2.2",
+    "daisyui": "^5.0.35",
     "postcss": "^8.4.33",
-    "tailwindcss": "^3.4.0"
+    "tailwindcss": "^3.4.0",
+    "webpack": "^5.99.8",
+    "webpack-cli": "^6.0.1"
   },
   "repository": {
     "type": "git",
@@ -24,8 +32,8 @@
   },
   "keywords": [
     "data-visualization",
-    "chart.js", 
-    "fastapi", 
+    "chart.js",
+    "fastapi",
     "tailwindcss",
     "olap",
     "data-analysis"

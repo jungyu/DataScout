@@ -1,0 +1,14 @@
+{
+  "type": "bar",
+  "labels": ["產品A", "產品B", "產品C", "產品D", "產品E"],
+  "datasets": [
+    {
+      "label": "銷售量",
+      "data": [45, 29, 58, 36, 47],
+      "backgroundColor": "rgba(54, 162, 235, 0.6)",
+      "borderColor": "rgba(54, 162, 235, 1.0)",
+      "borderWidth": 1
+    }
+  ],
+  "chartTitle": "產品銷售量對比"
+}

@@ -12,7 +12,6 @@ import numpy as np
 import json
 import openpyxl
 import sys
-from .apis import excel_export_router
 from fastapi import FastAPI, Request, UploadFile, File, Query, Form, HTTPException, Depends, Body
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -28,7 +27,7 @@ import importlib.util
 import logging
 import pickle
 from .json_adapter import ChartJSAdapter
-from .apis import excel_export_router
+from .apis import excel_export_router, example_router
 
 # 配置日誌
 logging.basicConfig(
@@ -56,6 +55,10 @@ app.add_middleware(
     allow_methods=["*"],  # 允許所有方法
     allow_headers=["*"],  # 允許所有頭
 )
+
+# 註冊 API 路由
+app.include_router(excel_export_router)
+app.include_router(example_router)
 
 # 取得基礎目錄路徑
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -353,6 +356,20 @@ async def chart_json_format(request: Request):
             status_code=500,
             content={"error": f"讀取文檔時發生錯誤: {str(e)}"}
         )
+
+
+@app.get("/examples", response_class=HTMLResponse)
+async def examples_page(request: Request):
+    """
+    渲染範例檔案管理頁面。
+    
+    Args:
+        request (Request): FastAPI 請求物件。
+        
+    Returns:
+        TemplateResponse: 渲染後的 HTML 頁面。
+    """
+    return templates.TemplateResponse("examples.html", {"request": request})
 
 
 @app.get("/")

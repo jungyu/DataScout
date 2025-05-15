@@ -1,0 +1,21 @@
+{
+  "type": "bar",
+  "labels": ["第一季", "第二季", "第三季", "第四季"],
+  "datasets": [
+    {
+      "label": "2024年",
+      "data": [18500, 23700, 26900, 29500],
+      "backgroundColor": "rgba(54, 162, 235, 0.6)",
+      "borderColor": "rgba(54, 162, 235, 1.0)",
+      "borderWidth": 1
+    },
+    {
+      "label": "2025年",
+      "data": [21300, 28200, 31500, 35000],
+      "backgroundColor": "rgba(255, 99, 132, 0.6)",
+      "borderColor": "rgba(255, 99, 132, 1.0)",
+      "borderWidth": 1
+    }
+  ],
+  "chartTitle": "季度業績比較"
+}

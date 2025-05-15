@@ -1,0 +1,45 @@
+{
+  "type": "line",
+  "options": {
+    "responsive": true,
+    "title": {
+      "display": true,
+      "text": "美國失業率趨勢"
+    },
+    "scales": {
+      "x": {
+        "type": "time",
+        "time": {}
+      },
+      "y": {
+        "beginAtZero": false
+      }
+    }
+  },
+  "datasets": [
+    {
+      "label": "美國失業率",
+      "data": [
+        {
+          "y": 4.0
+        },
+        {
+          "y": 4.1
+        },
+        {
+          "y": 4.0
+        },
+        {
+          "y": 3.8
+        }
+      ],
+      "backgroundColor": "rgba(75, 192, 192, 0.2)",
+      "borderColor": "rgba(75, 192, 192, 1)",
+      "borderWidth": 1,
+      "fill": false,
+      "tension": 0.1,
+      "pointRadius": 1
+    }
+  ],
+  "chartTitle": "Fred Unemployment"
+}

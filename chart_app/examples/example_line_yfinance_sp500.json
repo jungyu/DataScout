@@ -1,0 +1,55 @@
+{
+  "type": "line",
+  "options": {
+    "responsive": true,
+    "title": {
+      "display": true,
+      "text": "S&P 500指數走勢"
+    },
+    "scales": {
+      "x": {
+        "type": "time",
+        "time": {
+          "unit": "month"
+        }
+      },
+      "y": {
+        "beginAtZero": false
+      }
+    }
+  },
+  "datasets": [
+    {
+      "label": "S&P 500指數",
+      "data": [
+        {
+          "x": "2024-01-01",
+          "y": 4746
+        },
+        {
+          "x": "2024-02-01",
+          "y": 5005
+        },
+        {
+          "x": "2024-03-01",
+          "y": 5064
+        },
+        {
+          "x": "2024-04-01",
+          "y": 5099
+        },
+        {
+          "x": "2024-05-01",
+          "y": 5192
+        }
+      ],
+      "backgroundColor": "rgba(54, 162, 235, 0.2)",
+      "borderColor": "rgba(54, 162, 235, 1)",
+      "borderWidth": 1,
+      "fill": false,
+      "tension": 0.1,
+      "pointRadius": 2
+    }
+  ],
+  "chartTitle": "Yfinance Sp500"
+}

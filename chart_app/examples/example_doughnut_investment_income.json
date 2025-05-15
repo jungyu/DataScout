@@ -1,0 +1,45 @@
+{
+  "type": "doughnut",
+  "options": {
+    "responsive": true,
+    "title": {
+      "display": true,
+      "text": "投資收益來源分析"
+    },
+    "cutout": "60%"
+  },
+  "datasets": [
+    {
+      "data": [
+        35,
+        40,
+        15,
+        8,
+        2
+      ],
+      "backgroundColor": [
+        "#FF6384",
+        "#36A2EB",
+        "#FFCE56",
+        "#4BC0C0",
+        "#9966FF"
+      ],
+      "borderColor": [
+        "#FF6384",
+        "#36A2EB",
+        "#FFCE56",
+        "#4BC0C0",
+        "#9966FF"
+      ],
+      "borderWidth": 1
+    }
+  ],
+  "labels": [
+    "股息",
+    "資本利得",
+    "利息收入",
+    "租金收入",
+    "其他"
+  ],
+  "chartTitle": "Investment Income"
+}
