@@ -12,8 +12,9 @@ import numpy as np
 import json
 import openpyxl
 import sys
-from fastapi import FastAPI, Request, UploadFile, File, Query, Form, HTTPException, Depends
-from fastapi.responses import JSONResponse, FileResponse
+from .apis import excel_export_router
+from fastapi import FastAPI, Request, UploadFile, File, Query, Form, HTTPException, Depends, Body
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +27,8 @@ import uuid
 import importlib.util
 import logging
 import pickle
+from .json_adapter import ChartJSAdapter
+from .apis import excel_export_router
 
 # 配置日誌
 logging.basicConfig(
@@ -70,9 +73,6 @@ os.makedirs(DATA_EXCEL_DIR, exist_ok=True)
 # 設定模板引擎
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-# 設定靜態檔案目錄
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
-
 # 建立上傳資料夾（如果不存在）
 UPLOAD_DIR = BASE_DIR / "static" / "uploads"
 TEMP_DIR = BASE_DIR / "static" / "temp"
@@ -80,6 +80,9 @@ TEMP_DIR = BASE_DIR / "static" / "temp"
 for directory in [UPLOAD_DIR, TEMP_DIR]:
     if not os.path.exists(directory):
         os.makedirs(directory)
+
+# 設定靜態檔案目錄
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
 # 資料來源類型枚舉
@@ -146,7 +149,7 @@ def read_data_file(file_path: str, file_type: str) -> pd.DataFrame:
     
     Args:
         file_path (str): 檔案路徑
-        file_type (str): 檔案類型 ('csv', 'json', 'excel', 'persistence')
+        file_type (str): 檔案類型 ('csv', 'json', 'excel', 'persistence', 'uploaded')
         
     Returns:
         pd.DataFrame: 讀取的數據框
@@ -157,11 +160,70 @@ def read_data_file(file_path: str, file_type: str) -> pd.DataFrame:
             logger.error(f"文件不存在: {file_path}")
             return pd.DataFrame()
         
+        # 如果是上傳的檔案，根據副檔名判斷真實類型
+        if file_type == 'uploaded':
+            file_ext = os.path.splitext(file_path)[1].lower()
+            logger.info(f"上傳檔案副檔名: {file_ext}")
+            
+            if file_ext == '.csv':
+                actual_type = 'csv'
+            elif file_ext in ['.json']:
+                actual_type = 'json'
+            elif file_ext in ['.xlsx', '.xls']:
+                actual_type = 'excel'
+            else:
+                # 無法確定檔案類型時，嘗試猜測
+                actual_type = 'csv'  # 預設為 CSV
+                logger.warning(f"無法確定檔案類型，嘗試以CSV格式讀取: {file_path}")
+        else:
+            actual_type = file_type
+            
+        logger.info(f"讀取檔案: {file_path}, 類型: {actual_type}")
+            
         # 根據文件類型讀取數據
-        if file_type == 'csv':
+        if actual_type == 'csv':
             df = pd.read_csv(file_path)
-        elif file_type == 'json':
-            df = pd.read_json(file_path)
+        elif actual_type == 'json':
+            # 特殊處理 JSON 檔案，可能是 Chart.js 格式
+            try:
+                # 先嘗試標準 JSON 解析
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    json_data = json.load(f)
+                
+                # 檢查是否是 Chart.js 格式的 JSON
+                if isinstance(json_data, dict) and 'labels' in json_data and 'datasets' in json_data:
+                    # 是 Chart.js 格式，規範化陣列長度
+                    labels = json_data.get('labels', [])
+                    datasets = json_data.get('datasets', [])
+                    
+                    # 創建一個字典，包含所有數據
+                    data_dict = {'labels': labels}
+                    
+                    # 添加每個數據集的數據，確保長度一致
+                    for dataset in datasets:
+                        label = dataset.get('label', 'Data')
+                        data_values = dataset.get('data', [])
+                        
+                        # 確保數據長度與 labels 一致
+                        if len(data_values) > len(labels):
+                            # 截斷過長的數據
+                            data_values = data_values[:len(labels)]
+                            logger.warning(f"JSON 檔案 {file_path} 中的數據長度大於標籤長度，已截斷")
+                        elif len(data_values) < len(labels):
+                            # 填充過短的數據
+                            data_values.extend([None] * (len(labels) - len(data_values)))
+                            logger.warning(f"JSON 檔案 {file_path} 中的數據長度小於標籤長度，已填充")
+                        
+                        data_dict[label] = data_values
+                    
+                    # 創建 DataFrame
+                    df = pd.DataFrame(data_dict)
+                else:
+                    # 不是 Chart.js 格式，使用標準解析
+                    df = pd.read_json(file_path)
+            except Exception as e:
+                logger.error(f"讀取 JSON 檔案錯誤: {e}")
+                df = pd.DataFrame()
         elif file_type == 'excel':
             df = pd.read_excel(file_path)
         elif file_type == 'persistence':
@@ -193,6 +255,104 @@ def read_data_file(file_path: str, file_type: str) -> pd.DataFrame:
     except Exception as e:
         logger.error(f"讀取文件錯誤 ({file_type}): {e}")
         return pd.DataFrame()
+
+
+@app.get("/docs/chart-format")
+async def chart_json_format(request: Request):
+    """
+    顯示 Chart.js JSON 格式文檔。
+    
+    Args:
+        request (Request): FastAPI 請求物件。
+        
+    Returns:
+        TemplateResponse: 渲染後的文檔頁面。
+    """
+    # 讀取 Markdown 文件
+    try:
+        with open(BASE_DIR / "docs" / "chart_formats.md", "r", encoding="utf-8") as f:
+            content = f.read()
+            
+        # 簡單地將 Markdown 內容轉換為 HTML (可以使用更完整的 MD 解析器)
+        import re
+        
+        # 處理標題
+        content = re.sub(r'^# (.*?)$', r'<h1>\1</h1>', content, flags=re.MULTILINE)
+        content = re.sub(r'^## (.*?)$', r'<h2>\1</h2>', content, flags=re.MULTILINE)
+        content = re.sub(r'^### (.*?)$', r'<h3>\1</h3>', content, flags=re.MULTILINE)
+        
+        # 處理代碼塊
+        content = re.sub(r'```json(.*?)```', r'<pre><code class="language-json">\1</code></pre>', content, flags=re.DOTALL)
+        content = re.sub(r'```(.*?)```', r'<pre><code>\1</code></pre>', content, flags=re.DOTALL)
+        
+        # 處理列表
+        content = re.sub(r'^\- (.*?)$', r'<li>\1</li>', content, flags=re.MULTILINE)
+        content = re.sub(r'(<li>.*?</li>\n)+', r'<ul>\g<0></ul>', content, flags=re.DOTALL)
+        
+        # 處理表格
+        # 這部分需要更複雜的解析，這裡只做一個簡單的實現
+        table_pattern = r'\| (.*?) \|\n\|(.*?)\|\n((?:\|.*?\|\n)+)'
+        
+        def replace_table(match):
+            headers = [h.strip() for h in match.group(1).split('|')]
+            header_html = ''.join([f"<th>{h}</th>" for h in headers])
+            
+            rows_text = match.group(3)
+            rows = []
+            for row_text in rows_text.strip().split('\n'):
+                cells = [cell.strip() for cell in row_text.strip('|').split('|')]
+                row_html = ''.join([f"<td>{cell}</td>" for cell in cells])
+                rows.append(f"<tr>{row_html}</tr>")
+            
+            return f'<table class="table-auto border-collapse w-full"><thead><tr>{header_html}</tr></thead><tbody>{"".join(rows)}</tbody></table>'
+        
+        content = re.sub(table_pattern, replace_table, content)
+        
+        # 處理段落
+        content = re.sub(r'^([^<\n].*?)$', r'<p>\1</p>', content, flags=re.MULTILINE)
+        
+        # 創建一個簡單的 HTML 頁面
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Chart.js JSON 格式規範</title>
+            <link href="{{ url_for('static', path='/css/output.css') }}" rel="stylesheet">
+            <style>
+                body {{ font-family: 'Noto Sans TC', sans-serif; line-height: 1.6; }}
+                .container {{ max-width: 800px; margin: 0 auto; padding: 20px; }}
+                code {{ background-color: #f0f0f0; padding: 2px 4px; border-radius: 4px; }}
+                pre {{ background-color: #f5f5f5; padding: 16px; border-radius: 8px; overflow-x: auto; }}
+                table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
+                th, td {{ border: 1px solid #ddd; padding: 8px; }}
+                th {{ background-color: #f2f2f2; }}
+                tr:nth-child(even) {{ background-color: #f9f9f9; }}
+            </style>
+        </head>
+        <body class="bg-gray-100">
+            <header class="bg-blue-600 shadow-md p-4 text-white">
+                <div class="container mx-auto flex justify-between items-center">
+                    <h1 class="text-2xl font-bold">Chart.js JSON 格式規範</h1>
+                    <a href="/" class="text-white hover:text-gray-200">返回首頁</a>
+                </div>
+            </header>
+            <main class="container mx-auto my-8 bg-white p-6 rounded-lg shadow-md">
+                {content}
+            </main>
+        </body>
+        </html>
+        """
+        
+        # 返回 HTML 內容
+        return HTMLResponse(content=html_content, media_type="text/html")
+    except Exception as e:
+        logger.error(f"讀取 Chart.js 格式文檔時發生錯誤: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"讀取文檔時發生錯誤: {str(e)}"}
+        )
 
 
 @app.get("/")
@@ -231,7 +391,13 @@ async def root(request: Request):
         {"id": "doughnut", "name": "環形圖"},
         {"id": "polarArea", "name": "極座標圖"},
         {"id": "bubble", "name": "氣泡圖"},
-        {"id": "scatter", "name": "散點圖"}
+        {"id": "scatter", "name": "散點圖"},
+        {"id": "candlestick", "name": "蠟燭圖", "category": "金融圖表"},
+        {"id": "ohlc", "name": "OHLC 圖表", "category": "金融圖表"},
+        {"id": "sankey", "name": "桑基圖", "category": "特殊圖表"},
+        {"id": "barLine", "name": "柱狀圖+折線圖", "category": "混合圖表"},
+        {"id": "ohlcVolume", "name": "OHLC+成交量圖", "category": "金融圖表"},
+        {"id": "ohlcMaKd", "name": "OHLC+移動平均線+KD線", "category": "金融圖表"}
     ]
     
     return templates.TemplateResponse(
@@ -577,7 +743,20 @@ async def get_file_data(
         elif file_type == 'persistence':
             file_path = PERSISTENCE_DIR / filename
         elif file_type == 'uploaded':
+            # 對於上傳的檔案，確保從 uploads 目錄中讀取
             file_path = UPLOAD_DIR / filename
+            logger.info(f"嘗試從上傳目錄讀取檔案: {file_path}")
+            
+            # 如果檔案不存在，嘗試檢查副檔名
+            if not os.path.exists(file_path):
+                logger.warning(f"上傳的檔案不存在: {file_path}，嘗試自動添加副檔名")
+                # 嘗試添加常見副檔名
+                for ext in ['.csv', '.json', '.xlsx', '.xls']:
+                    test_path = UPLOAD_DIR / (filename + ext)
+                    if os.path.exists(test_path):
+                        file_path = test_path
+                        logger.info(f"找到檔案: {file_path}")
+                        break
         else:
             return JSONResponse(
                 status_code=400,
@@ -855,50 +1034,79 @@ async def upload_data_file(
         original_filename = file.filename
         filename = f"{timestamp}_{original_filename}"
         
-        # 根據文件類型決定保存的目錄
-        if file_type == 'csv':
-            save_dir = UPLOAD_DIR
-            # 確保檔名以 .csv 結尾
-            if not filename.lower().endswith('.csv'):
-                filename += '.csv'
-        elif file_type == 'json':
-            save_dir = UPLOAD_DIR
-            # 確保檔名以 .json 結尾
-            if not filename.lower().endswith('.json'):
-                filename += '.json'
-        elif file_type == 'excel':
-            save_dir = UPLOAD_DIR
-            # 確保檔名以 .xlsx 結尾
-            if not filename.lower().endswith(('.xlsx', '.xls')):
-                filename += '.xlsx'
+        # 確保文件副檔名正確
+        if file_type == 'csv' and not filename.lower().endswith('.csv'):
+            filename += '.csv'
+        elif file_type == 'json' and not filename.lower().endswith('.json'):
+            filename += '.json'
+        elif file_type == 'excel' and not filename.lower().endswith(('.xlsx', '.xls')):
+            filename += '.xlsx'
+        
+        # 使用uploads目錄保存所有上傳文件
+        save_dir = UPLOAD_DIR
+        
+        # 確保上傳目錄存在
+        try:
+            os.makedirs(save_dir, exist_ok=True)
+            logger.info(f"確認上傳目錄存在: {save_dir}")
+        except Exception as e:
+            logger.error(f"建立上傳目錄時發生錯誤: {e}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"建立上傳目錄時發生錯誤: {str(e)}"}
+            )
         
         # 組合完整保存路徑
         file_path = save_dir / filename
+        logger.info(f"準備保存上傳文件到: {file_path}")
         
         # 保存上傳的文件
-        with open(file_path, "wb") as f:
-            content = await file.read()
-            f.write(content)
+        try:
+            with open(file_path, "wb") as f:
+                # 定位到文件開頭
+                await file.seek(0)
+                content = await file.read()
+                f.write(content)
             
-        # 嘗試讀取文件以驗證其有效性
-        df = read_data_file(str(file_path), file_type)
-        if df.empty:
-            # 如果無法讀取，刪除文件並返回錯誤
-            os.remove(file_path)
+            logger.info(f"文件已成功保存: {file_path}, 大小: {len(content)} bytes")
+        except Exception as e:
+            logger.error(f"保存文件時發生錯誤: {e}")
             return JSONResponse(
-                status_code=400,
-                content={"error": "無法解析上傳的文件，請確保文件格式正確"}
+                status_code=500,
+                content={"error": f"保存文件時發生錯誤: {str(e)}"}
             )
         
-        # 返回成功信息
-        return {
-            "status": "success",
-            "message": "文件上傳成功",
-            "filename": filename,
-            "file_type": file_type,
-            "row_count": len(df),
-            "column_count": len(df.columns)
-        }
+        try:
+            # 嘗試讀取文件以驗證其有效性
+            df = read_data_file(str(file_path), file_type)
+            if df.empty:
+                # 如果無法讀取，記錄錯誤但不刪除文件
+                logger.warning(f"文件格式可能不正確: {file_path}, 但仍然保留")
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "無法解析上傳的文件，請確保文件格式正確"}
+                )
+            
+            # 返回成功信息
+            return {
+                "status": "success",
+                "message": "文件上傳成功",
+                "filename": filename,
+                "file_type": "uploaded",  # 設為 uploaded 而不是原始類型
+                "row_count": len(df),
+                "column_count": len(df.columns)
+            }
+        except Exception as read_error:
+            logger.error(f"讀取上傳的文件時發生錯誤: {read_error}")
+            # 儘管發生錯誤，仍返回上傳成功信息
+            return {
+                "status": "partial_success",
+                "message": f"文件已上傳，但無法讀取: {str(read_error)}",
+                "filename": filename,
+                "file_type": "uploaded",
+                "row_count": 0,
+                "column_count": 0
+            }
         
     except Exception as e:
         logger.error(f"上傳文件時發生錯誤: {e}")
@@ -1166,6 +1374,123 @@ async def perform_olap_operation(
             status_code=500,
             content={"error": f"執行 OLAP 操作時發生錯誤: {str(e)}"}
         )
+
+
+@app.post("/api/chart-from-json/")
+async def create_chart_from_json(data: Dict[str, Any] = Body(...)):
+    """
+    從 JSON 格式的數據創建圖表。
+    
+    請求中的 JSON 必須遵循 Chart.js 格式:
+    {
+        "type": "line",  // 選填: 圖表類型
+        "labels": [...],  // x軸標籤
+        "datasets": [
+            {
+                "label": "數據集名稱",
+                "data": [...],  // 或 [{x: 1, y: 2}, ...] 用於散點圖和氣泡圖
+                "backgroundColor": "rgba(0,0,0,0.5)",  // 選填
+                "borderColor": "rgba(0,0,0,1)"  // 選填
+            }
+        ],
+        "chartTitle": "圖表標題"  // 選填
+    }
+    
+    Returns:
+        JSONResponse: 成功處理的 Chart.js 格式數據
+    """
+    try:
+        # 使用 ChartJSAdapter 驗證和處理 JSON 數據
+        adapter = ChartJSAdapter(data)
+        chart_data = adapter.convert_to_chartjs()
+        
+        # 返回處理後的數據
+        return JSONResponse(content=chart_data)
+        
+    except Exception as e:
+        logger.error(f"處理 JSON 數據時發生錯誤: {e}")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": f"處理 JSON 數據失敗: {str(e)}",
+                "info": "請提供符合 Chart.js 格式的 JSON 數據"
+            }
+        )
+
+
+@app.get("/api/file-content/")
+async def get_file_content(
+    filename: str = Query(..., description="文件名"),
+    file_type: str = Query(..., description="文件類型 (csv, json, excel, persistence, uploaded)")
+):
+    """
+    讀取指定的數據文件並返回原始內容
+    
+    Args:
+        filename (str): 文件名
+        file_type (str): 文件類型
+        
+    Returns:
+        dict: 包含文件原始內容的字典
+    """
+    try:
+        # 根據文件類型構建完整路徑
+        if file_type == 'csv':
+            file_path = DATA_CSV_DIR / filename
+        elif file_type == 'json':
+            file_path = DATA_JSON_DIR / filename
+        elif file_type == 'excel':
+            file_path = DATA_EXCEL_DIR / filename
+        elif file_type == 'persistence':
+            file_path = PERSISTENCE_DIR / filename
+        elif file_type == 'uploaded':
+            file_path = UPLOAD_DIR / filename
+        else:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"不支援的文件類型: {file_type}"}
+            )
+        
+        # 檢查文件是否存在
+        if not os.path.exists(file_path):
+            return JSONResponse(
+                status_code=404,
+                content={"error": f"文件 {filename} 不存在"}
+            )
+        
+        # 讀取文件內容
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = json.load(f)
+            
+            return {"data": content, "filename": filename}
+        except json.JSONDecodeError as e:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"JSON 解析錯誤: {str(e)}"}
+            )
+        except Exception as e:
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"文件讀取錯誤: {str(e)}"}
+            )
+        
+    except Exception as e:
+        logger.error(f"獲取文件內容錯誤: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"獲取文件內容錯誤: {str(e)}"}
+        )
+
+
+# 導入並註冊 Excel 匯出 API
+try:
+    import sys
+    sys.path.append(str(BASE_DIR / "app"))
+    from apis import excel_export
+    app.include_router(excel_export_router, prefix="/api", tags=["Excel Export"])
+except Exception as e:
+    logger.error(f"導入 Excel 匯出 API 時發生錯誤: {e}")
 
 
 if __name__ == "__main__":

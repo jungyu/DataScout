@@ -95,12 +95,60 @@ async function fetchAllDataFiles() {
  */
 async function fetchFileData(filename, fileType) {
     try {
+        console.log(`fetchFileData 調用: 檔案名=${filename}, 類型=${fileType}`);
         showLoading(true);
+        
+        // 對於 JSON 文件類型，首先檢查是否符合 Chart.js 格式
+        if (fileType === 'json') {
+            try {
+                // 先嘗試獲取原始 JSON 內容
+                const contentResponse = await fetch(`/api/file-content/?filename=${encodeURIComponent(filename)}&file_type=${fileType}`);
+                if (!contentResponse.ok) {
+                    console.warn(`無法使用 file-content API，狀態碼: ${contentResponse.status}，回退到標準處理方式`);
+                    // 如果 file-content API 失敗，直接跳到標準處理方式
+                } else {
+                    const contentData = await contentResponse.json();
+                    
+                    // 使用 chart-json.js 中的函數處理 JSON 資料
+                    if (contentData && contentData.data) {
+                        // 確保 validateChartJsJSON 函數存在
+                        if (typeof validateChartJsJSON === 'function') {
+                            // 驗證 JSON 是否符合 Chart.js 格式
+                            const validation = validateChartJsJSON(contentData.data);
+                            
+                            if (validation.isValid) {
+                                console.log('使用 Chart.js 標準 JSON 格式處理資料');
+                                // 處理 JSON 資料為標準 Chart.js 格式
+                                const processedData = processChartJsJSON(contentData.data);
+                                showLoading(false);
+                                return processedData;
+                            } else {
+                                console.warn('JSON 驗證失敗，錯誤:', validation.errors);
+                            }
+                        } else {
+                            console.error('找不到 validateChartJsJSON 函數，可能 chart-json.js 沒有正確載入');
+                        }
+                    }
+                    // 如果不是有效的 Chart.js 格式，則回退到標準處理方式
+                }
+            } catch (error) {
+                console.warn('處理 JSON 檔案時發生錯誤，回退到標準處理方式:', error);
+                // 錯誤處理，回退到標準處理方式
+            }
+        }
+        
+        // 標準處理方式（用於非 Chart.js JSON 或其他檔案類型）
+        console.log(`正在呼叫 API 獲取檔案資料: /api/file-data/?filename=${encodeURIComponent(filename)}&file_type=${fileType}`);
+        
         const response = await fetch(`/api/file-data/?filename=${encodeURIComponent(filename)}&file_type=${fileType}`);
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`API 請求失敗: ${response.status} ${response.statusText}, 回應內容: ${errorText}`);
             throw new Error(`API 請求失敗: ${response.status} ${response.statusText}`);
         }
+        
         const data = await response.json();
+        console.log('檔案資料載入成功:', data);
         showLoading(false);
         return data;
     } catch (error) {
@@ -515,9 +563,25 @@ function createChart(data, type = 'line', theme = 'default') {
     }
     
     // 檢查圖表類型有效性（防止XSS）
-    const validTypes = ['line', 'bar', 'pie', 'radar', 'polarArea', 'doughnut', 'scatter', 'bubble'];
+    const validTypes = [
+        'line', 'bar', 'pie', 'radar', 'polarArea', 'doughnut', 'scatter', 'bubble',
+        'candlestick', 'ohlc', 'sankey', 'barLine', 'ohlcVolume', 'ohlcMaKd'
+    ];
+    
     if (!validTypes.includes(type)) {
         type = 'line'; // 預設為折線圖
+    }
+    
+    // 處理特殊混合圖表類型
+    let mixedType = false;
+    let baseType = type;
+    
+    if (type === 'barLine') {
+        baseType = 'bar';  // 使用柱狀圖作為基礎類型
+        mixedType = true;
+    } else if (type === 'ohlcVolume' || type === 'ohlcMaKd') {
+        baseType = 'bar';  // 使用柱狀圖作為基礎類型
+        mixedType = true;
     }
     
     // 獲取主題色彩
@@ -548,7 +612,7 @@ function createChart(data, type = 'line', theme = 'default') {
     
     // 根據圖表類型設置配置
     const config = {
-        type: type,
+        type: mixedType ? baseType : type,  // 混合圖表使用基礎類型
         data: {
             labels: data.labels,
             datasets: data.datasets
@@ -571,6 +635,27 @@ function createChart(data, type = 'line', theme = 'default') {
             }
         }
     };
+    
+    // 為金融圖表設置特殊配置
+    if (type === 'candlestick' || type === 'ohlc') {
+        // 金融圖表需要時間軸
+        config.options.scales = {
+            x: {
+                type: 'time',
+                time: {
+                    unit: 'day'
+                },
+                adapters: {
+                    date: {
+                        locale: 'zh-TW'
+                    }
+                }
+            },
+            y: {
+                position: 'right'
+            }
+        };
+    }
     
     // 為特定圖表類型添加特殊配置
     if (type === 'pie' || type === 'doughnut' || type === 'polarArea') {
@@ -597,6 +682,83 @@ function createChart(data, type = 'line', theme = 'default') {
             },
             y: {
                 beginAtZero: false
+            }
+        };
+    } else if (type === 'barLine') {
+        // 柱狀圖+折線圖混合
+        config.options.scales = {
+            y: {
+                beginAtZero: false,
+                ticks: {
+                    callback: function(value) {
+                        if (value >= 1000000) {
+                            return (value / 1000000).toFixed(1) + 'M';
+                        } else if (value >= 1000) {
+                            return (value / 1000).toFixed(1) + 'K';
+                        }
+                        return value;
+                    }
+                }
+            },
+            x: {
+                ticks: {
+                    maxRotation: 45,
+                    minRotation: 0
+                }
+            }
+        };
+    } else if (type === 'ohlcVolume') {
+        // OHLC+成交量混合圖
+        config.options.scales = {
+            x: {
+                type: 'time',
+                time: {
+                    unit: 'day'
+                },
+                adapters: {
+                    date: {
+                        locale: 'zh-TW'
+                    }
+                }
+            },
+            price: {
+                position: 'left',
+                type: 'linear',
+            },
+            volume: {
+                position: 'right',
+                type: 'linear',
+                grid: {
+                    drawOnChartArea: false
+                }
+            }
+        };
+    } else if (type === 'ohlcMaKd') {
+        // OHLC+移動平均線+KD線
+        config.options.scales = {
+            x: {
+                type: 'time',
+                time: {
+                    unit: 'day'
+                },
+                adapters: {
+                    date: {
+                        locale: 'zh-TW'
+                    }
+                }
+            },
+            price: {
+                position: 'left',
+                type: 'linear',
+            },
+            kd: {
+                position: 'right',
+                type: 'linear',
+                min: 0,
+                max: 100,
+                grid: {
+                    drawOnChartArea: false
+                }
             }
         };
     } else {
@@ -645,36 +807,106 @@ async function initPage() {
     // 設置資料類型選擇器事件
     const dataSourceTypeSelector = document.getElementById('dataSourceType');
     const dataSourceSelector = document.getElementById('dataSource');
+    const dataSourceContainer = document.getElementById('dataSourceContainer');
     
-    dataSourceTypeSelector.addEventListener('change', () => {
+    dataSourceTypeSelector.addEventListener('change', async () => {
         const selectedType = dataSourceTypeSelector.value;
         currentDataType = selectedType;
         
         // 清空並重新填充檔案選擇器
         dataSourceSelector.innerHTML = '<option value="" disabled selected>-- 請選擇資料檔案 --</option>';
         
-        // 顯示檔案上傳區域（如果是 uploaded 類型）
-        const fileUploadArea = document.getElementById('fileUploadArea');
-        if (selectedType === 'uploaded') {
-            fileUploadArea.classList.remove('hidden');
-        } else {
-            fileUploadArea.classList.add('hidden');
-        }
+        // 顯示/隱藏檔案上傳區域（只在選擇"自行上傳"時顯示）
+        const uploadSection = document.getElementById('uploadSection');
+        const uploadNewFileSection = document.getElementById('uploadNewFileSection');
         
-        // 填充檔案選擇器
-        if (availableDataFiles[selectedType]) {
-            const files = availableDataFiles[selectedType];
-            files.forEach(file => {
-                const option = document.createElement('option');
-                option.value = file.filename;
-                option.textContent = file.display_name;
-                dataSourceSelector.appendChild(option);
-            });
+        if (selectedType === 'uploaded') {
+            // 顯示檔案上傳區域
+            uploadSection.classList.remove('hidden');
             
-            // 啟用檔案選擇器
-            dataSourceSelector.disabled = false;
+            // 隱藏檔案選擇器
+            dataSourceContainer.classList.add('hidden');
+            
+            console.log('已切換到「自行上傳資料」模式，顯示檔案拖放區域');
+            
+            // 移除之前選擇的檔案資訊
+            const fileNameDisplay = document.getElementById('selectedFileName');
+            if (fileNameDisplay) {
+                fileNameDisplay.textContent = '';
+                fileNameDisplay.classList.add('hidden');
+            }
+            
+            // 重設檔案上傳按鈕
+            const uploadFileBtn = document.getElementById('uploadFileBtn');
+            if (uploadFileBtn) {
+                uploadFileBtn.disabled = true;
+            }
+            
+            // 清空圖表區域
+            const chartContainer = document.getElementById('chartContainer');
+            if (chartContainer && !chartContainer.classList.contains('hidden')) {
+                chartContainer.classList.add('hidden');
+            }
+            
+            // 重設 Alpine.js 狀態
+            const fileUploadArea = document.getElementById('fileUploadArea');
+            if (fileUploadArea && window.Alpine) {
+                try {
+                    const alpineComponent = Alpine.$data(fileUploadArea);
+                    if (alpineComponent) {
+                        alpineComponent.fileSelected = false;
+                        alpineComponent.fileName = '';
+                        alpineComponent.dragOver = false;
+                    }
+                } catch (error) {
+                    console.warn('無法重設 Alpine.js 狀態:', error);
+                }
+            }
+        } else if (selectedType === 'json') {
+            uploadSection.classList.add('hidden');
+            
+            // 對於範例資料，只顯示 S&P 500 範例
+            if (availableDataFiles[selectedType]) {
+                // 尋找 S&P 500 範例檔案
+                const sp500File = availableDataFiles[selectedType].find(
+                    file => file.filename === 'sp500_sample.json'
+                );
+                
+                if (sp500File) {
+                    // 自動選中範例檔案
+                    currentDataFile = sp500File.filename;
+                    
+                    // 載入並顯示圖表
+                    const data = await fetchFileData(currentDataFile, currentDataType);
+                    if (data) {
+                        // 獲取當前選擇的圖表類型和主題
+                        const chartType = document.getElementById('chartType').value;
+                        const chartTheme = document.getElementById('chartTheme').value;
+                        
+                        // 渲染圖表
+                        createChart(data, chartType, chartTheme);
+                        document.getElementById('chartContainer').classList.remove('hidden');
+                        
+                        // 隱藏資料檔案選擇器
+                        dataSourceContainer.classList.add('hidden');
+                    }
+                } else {
+                    // 如果沒有找到 S&P 500 範例，顯示所有範例檔案
+                    dataSourceContainer.classList.remove('hidden');
+                    const files = availableDataFiles[selectedType];
+                    files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file.filename;
+                        option.textContent = file.display_name;
+                        dataSourceSelector.appendChild(option);
+                    });
+                }
+            } else {
+                dataSourceContainer.classList.add('hidden');
+            }
         } else {
-            dataSourceSelector.disabled = true;
+            uploadSection.classList.add('hidden');
+            dataSourceContainer.classList.add('hidden');
         }
     });
     
@@ -843,43 +1075,7 @@ async function initPage() {
     const fileUploadInput = document.getElementById('fileUpload');
     const uploadFileBtn = document.getElementById('uploadFileBtn');
     
-    fileUploadInput.addEventListener('change', () => {
-        uploadFileBtn.disabled = !fileUploadInput.files.length;
-    });
-    
-    // 檔案拖放處理
-    const dropArea = document.getElementById('fileUploadArea');
-    
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropArea.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        });
-    });
-    
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropArea.addEventListener(eventName, () => {
-            dropArea.classList.add('border-blue-500');
-            dropArea.classList.add('bg-blue-50');
-        });
-    });
-    
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropArea.addEventListener(eventName, () => {
-            dropArea.classList.remove('border-blue-500');
-            dropArea.classList.remove('bg-blue-50');
-        });
-    });
-    
-    dropArea.addEventListener('drop', (e) => {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        
-        if (files.length > 0) {
-            fileUploadInput.files = files;
-            uploadFileBtn.disabled = false;
-        }
-    });
+    // 上傳按鈕事件處理 - 現在主要由 Alpine.js 處理檔案選擇和拖放邏輯
     
     // 檔案上傳按鈕事件
     uploadFileBtn.addEventListener('click', async () => {
@@ -888,7 +1084,50 @@ async function initPage() {
         
         const fileType = document.getElementById('uploadFileType').value;
         const formData = new FormData();
-        formData.append('file', file);
+        
+        // 如果是 JSON 檔案，先檢查是否符合 Chart.js 格式
+        if (fileType === 'json') {
+            try {
+                // 讀取檔案內容
+                const reader = new FileReader();
+                
+                // 使用 Promise 包裝檔案讀取操作
+                const fileContent = await new Promise((resolve, reject) => {
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(e);
+                    reader.readAsText(file);
+                });
+                
+                // 解析 JSON
+                const jsonData = JSON.parse(fileContent);
+                
+                // 驗證是否為有效的 Chart.js 格式
+                const validation = validateChartJsJSON(jsonData);
+                
+                if (!validation.isValid) {
+                    // 顯示驗證錯誤
+                    showError(`JSON 格式無效: ${validation.errors.join('; ')}
+                               請使用符合 Chart.js 標準的 JSON 格式`);
+                    return;
+                }
+                
+                // 處理為標準 Chart.js 格式
+                const processedData = processChartJsJSON(jsonData);
+                
+                // 將處理後的資料轉換回字串
+                const processedBlob = new Blob([JSON.stringify(processedData, null, 2)], {type: 'application/json'});
+                
+                // 使用處理後的資料替換原始檔案
+                formData.append('file', processedBlob, file.name);
+            } catch (error) {
+                showError(`解析 JSON 檔案時發生錯誤: ${error.message}`);
+                return;
+            }
+        } else {
+            // 非 JSON 檔案直接附加
+            formData.append('file', file);
+        }
+        
         formData.append('file_type', fileType);
         
         try {
@@ -921,33 +1160,91 @@ async function initPage() {
                 // 更新可用文件列表
                 availableDataFiles = await fetchAllDataFiles();
                 
-                // 更新已上傳檔案的選單
-                if (currentDataType === 'uploaded') {
-                    const dataSourceSelector = document.getElementById('dataSource');
-                    dataSourceSelector.innerHTML = '<option value="" disabled selected>-- 請選擇資料檔案 --</option>';
-                    
-                    // 填充檔案選擇器
-                    if (availableDataFiles.uploaded) {
-                        const files = availableDataFiles.uploaded;
-                        files.forEach(file => {
-                            const option = document.createElement('option');
-                            option.value = file.filename;
-                            option.textContent = file.display_name;
-                            dataSourceSelector.appendChild(option);
-                        });
+                uploadStatus.textContent = `檔案上傳成功 (${result.row_count} 列, ${result.column_count} 欄)`;
+                uploadStatus.classList.add('text-green-600');
+                
+                // 清空檔案輸入並更新 UI
+                fileUploadInput.value = '';
+                
+                // 更新上傳區域的 Alpine.js 狀態
+                const fileUploadArea = document.getElementById('fileUploadArea');
+                if (fileUploadArea && window.Alpine) {
+                    // 使用 Alpine.js 的 Alpine.$data 來設置狀態
+                    const alpineComponent = Alpine.$data(fileUploadArea);
+                    if (alpineComponent) {
+                        alpineComponent.fileSelected = true;
+                        alpineComponent.fileName = `「${file.name}」已成功上傳`;
+                        
+                        // 5秒後重置狀態
+                        setTimeout(() => {
+                            alpineComponent.fileSelected = false;
+                            alpineComponent.fileName = '';
+                        }, 5000);
                     }
                 }
-                
-                uploadStatus.textContent = `檔案上傳成功 (${result.row_count} 列, ${result.column_count} 欄)`;
-                
-                // 清空檔案輸入
-                fileUploadInput.value = '';
-                uploadFileBtn.disabled = true;
                 
                 // 5秒後隱藏進度條
                 setTimeout(() => {
                     uploadProgress.classList.add('hidden');
+                    uploadStatus.classList.remove('text-green-600');
                 }, 5000);
+                
+                // 自動載入上傳的檔案並顯示圖表
+                if (result.filename) {
+                    try {
+                        currentDataFile = result.filename;
+                        currentDataType = result.file_type; // 確保使用正確的文件類型
+                        
+                        console.log(`準備載入上傳的檔案: ${currentDataFile}, 類型: ${currentDataType}`);
+                        
+                        // 顯示載入狀態
+                        const loadingStatus = document.getElementById('loadingStatus');
+                        if (loadingStatus) loadingStatus.classList.remove('hidden');
+                        
+                        // 獲取檔案數據
+                        const data = await fetchFileData(currentDataFile, currentDataType);
+                        
+                        // 隱藏載入狀態
+                        if (loadingStatus) loadingStatus.classList.add('hidden');
+                        
+                        if (data) {
+                            console.log('檔案數據載入成功，準備渲染圖表');
+                            
+                            // 獲取當前選擇的圖表類型和主題
+                            const chartType = document.getElementById('chartType').value;
+                            const chartTheme = document.getElementById('chartTheme').value;
+                            
+                            // 渲染圖表
+                            createChart(data, chartType, chartTheme);
+                            
+                            // 顯示圖表區域
+                            const chartContainer = document.getElementById('chartContainer');
+                            if (chartContainer) chartContainer.classList.remove('hidden');
+                            
+                            // 設置圖表標題
+                            const chartTitle = document.getElementById('chartTitle');
+                            if (chartTitle) {
+                                chartTitle.textContent = data.chartTitle || `${currentDataFile} 圖表`;
+                            }
+                            
+                            // 獲取並顯示文件結構信息
+                            const structure = await fetchFileStructure(currentDataFile, currentDataType);
+                            updateDataInfo(structure);
+                            
+                            // 保存數據列信息，用於 OLAP 操作
+                            dataColumnInfo = structure;
+                            
+                            // 更新 OLAP 操作的欄位選項
+                            updateOlapFieldOptions(structure);
+                            
+                            // 顯示 OLAP 操作區域
+                            document.getElementById('olapOperationArea').classList.remove('hidden');
+                        }
+                    } catch (error) {
+                        console.error('載入上傳檔案錯誤:', error);
+                        showError(`載入上傳檔案錯誤: ${error.message}`);
+                    }
+                }
             }
         } catch (error) {
             console.error('檔案上傳錯誤:', error);
@@ -997,6 +1294,69 @@ async function initPage() {
             }
         });
     }
+    
+    // 設置顯示 JSON 格式範例按鈕事件
+    const showJsonFormatBtn = document.getElementById('showJsonFormatBtn');
+    const jsonFormatExample = document.getElementById('jsonFormatExample');
+    
+    if (showJsonFormatBtn && jsonFormatExample) {
+        showJsonFormatBtn.addEventListener('click', () => {
+            if (jsonFormatExample.classList.contains('hidden')) {
+                jsonFormatExample.classList.remove('hidden');
+                showJsonFormatBtn.textContent = '隱藏 Chart.js JSON 格式範例';
+            } else {
+                jsonFormatExample.classList.add('hidden');
+                showJsonFormatBtn.textContent = '顯示 Chart.js JSON 格式範例';
+            }
+        });
+    }
+    
+    // 設置 CSV 匯出按鈕事件
+    document.getElementById('exportCsvBtn').addEventListener('click', () => {
+        if (!myChart) {
+            showError('請先選擇資料來源並生成圖表');
+            return;
+        }
+        exportDataToCSV();
+    });
+    
+    // 設置 JSON 匯出按鈕事件
+    document.getElementById('exportJsonBtn').addEventListener('click', () => {
+        if (!myChart) {
+            showError('請先選擇資料來源並生成圖表');
+            return;
+        }
+        exportDataToJSON();
+    });
+    
+    // 設置 Excel 匯出按鈕事件
+    document.getElementById('exportExcelBtn').addEventListener('click', () => {
+        if (!myChart) {
+            showError('請先選擇資料來源並生成圖表');
+            return;
+        }
+        exportDataToExcel();
+    });
+    
+    // 設置下載 PNG 按鈕事件
+    document.getElementById('capturePngBtn').addEventListener('click', () => {
+        if (!myChart) {
+            showError('請先選擇資料來源並生成圖表');
+            return;
+        }
+        captureChart('image/png');
+    });
+
+    // 檔案上傳區塊初始化
+    const uploadNewFileSection = document.getElementById('uploadNewFileSection');
+    
+    // 確保 uploadNewFileSection 在頁面加載時隱藏
+    if (uploadNewFileSection) {
+        uploadNewFileSection.classList.add('hidden');
+    }
+    
+    // 設置顯示上傳區域按鈕事件
+    // ...existing code...
 }
 
 /**
@@ -1105,6 +1465,140 @@ async function updateChart() {
     if (data) {
         // 渲染圖表
         createChart(data, currentChartType, currentChartTheme);
+    }
+}
+
+/**
+ * 匯出圖表資料為 CSV 格式
+ */
+function exportDataToCSV() {
+    if (!myChart || !myChart.data) {
+        showError('沒有可匯出的圖表資料');
+        return;
+    }
+    
+    const data = myChart.data;
+    const labels = data.labels;
+    const datasets = data.datasets;
+    
+    // 創建 CSV 資料
+    let csvContent = "data:text/csv;charset=utf-8,";
+    
+    // 添加標題行
+    let headerRow = ["labels"];
+    datasets.forEach(dataset => headerRow.push(dataset.label || "Data"));
+    csvContent += headerRow.join(",") + "\r\n";
+    
+    // 添加資料行
+    labels.forEach((label, index) => {
+        let row = [label];
+        datasets.forEach(dataset => {
+            row.push(dataset.data[index]);
+        });
+        csvContent += row.join(",") + "\r\n";
+    });
+    
+    // 建立下載連結
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `chart_data_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/**
+ * 匯出圖表資料為 JSON 格式
+ */
+function exportDataToJSON() {
+    if (!myChart || !myChart.data) {
+        showError('沒有可匯出的圖表資料');
+        return;
+    }
+    
+    // 準備 JSON 資料
+    const chartData = {
+        type: myChart.config.type,
+        labels: myChart.data.labels,
+        datasets: myChart.data.datasets,
+        chartTitle: document.getElementById('chartTitle').textContent || '圖表'
+    };
+    
+    // 轉換為 JSON 字串
+    const jsonString = JSON.stringify(chartData, null, 2);
+    const blob = new Blob([jsonString], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    
+    // 建立下載連結
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `chart_data_${new Date().toISOString().slice(0,10)}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * 匯出圖表資料為 Excel 格式
+ */
+function exportDataToExcel() {
+    if (!myChart || !myChart.data) {
+        showError('沒有可匯出的圖表資料');
+        return;
+    }
+    
+    // 通過 API 匯出 Excel
+    try {
+        const chartData = {
+            type: myChart.config.type,
+            labels: myChart.data.labels,
+            datasets: myChart.data.datasets,
+            chartTitle: document.getElementById('chartTitle').textContent || '圖表'
+        };
+        
+        fetch('/api/export-excel/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(chartData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`API 請求失敗: ${response.status} ${response.statusText}`);
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // 建立 Blob URL
+            const url = window.URL.createObjectURL(blob);
+            
+            // 建立下載連結
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `chart_data_${new Date().toISOString().slice(0,10)}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            
+            // 清理
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(link);
+        })
+        .catch(error => {
+            console.error('匯出 Excel 錯誤:', error);
+            showError(`匯出 Excel 錯誤: ${error.message}`);
+            
+            // 如果 API 失敗，嘗試客戶端下載 CSV 作為替代方案
+            showError('匯出 Excel 失敗，將以 CSV 格式匯出', 3000);
+            setTimeout(() => {
+                exportDataToCSV();
+            }, 1000);
+        });
+    } catch (error) {
+        console.error('匯出 Excel 錯誤:', error);
+        showError(`匯出 Excel 錯誤: ${error.message}`);
     }
 }
 
