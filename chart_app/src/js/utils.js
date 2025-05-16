@@ -1,30 +1,76 @@
+/**
+ * 獲取檔案資料
+ * @param {string} filename - 檔案名稱
+ * @param {string} type - 檔案類型 (json, csv, excel)
+ * @returns {Promise<Object>} - 檔案資料
+ */
+export async function fetchFileData(filename, type) {
+    try {
+        console.log(`fetchFileData: 開始獲取檔案 ${filename}，類型 ${type}`);
+        
+        // 改進：判斷是否為上傳的檔案
+        const isUploadedFile = filename.includes('uploads/') || filename.startsWith('uploads_');
+        
+        // 構建查詢參數
+        const params = new URLSearchParams();
+        params.append('filename', filename);
+        params.append('type', type);
+        if (isUploadedFile) {
+            params.append('is_upload', 'true');
+        }
+        
+        // 建立 URL
+        const url = `/api/file-data/?${params.toString()}`;
+        console.log(`請求資料的完整 URL: ${url}`);
+        
+        // 發送請求
+        const response = await fetch(url);
+        
+        // 檢查響應
+        if (!response.ok) {
+            console.error(`獲取檔案資料失敗: ${response.status} ${response.statusText}`);
+            
+            // 嘗試讀取錯誤訊息
+            try {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `伺服器響應錯誤: ${response.status}`);
+            } catch (jsonError) {
+                throw new Error(`HTTP 錯誤: ${response.status}`);
+            }
+        }
+        
+        // 解析響應
+        const data = await response.json();
+        console.log('fetchFileData: 成功獲取資料', data);
+        return data;
+    } catch (error) {
+        console.error(`獲取檔案資料時發生錯誤: ${error.message}`, error);
+        throw error;
+    }
+}
 
 /**
  * 顯示錯誤訊息
  * @param {string} message - 錯誤訊息
  */
 export function showError(message) {
-    console.error(message);
-    
-    // 獲取錯誤訊息容器
+    console.error('錯誤:', message);
     const errorMessage = document.getElementById('errorMessage');
+    
     if (errorMessage) {
+        // 設置錯誤訊息內容
         errorMessage.textContent = message;
+        
+        // 顯示錯誤訊息
         errorMessage.classList.remove('hidden');
         
-        // 淡入效果
-        errorMessage.style.opacity = '0';
+        // 5秒後自動隱藏
         setTimeout(() => {
-            errorMessage.style.opacity = '1';
-        }, 10);
-        
-        // 3 秒後自動隱藏錯誤訊息
-        setTimeout(() => {
-            errorMessage.style.opacity = '0';
-            setTimeout(() => {
-                errorMessage.classList.add('hidden');
-            }, 300);
-        }, 3000);
+            errorMessage.classList.add('hidden');
+        }, 5000);
+    } else {
+        // 如果找不到錯誤訊息元素，則使用 alert
+        alert(`錯誤: ${message}`);
     }
 }
 
@@ -33,26 +79,19 @@ export function showError(message) {
  * @param {string} message - 成功訊息
  */
 export function showSuccess(message) {
-    console.log(message);
-    
-    // 獲取成功訊息容器
+    console.log('成功:', message);
     const successMessage = document.getElementById('successMessage');
+    
     if (successMessage) {
+        // 設置成功訊息內容
         successMessage.textContent = message;
+        
+        // 顯示成功訊息
         successMessage.classList.remove('hidden');
         
-        // 淡入效果
-        successMessage.style.opacity = '0';
+        // 3秒後自動隱藏
         setTimeout(() => {
-            successMessage.style.opacity = '1';
-        }, 10);
-        
-        // 3 秒後自動隱藏成功訊息
-        setTimeout(() => {
-            successMessage.style.opacity = '0';
-            setTimeout(() => {
-                successMessage.classList.add('hidden');
-            }, 300);
+            successMessage.classList.add('hidden');
         }, 3000);
     }
 }
@@ -66,9 +105,31 @@ export function showLoading(isLoading) {
     if (loadingStatus) {
         if (isLoading) {
             loadingStatus.classList.remove('hidden');
+            // 當顯示載入提示時，隱藏圖表訊息
+            hideChartMessage();
         } else {
             loadingStatus.classList.add('hidden');
         }
+    }
+}
+
+/**
+ * 顯示圖表訊息提示
+ */
+export function showChartMessage() {
+    const chartMessage = document.getElementById('chartMessage');
+    if (chartMessage) {
+        chartMessage.classList.remove('hidden');
+    }
+}
+
+/**
+ * 隱藏圖表訊息提示
+ */
+export function hideChartMessage() {
+    const chartMessage = document.getElementById('chartMessage');
+    if (chartMessage) {
+        chartMessage.classList.add('hidden');
     }
 }
 
@@ -95,50 +156,5 @@ export async function fetchAllDataFiles() {
     } catch (error) {
         console.error('獲取檔案列表錯誤：', error);
         return {};
-    }
-}
-
-/**
- * 根據檔案類型獲取檔案
- * @param {string} filename - 檔案名稱
- * @param {string} type - 檔案類型 (csv, json, excel)
- * @returns {Promise<Object>} - 解析後的資料
- */
-export async function fetchFileData(filename, type = 'json') {
-    try {
-        // 使用新的API端點
-        const apiEndpoint = `/api/file-data/?filename=${encodeURIComponent(filename)}&file_type=${type}`;
-        console.log(`正在從 ${apiEndpoint} 獲取資料...`);
-        
-        const response = await fetch(apiEndpoint);
-        if (response.ok) {
-            const contentType = response.headers.get("content-type");
-            
-            if (contentType && contentType.indexOf("application/json") !== -1) {
-                const data = await response.json();
-                return data;
-            } else {
-                showError('伺服器回應非 JSON 格式');
-                return null;
-            }
-        } else {
-            // 嘗試讀取錯誤訊息
-            let errorMessage = `獲取檔案資料失敗: ${response.status} ${response.statusText}`;
-            try {
-                const errorData = await response.json();
-                if (errorData && errorData.error) {
-                    errorMessage = errorData.error;
-                }
-            } catch (e) {
-                console.warn('無法解析錯誤訊息:', e);
-            }
-            
-            showError(errorMessage);
-            return null;
-        }
-    } catch (error) {
-        console.error('獲取檔案資料錯誤：', error);
-        showError('獲取檔案資料時發生錯誤');
-        return null;
     }
 }

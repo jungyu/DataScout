@@ -10,6 +10,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Chart.js 庫 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js 時間軸適配器 - 用於時間序列圖表 -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <!-- Chart.js 金融圖表擴展 -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
     <!-- Chart.js 桑基圖擴展 -->
@@ -34,10 +36,10 @@
                     <li><a href="/docs/chart-format">圖表格式說明</a></li>
                 </ul>
             </div>
-            <a class="btn btn-ghost normal-case text-xl">DataScout 視覺化平台</a>
+            <a class="btn btn-ghost normal-case text-xl font-bold text-primary-content">DataScout 視覺化平台</a>
         </div>
         <div class="navbar-center hidden lg:flex">
-            <span class="text-lg font-semibold">財經數據圖表應用</span>
+            <span class="text-lg font-bold text-primary-content">財經數據圖表應用</span>
         </div>
         <div class="navbar-end">
             <label class="swap swap-rotate btn btn-ghost btn-circle">
@@ -57,28 +59,24 @@
                 <div class="card bg-base-100 shadow-xl">
                     <div class="card-body">
                         <h2 class="card-title">資料圖表展示</h2>
-                        <!-- 圖表畫布 -->
-                        <div class="w-full h-[500px] bg-base-100 p-2 border border-base-300 rounded-lg">
-                            <canvas id="chartCanvas"></canvas>
+                        <!-- 提示訊息 - 調整到圖表區域上方 -->
+                        <div class="mb-2 text-center hidden" id="chartMessage">
+                            <p class="text-lg text-info">選擇範例資料或上傳檔案以顯示圖表</p>
                         </div>
                         
-                        <!-- 圖表工具欄 -->
-                        <div class="flex flex-wrap justify-between items-center mt-4">
-                            <!-- 左側按鈕組 -->
-                            <div class="flex flex-wrap gap-2">
-                                <button id="showDataSummary" class="btn btn-sm btn-outline btn-info">
-                                    顯示資料摘要
-                                </button>
-                                
-                                <!-- 圖表主題選擇 (移到左側) -->
-                                <div class="dropdown">
-                                    <label tabindex="0" class="btn btn-sm btn-outline btn-secondary">
+                        <!-- 圖表畫布 -->
+                        <div class="w-full h-[500px] bg-base-100 p-2 border border-base-300 rounded-lg relative" id="chartContainer">
+                            <!-- 圖表右上角的按鈕 -->
+                            <div class="absolute top-2 right-2 flex gap-2 z-10">
+                                <!-- 圖表主題選擇 -->
+                                <div class="dropdown dropdown-end">
+                                    <label tabindex="0" class="btn btn-xs btn-outline btn-info">
                                         圖表主題
-                                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                         </svg>
                                     </label>
-                                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-[1] mt-2 text-sm">
+                                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-[1] mt-1 text-xs">
                                         <li><a data-theme="default" class="theme-option">預設主題</a></li>
                                         <li><a data-theme="light" class="theme-option">淺色主題</a></li>
                                         <li><a data-theme="dark" class="theme-option">深色主題</a></li>
@@ -86,25 +84,42 @@
                                         <li><a data-theme="vibrant" class="theme-option">鮮明色調</a></li>
                                     </ul>
                                 </div>
+                                
+                                <!-- 匯出數據選擇 -->
+                                <div class="dropdown dropdown-end">
+                                    <label tabindex="0" class="btn btn-xs btn-outline btn-secondary">
+                                        匯出數據
+                                        <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </label>
+                                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-[1] mt-1 text-xs">
+                                        <li><a id="exportCsvBtn">CSV 檔案</a></li>
+                                        <li><a id="exportJsonBtn">JSON 檔案</a></li>
+                                        <li><a id="exportExcelBtn">Excel 檔案</a></li>
+                                        <li class="divider"></li>
+                                        <li><a id="exportPngBtn">PNG 圖片</a></li>
+                                        <li><a id="exportWebpBtn">WebP 圖片</a></li>
+                                        <li><a id="uploadChartBtn">儲存至伺服器</a></li>
+                                    </ul>
+                                </div>
                             </div>
-                            
-                            <!-- 右側匯出按鈕 -->
-                            <div class="dropdown dropdown-end">
-                                <label tabindex="0" id="exportDropdownBtn" class="btn btn-sm btn-outline">
-                                    匯出數據
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </label>
-                                <ul tabindex="0" id="exportDropdown" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-[1] mt-2 text-sm">
-                                    <li><a id="exportCsv">CSV 檔案</a></li>
-                                    <li><a id="exportJson">JSON 檔案</a></li>
-                                    <li><a id="exportExcel">Excel 檔案</a></li>
-                                    <li class="divider"></li>
-                                    <li><a id="exportPng">PNG 圖片</a></li>
-                                    <li><a id="exportWebp">WebP 圖片</a></li>
-                                    <li><a id="uploadChart">儲存至伺服器</a></li>
-                                </ul>
+                            <!-- 顯示圖表的畫布，設置上間距讓按鈕不會覆蓋圖表內容 -->
+                            <div class="w-full h-full pt-8">
+                                <canvas id="chartCanvas" class="w-full h-full"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- 圖表工具欄 -->
+                        <div class="flex flex-wrap justify-between items-center mt-4">
+                            <!-- 簡化後的工具欄，只保留資料摘要按鈕 -->
+                            <div class="flex flex-wrap gap-2">
+                                <button id="showDataSummary" class="btn btn-sm btn-outline btn-info">
+                                    顯示資料摘要
+                                </button>
+                            </div>
+                            <div>
+                                <!-- 如需要在此處添加其他功能按鈕 -->
                             </div>
                         </div>
                         
@@ -334,6 +349,24 @@
         document.addEventListener('DOMContentLoaded', function() {
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
+            
+            // 顯示初始圖表容器訊息
+            const chartMessage = document.getElementById('chartMessage');
+            if (chartMessage) chartMessage.classList.remove('hidden');
+            
+            // 確保圖表容器尺寸正確
+            const resizeChart = function() {
+                const chartContainer = document.getElementById('chartContainer');
+                const canvas = document.getElementById('chartCanvas');
+                if (chartContainer && canvas) {
+                    canvas.style.width = `${chartContainer.clientWidth}px`;
+                    canvas.style.height = `${chartContainer.clientHeight}px`;
+                }
+            };
+            
+            // 初始調整和視窗變化時調整
+            resizeChart();
+            window.addEventListener('resize', resizeChart);
         });
         
         // 頁面載入時設置資料來源 tabs 切換處理

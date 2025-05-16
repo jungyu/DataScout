@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>檔案系統診斷 - Chart App</title>
+    <!-- Tailwind CSS with DaisyUI -->
+    <link href="{{ url_for('static', path='/css/output.css') }}" rel="stylesheet">
+    <!-- Google Fonts - Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
+<body class="min-h-screen bg-base-200">
+    <!-- 頁面導航欄 -->
+    <div class="navbar bg-primary text-primary-content shadow-lg">
+        <div class="navbar-start">
+            <div class="dropdown">
+                <label tabindex="0" class="btn btn-ghost btn-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                    </svg>
+                </label>
+                <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52 text-neutral">
+                    <li><a href="/">首頁</a></li>
+                    <li><a href="/docs">API 文件</a></li>
+                    <li><a href="/file-diagnostics">檔案診斷</a></li>
+                </ul>
+            </div>
+            <a class="btn btn-ghost normal-case text-xl">DataScout 視覺化平台</a>
+        </div>
+        <div class="navbar-center hidden lg:flex">
+            <span class="text-lg font-semibold">檔案系統診斷工具</span>
+        </div>
+    </div>
+
+    <!-- 主要內容 -->
+    <main class="container mx-auto p-4 py-8" x-data="{ activeTab: 'uploaded' }">
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-xl">檔案系統診斷</h2>
+                <p class="mb-4 text-base-content/70">此工具用於診斷和解決檔案系統相關問題</p>
+                
+                <!-- 切換標籤 -->
+                <div class="tabs tabs-bordered mb-6">
+                    <a class="tab" :class="{ 'tab-active': activeTab === 'uploaded' }" @click="activeTab = 'uploaded'">上傳檔案</a>
+                    <a class="tab" :class="{ 'tab-active': activeTab === 'checker' }" @click="activeTab = 'checker'">檔案檢查器</a>
+                    <a class="tab" :class="{ 'tab-active': activeTab === 'logs' }" @click="activeTab = 'logs'">資料載入記錄</a>
+                </div>
+                
+                <!-- 上傳檔案列表 -->
+                <div x-show="activeTab === 'uploaded'" x-cloak x-data="uploadedFilesList()">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold">上傳檔案列表</h3>
+                        <div class="flex gap-2">
+                            <select class="select select-sm select-bordered" x-model="fileType">
+                                <option value="">所有類型</option>
+                                <option value="csv">CSV</option>
+                                <option value="json">JSON</option>
+                                <option value="excel">Excel</option>
+                            </select>
+                            <button class="btn btn-sm btn-primary" @click="fetchFiles()">重新整理</button>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="table table-zebra">
+                            <thead>
+                                <tr>
+                                    <th>檔案名稱</th>
+                                    <th>路徑</th>
+                                    <th>類型</th>
+                                    <th>大小</th>
+                                    <th>動作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-if="loading">
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4">
+                                            <div class="loading loading-spinner loading-md inline-block"></div>
+                                            <span class="ml-2">載入中...</span>
+                                        </td>
+                                    </tr>
+                                </template>
+                                <template x-if="!loading && files.length === 0">
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-gray-500">
+                                            沒有找到上傳的檔案
+                                        </td>
+                                    </tr>
+                                </template>
+                                <template x-for="file in files" :key="file.path">
+                                    <tr>
+                                        <td x-text="file.name"></td>
+                                        <td x-text="file.path"></td>
+                                        <td x-text="file.type"></td>
+                                        <td x-text="formatFileSize(file.size)"></td>
+                                        <td>
+                                            <div class="flex gap-2">
+                                                <button class="btn btn-xs btn-primary" @click="testFile(file.path)">測試載入</button>
+                                                <button class="btn btn-xs btn-outline" @click="goToMainWithFile(file.path)">前往使用</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-4" x-show="testResult">
+                        <div class="alert" :class="testResult.success ? 'alert-success' : 'alert-error'">
+                            <div>
+                                <span x-text="testResult.message"></span>
+                            </div>
+                        </div>
+                        <div class="collapse mt-2" x-show="!testResult.success">
+                            <input type="checkbox" />
+                            <div class="collapse-title font-medium">
+                                顯示詳細錯誤信息
+                            </div>
+                            <div class="collapse-content">
+                                <pre class="bg-base-200 p-4 rounded-lg overflow-auto max-h-60" x-text="testResult.details"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 檔案檢查器 -->
+                <div x-show="activeTab === 'checker'" x-cloak x-data="fileChecker()">
+                    <h3 class="text-lg font-bold mb-4">檔案路徑檢查</h3>
+                    
+                    <div class="form-control w-full max-w-lg mb-4">
+                        <label class="label">
+                            <span class="label-text">檔案名稱或路徑</span>
+                        </label>
+                        <div class="input-group">
+                            <input type="text" placeholder="輸入檔案名稱或路徑..." class="input input-bordered w-full" x-model="filename" />
+                            <button class="btn btn-primary" @click="checkFile()">檢查</button>
+                        </div>
+                        <label class="label">
+                            <span class="label-text-alt">例如: example_bar_chart.json 或 uploads/20250506_123456_data.csv</span>
+                        </label>
+                    </div>
+                    
+                    <div class="mt-4" x-show="checkResult">
+                        <div class="alert" :class="checkResult.exists ? 'alert-success' : 'alert-error'">
+                            <div>
+                                <span x-text="checkResult.message"></span>
+                            </div>
+                        </div>
+                        <div class="mt-2" x-show="checkResult.exists">
+                            <p class="font-semibold">完整檔案路徑:</p>
+                            <code class="block bg-base-200 p-2 rounded" x-text="checkResult.path"></code>
+                            
+                            <div class="mt-4">
+                                <button class="btn btn-sm btn-primary" @click="testFileContent()">測試載入檔案</button>
+                                <button class="btn btn-sm btn-outline ml-2" @click="goToMainWithFile(checkResult.path)">前往使用</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4" x-show="fileContent.tested">
+                        <div class="alert" :class="fileContent.success ? 'alert-success' : 'alert-error'">
+                            <div>
+                                <span x-text="fileContent.message"></span>
+                            </div>
+                        </div>
+                        <div class="collapse mt-2">
+                            <input type="checkbox" />
+                            <div class="collapse-title font-medium">
+                                顯示檔案內容預覽
+                            </div>
+                            <div class="collapse-content">
+                                <pre class="bg-base-200 p-4 rounded-lg overflow-auto max-h-60" x-text="fileContent.content"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 資料載入記錄 -->
+                <div x-show="activeTab === 'logs'" x-cloak x-data="dataLoadingLogs()">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold">資料載入記錄</h3>
+                        <button class="btn btn-sm btn-primary" @click="clearLogs()">清除記錄</button>
+                    </div>
+                    
+                    <div class="bg-base-200 p-4 rounded-lg overflow-auto max-h-96">
+                        <template x-if="logs.length === 0">
+                            <p class="text-center text-gray-500 py-4">
+                                沒有資料載入記錄
+                            </p>
+                        </template>
+                        <template x-for="(log, index) in logs" :key="index">
+                            <div class="mb-2 p-2 border-l-4" :class="log.success ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <span class="font-semibold" x-text="log.filename"></span>
+                                        <span class="text-sm ml-2" x-text="log.timestamp"></span>
+                                    </div>
+                                    <span class="badge" :class="log.success ? 'badge-success' : 'badge-error'" x-text="log.success ? '成功' : '失敗'"></span>
+                                </div>
+                                <p class="text-sm mt-1" x-text="log.message"></p>
+                                <div class="mt-1" x-show="!log.success">
+                                    <div class="collapse collapse-arrow">
+                                        <input type="checkbox" />
+                                        <div class="collapse-title text-xs font-medium p-0">
+                                            顯示詳細錯誤
+                                        </div>
+                                        <div class="collapse-content p-0">
+                                            <pre class="text-xs bg-base-100 p-2 rounded mt-1" x-text="log.error"></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 頁腳 -->
+    <footer class="footer footer-center p-4 bg-base-300 text-base-content">
+        <div>
+            <p>&copy; 2025 DataScout - 資料視覺化平台</p>
+        </div>
+    </footer>
+
+    <script>
+        // 上傳檔案列表
+        function uploadedFilesList() {
+            return {
+                files: [],
+                loading: true,
+                fileType: '',
+                testResult: null,
+                
+                init() {
+                    this.fetchFiles();
+                },
+                
+                fetchFiles() {
+                    this.loading = true;
+                    this.testResult = null;
+                    
+                    let url = '/api/list-uploads/';
+                    if (this.fileType) {
+                        url += `?file_type=${this.fileType}`;
+                    }
+                    
+                    fetch(url)
+                        .then(response => response.json())
+                        .then(data => {
+                            this.files = data.files;
+                            this.loading = false;
+                        })
+                        .catch(error => {
+                            console.error('Error fetching files:', error);
+                            this.loading = false;
+                        });
+                },
+                
+                formatFileSize(bytes) {
+                    if (bytes === 0) return '0 Bytes';
+                    const k = 1024;
+                    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                },
+                
+                testFile(path) {
+                    this.testResult = null;
+                    const fileType = path.split('.').pop().toLowerCase();
+                    
+                    fetch(`/api/file-data/?filename=${encodeURIComponent(path)}&type=${fileType}&is_upload=true`)
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(error => {
+                                    throw new Error(error.detail || '載入檔案失敗');
+                                });
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            this.testResult = {
+                                success: true,
+                                message: '檔案載入成功！資料格式正確。',
+                                data: data
+                            };
+                            
+                            // 記錄成功載入
+                            this.logDataLoading(path, true);
+                        })
+                        .catch(error => {
+                            console.error('Error testing file:', error);
+                            this.testResult = {
+                                success: false,
+                                message: '檔案載入失敗',
+                                details: error.message
+                            };
+                            
+                            // 記錄失敗載入
+                            this.logDataLoading(path, false, error.message);
+                        });
+                },
+                
+                goToMainWithFile(path) {
+                    const fileType = path.split('.').pop().toLowerCase();
+                    window.location.href = `/?upload=${encodeURIComponent(path)}&type=${fileType}`;
+                },
+                
+                logDataLoading(filename, success, error = '') {
+                    const logs = JSON.parse(localStorage.getItem('dataLoadingLogs') || '[]');
+                    logs.unshift({
+                        filename,
+                        success,
+                        message: success ? '檔案載入成功' : '檔案載入失敗',
+                        error,
+                        timestamp: new Date().toLocaleString()
+                    });
+                    
+                    // 限制記錄數量
+                    if (logs.length > 50) {
+                        logs.pop();
+                    }
+                    
+                    localStorage.setItem('dataLoadingLogs', JSON.stringify(logs));
+                }
+            }
+        }
+        
+        // 檔案檢查器
+        function fileChecker() {
+            return {
+                filename: '',
+                checkResult: null,
+                fileContent: {
+                    tested: false,
+                    success: false,
+                    message: '',
+                    content: ''
+                },
+                
+                checkFile() {
+                    if (!this.filename) return;
+                    
+                    this.checkResult = null;
+                    this.fileContent = {
+                        tested: false,
+                        success: false,
+                        message: '',
+                        content: ''
+                    };
+                    
+                    fetch(`/api/check-file/?filename=${encodeURIComponent(this.filename)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.exists) {
+                                this.checkResult = {
+                                    exists: true,
+                                    message: '檔案存在！',
+                                    path: data.path
+                                };
+                            } else {
+                                this.checkResult = {
+                                    exists: false,
+                                    message: '檔案不存在',
+                                    error: data.error
+                                };
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error checking file:', error);
+                            this.checkResult = {
+                                exists: false,
+                                message: '檢查檔案時發生錯誤',
+                                error: error.message
+                            };
+                        });
+                },
+                
+                testFileContent() {
+                    if (!this.checkResult || !this.checkResult.exists) return;
+                    
+                    const path = this.checkResult.path;
+                    const fileType = path.split('.').pop().toLowerCase();
+                    
+                    this.fileContent = {
+                        tested: true,
+                        success: false,
+                        message: '正在載入檔案...',
+                        content: ''
+                    };
+                    
+                    fetch(`/api/file-data/?filename=${encodeURIComponent(path)}&type=${fileType}&is_upload=true`)
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(error => {
+                                    throw new Error(error.detail || '載入檔案失敗');
+                                });
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            this.fileContent = {
+                                tested: true,
+                                success: true,
+                                message: '檔案內容載入成功！',
+                                content: JSON.stringify(data, null, 2)
+                            };
+                            
+                            // 記錄成功載入
+                            this.logDataLoading(path, true);
+                        })
+                        .catch(error => {
+                            console.error('Error loading file content:', error);
+                            this.fileContent = {
+                                tested: true,
+                                success: false,
+                                message: '檔案內容載入失敗',
+                                content: error.message
+                            };
+                            
+                            // 記錄失敗載入
+                            this.logDataLoading(path, false, error.message);
+                        });
+                },
+                
+                goToMainWithFile(path) {
+                    const fileType = path.split('.').pop().toLowerCase();
+                    window.location.href = `/?upload=${encodeURIComponent(path)}&type=${fileType}`;
+                },
+                
+                logDataLoading(filename, success, error = '') {
+                    const logs = JSON.parse(localStorage.getItem('dataLoadingLogs') || '[]');
+                    logs.unshift({
+                        filename,
+                        success,
+                        message: success ? '檔案載入成功' : '檔案載入失敗',
+                        error,
+                        timestamp: new Date().toLocaleString()
+                    });
+                    
+                    // 限制記錄數量
+                    if (logs.length > 50) {
+                        logs.pop();
+                    }
+                    
+                    localStorage.setItem('dataLoadingLogs', JSON.stringify(logs));
+                }
+            }
+        }
+        
+        // 資料載入記錄
+        function dataLoadingLogs() {
+            return {
+                logs: [],
+                
+                init() {
+                    this.loadLogs();
+                },
+                
+                loadLogs() {
+                    this.logs = JSON.parse(localStorage.getItem('dataLoadingLogs') || '[]');
+                },
+                
+                clearLogs() {
+                    localStorage.removeItem('dataLoadingLogs');
+                    this.logs = [];
+                }
+            }
+        }
+    </script>
+</body>
+</html>

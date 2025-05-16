@@ -1,4 +1,4 @@
-import { showError, showSuccess, showLoading, fetchAllDataFiles, fetchFileData } from './utils.js';
+import { showError, showSuccess, showLoading, showChartMessage, hideChartMessage, fetchAllDataFiles, fetchFileData } from './utils.js';
 import { CHART_TYPE_TO_EXAMPLE_FILE, loadExampleDataForChartType } from './chart-helpers.js';
 import { createChart, captureChart } from './chart-renderer.js';
 import { uploadChart, exportDataToCSV, exportDataToJSON, exportDataToExcel } from './data-exporter.js';
@@ -16,7 +16,11 @@ const appState = {
     currentChartType: 'radar',  // 預設為雷達圖
     currentChartTheme: 'default',
     availableDataFiles: {},
-    dataColumnInfo: null
+    dataColumnInfo: null,
+    dataStats: {
+        totalPoints: 0,
+        datasetCount: 0
+    }
 };
 
 /**
@@ -37,6 +41,9 @@ async function initPage() {
     
     // 初始化主題處理
     initThemeHandler();
+    
+    // 顯示圖表提示訊息
+    showChartMessage();
     
     // 獲取所有可用的資料檔案
     const files = await fetchAllDataFiles();
@@ -193,6 +200,7 @@ async function loadExampleFile(filename) {
         
         try {
             data = await fetchExampleData(filename);
+            console.log('成功使用新API獲取範例資料:', filename);
         } catch (error) {
             console.warn('使用新API獲取範例失敗，嘗試舊API:', error);
             data = await fetchFileData(filename, 'json');
@@ -224,8 +232,33 @@ async function loadExampleFile(filename) {
             // 根據頁面主題同步圖表主題
             const effectiveTheme = syncChartThemeWithPageTheme(appState);
             
+            console.log('建立新圖表:', {
+                chartType,
+                effectiveTheme,
+                dataLength: data.datasets ? data.datasets.length : data.data?.datasets?.length || '未知'
+            });
+            
+            // 檢查資料結構，修正不符合標準的資料格式
+            const chartData = ensureValidChartData(data, chartType);
+            
             // 渲染圖表
-            createChart(data, chartType, effectiveTheme, appState);
+            try {
+                // 隱藏提示訊息，準備顯示圖表
+                hideChartMessage();
+                
+                const chartResult = createChart(chartData, chartType, effectiveTheme, appState);
+                if (!chartResult) {
+                    console.error('圖表創建失敗，無返回值');
+                    showError('圖表渲染失敗');
+                    // 如果圖表渲染失敗，顯示提示訊息
+                    showChartMessage();
+                }
+            } catch (chartError) {
+                console.error('圖表渲染錯誤：', chartError);
+                showError(`圖表渲染錯誤: ${chartError.message}`);
+                // 如果圖表渲染錯誤，顯示提示訊息
+                showChartMessage();
+            }
             
             // 儲存目前檔案和類型
             appState.currentDataFile = filename;
@@ -243,6 +276,61 @@ async function loadExampleFile(filename) {
         showError('載入範例檔案時發生錯誤');
     } finally {
         showLoading(false);
+    }
+}
+
+/**
+ * 確保資料符合 Chart.js 格式要求
+ * @param {Object} data - 原始資料
+ * @param {string} chartType - 圖表類型
+ * @returns {Object} 處理後的資料
+ */
+function ensureValidChartData(data, chartType) {
+    try {
+        // 檢查是否已經是標準格式
+        if (data.datasets) {
+            return data;
+        }
+        
+        // 檢查是否是嵌套在 data 屬性中的標準格式
+        if (data.data && data.data.datasets) {
+            return data.data;
+        }
+        
+        // 檢查是否是其他結構格式
+        if (data.type && data.type === chartType && data.labels && data.datasets) {
+            return {
+                labels: data.labels,
+                datasets: data.datasets
+            };
+        }
+        
+        // 無法識別的格式，創建基本結構
+        console.warn('無法識別的資料格式，嘗試創建基本結構', data);
+        
+        return {
+            labels: data.labels || [],
+            datasets: [{
+                label: '資料集 1',
+                data: Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []),
+                backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        };
+    } catch (error) {
+        console.error('處理圖表資料格式時發生錯誤:', error);
+        // 返回一個最小可用結構
+        return {
+            labels: ['錯誤'],
+            datasets: [{
+                label: '錯誤資料',
+                data: [0],
+                backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 1
+            }]
+        };
     }
 }
 
@@ -270,44 +358,44 @@ function initExportButtons() {
     }
     
     // 圖片匯出按鈕
-    const exportPngBtn = document.getElementById('exportPng');
+    const exportPngBtn = document.getElementById('exportPngBtn') || document.getElementById('exportPng');
     if (exportPngBtn) {
         exportPngBtn.addEventListener('click', () => {
             captureChart('image/png', appState);
-            exportDropdown.classList.add('hidden');
+            if (exportDropdown) exportDropdown.classList.add('hidden');
         });
     }
     
-    const exportWebpBtn = document.getElementById('exportWebp');
+    const exportWebpBtn = document.getElementById('exportWebpBtn') || document.getElementById('exportWebp');
     if (exportWebpBtn) {
         exportWebpBtn.addEventListener('click', () => {
             captureChart('image/webp', appState);
-            exportDropdown.classList.add('hidden');
+            if (exportDropdown) exportDropdown.classList.add('hidden');
         });
     }
     
     // 資料匯出按鈕
-    const exportCsvBtn = document.getElementById('exportCsv');
+    const exportCsvBtn = document.getElementById('exportCsvBtn') || document.getElementById('exportCsv');
     if (exportCsvBtn) {
         exportCsvBtn.addEventListener('click', () => {
             exportDataToCSV(appState);
-            exportDropdown.classList.add('hidden');
+            if (exportDropdown) exportDropdown.classList.add('hidden');
         });
     }
     
-    const exportJsonBtn = document.getElementById('exportJson');
+    const exportJsonBtn = document.getElementById('exportJsonBtn') || document.getElementById('exportJson');
     if (exportJsonBtn) {
         exportJsonBtn.addEventListener('click', () => {
             exportDataToJSON(appState);
-            exportDropdown.classList.add('hidden');
+            if (exportDropdown) exportDropdown.classList.add('hidden');
         });
     }
     
-    const exportExcelBtn = document.getElementById('exportExcel');
+    const exportExcelBtn = document.getElementById('exportExcelBtn') || document.getElementById('exportExcel');
     if (exportExcelBtn) {
         exportExcelBtn.addEventListener('click', () => {
             exportDataToExcel(appState);
-            exportDropdown.classList.add('hidden');
+            if (exportDropdown) exportDropdown.classList.add('hidden');
         });
     }
     
@@ -436,17 +524,40 @@ async function updateExampleFileList() {
         // 清空加載訊息
         exampleFileList.innerHTML = '';
         
+        // 檢查並預設 categorized 屬性
+        if (!exampleData || typeof exampleData !== 'object') {
+            throw new Error('範例資料格式無效');
+        }
+        
         const categorizedFiles = exampleData.categorized || {};
         
         // 如果沒有任何範例檔案
         if (Object.keys(categorizedFiles).length === 0) {
-            // 如果API沒有返回分類文件，嘗試舊方式
+            // 如果API沒有返回分類文件，嘗試使用原始資料
+            if (exampleData.examples && exampleData.examples.length > 0) {
+                // 如果 API 沒返回分類資料但有原始資料，手動分類
+                const manualCategorized = {};
+                exampleData.examples.forEach(example => {
+                    const type = example.chart_type || 'unknown';
+                    if (!manualCategorized[type]) {
+                        manualCategorized[type] = [];
+                    }
+                    manualCategorized[type].push(example);
+                });
+                
+                // 使用手動分類的檔案
+                displayCategorizedExamples(manualCategorized, currentChartType, exampleFileList);
+                return;
+            }
+            
+            // 如果API返回的數據無效，嘗試舊方式
             if (appState.availableDataFiles && appState.availableDataFiles.json) {
-                // 使用舊方式显示
+                // 使用舊方式顯示
                 displayExampleFilesLegacy();
                 return;
             }
             
+            // 真的沒有檔案可顯示
             const noFilesMsg = document.createElement('p');
             noFilesMsg.textContent = '沒有可用的範例檔案';
             noFilesMsg.className = 'text-sm text-gray-500 p-2 text-center';
@@ -454,47 +565,9 @@ async function updateExampleFileList() {
             return;
         }
         
-        // 僅顯示目前圖表類型的範例檔案
-        let currentTypeFiles = categorizedFiles[currentChartType] || [];
+        // 顯示分類後的檔案
+        displayCategorizedExamples(categorizedFiles, currentChartType, exampleFileList);
         
-        if (currentTypeFiles.length > 0) {
-            // 添加當前類型標題
-            const typeHeading = document.createElement('div');
-            typeHeading.className = 'px-3 py-2 text-sm font-bold text-gray-800 bg-gray-100';
-            typeHeading.textContent = `${currentChartType.charAt(0).toUpperCase() + currentChartType.slice(1)}型圖表`;
-            exampleFileList.appendChild(typeHeading);
-            
-            // 添加當前類型的範例
-            currentTypeFiles.forEach(fileInfo => {
-                const fileButton = document.createElement('button');
-                fileButton.textContent = fileInfo.display_name;
-                fileButton.className = 'w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors';
-                fileButton.addEventListener('click', () => loadExampleFile(fileInfo.filename));
-                
-                // 如果是當前檔案，標記為選中狀態
-                if (fileInfo.filename === appState.currentDataFile) {
-                    fileButton.classList.add('bg-blue-50', 'text-blue-700', 'font-medium');
-                }
-                
-                exampleFileList.appendChild(fileButton);
-            });
-        } else {
-            // 沒有當前圖表類型的範例檔案
-            const noFilesMsg = document.createElement('p');
-            noFilesMsg.textContent = `沒有可用的${currentChartType}型範例檔案`;
-            noFilesMsg.className = 'text-sm text-gray-500 p-2 text-center';
-            exampleFileList.appendChild(noFilesMsg);
-        }
-        
-        // 可以添加一個"所有範例"的按鈕或鏈接
-        const viewAllExamples = document.createElement('div');
-        viewAllExamples.className = 'text-center p-2 mt-2';
-        const viewAllLink = document.createElement('a');
-        viewAllLink.href = '/examples';
-        viewAllLink.className = 'text-xs text-primary hover:text-primary-focus underline';
-        viewAllLink.textContent = '瀏覽所有範例圖表 →';
-        viewAllExamples.appendChild(viewAllLink);
-        exampleFileList.appendChild(viewAllExamples);
     } catch (error) {
         console.error('更新範例檔案列表錯誤:', error);
         // 顯示錯誤訊息並嘗試退回到舊方式
@@ -510,71 +583,45 @@ async function updateExampleFileList() {
 }
 
 /**
- * 使用舊方式顯示範例檔案列表（備用方法）
+ * 顯示分類的範例檔案
+ * @param {Object} categorizedFiles - 分類的檔案列表
+ * @param {string} currentChartType - 目前的圖表類型
+ * @param {HTMLElement} container - 要顯示檔案的容器
  */
-function displayExampleFilesLegacy() {
-    const exampleFileList = document.getElementById('exampleFileList');
-    if (!exampleFileList) return;
+function displayCategorizedExamples(categorizedFiles, currentChartType, container) {
+    // 僅顯示目前圖表類型的範例檔案
+    let currentTypeFiles = categorizedFiles[currentChartType] || [];
     
-    // 清空現有列表
-    exampleFileList.innerHTML = '';
-    
-    // 篩選範例 JSON 檔案
-    const exampleFiles = appState.availableDataFiles.json || [];
-    const exampleJsonFiles = exampleFiles.filter(file => file.includes('example_'));
-    
-    // 當前選中的圖表類型
-    const currentChartType = appState.currentChartType || 'radar';
-    
-    // 按圖表類型分類範例檔案
-    const categorizedFiles = {
-        'bar': exampleJsonFiles.filter(file => file.includes('example_bar_')),
-        'line': exampleJsonFiles.filter(file => file.includes('example_line_')),
-        'pie': exampleJsonFiles.filter(file => file.includes('example_pie_')),
-        'doughnut': exampleJsonFiles.filter(file => file.includes('example_doughnut_')),
-        'radar': exampleJsonFiles.filter(file => file.includes('example_radar_')),
-        'scatter': exampleJsonFiles.filter(file => file.includes('example_scatter_')),
-        'bubble': exampleJsonFiles.filter(file => file.includes('example_bubble_')),
-        'candlestick': exampleJsonFiles.filter(file => file.includes('example_candlestick_')),
-        'mixed': exampleJsonFiles.filter(file => file.includes('example_mixed_'))
-    };
-    
-    // 只顯示目前圖表類型的範例檔案
-    if (categorizedFiles[currentChartType] && categorizedFiles[currentChartType].length > 0) {
-        // 添加類型標題
+    if (currentTypeFiles.length > 0) {
+        // 添加當前類型標題
         const typeHeading = document.createElement('div');
         typeHeading.className = 'px-3 py-2 text-sm font-bold text-gray-800 bg-gray-100';
         typeHeading.textContent = `${currentChartType.charAt(0).toUpperCase() + currentChartType.slice(1)}型圖表`;
-        exampleFileList.appendChild(typeHeading);
+        container.appendChild(typeHeading);
         
         // 添加當前類型的範例
-        categorizedFiles[currentChartType].forEach(filename => {
+        currentTypeFiles.forEach(fileInfo => {
             const fileButton = document.createElement('button');
-            // 顯示檔案名稱，移除'example_'和'.json'，並將'_'替換為空格
-            const displayName = filename
-                .replace(`example_${currentChartType}_`, '')
-                .replace('.json', '')
-                .replace(/_/g, ' ');
-            fileButton.textContent = displayName;
+            fileButton.textContent = fileInfo.display_name;
             fileButton.className = 'w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors';
-            fileButton.addEventListener('click', () => loadExampleFile(filename));
+            fileButton.addEventListener('click', () => loadExampleFile(fileInfo.filename));
             
             // 如果是當前檔案，標記為選中狀態
-            if (filename === appState.currentDataFile) {
+            if (fileInfo.filename === appState.currentDataFile) {
                 fileButton.classList.add('bg-blue-50', 'text-blue-700', 'font-medium');
             }
             
-            exampleFileList.appendChild(fileButton);
+            container.appendChild(fileButton);
         });
     } else {
         // 沒有當前圖表類型的範例檔案
         const noFilesMsg = document.createElement('p');
         noFilesMsg.textContent = `沒有可用的${currentChartType}型範例檔案`;
         noFilesMsg.className = 'text-sm text-gray-500 p-2 text-center';
-        exampleFileList.appendChild(noFilesMsg);
+        container.appendChild(noFilesMsg);
     }
     
-    // 添加瀏覽所有範例的鏈接
+    // 可以添加一個"所有範例"的按鈕或鏈接
     const viewAllExamples = document.createElement('div');
     viewAllExamples.className = 'text-center p-2 mt-2';
     const viewAllLink = document.createElement('a');
@@ -582,7 +629,7 @@ function displayExampleFilesLegacy() {
     viewAllLink.className = 'text-xs text-primary hover:text-primary-focus underline';
     viewAllLink.textContent = '瀏覽所有範例圖表 →';
     viewAllExamples.appendChild(viewAllLink);
-    exampleFileList.appendChild(viewAllExamples);
+    container.appendChild(viewAllExamples);
 }
 
 /**
@@ -645,13 +692,26 @@ function initUploadFeature() {
                     const files = await fetchAllDataFiles();
                     appState.availableDataFiles = files;
                     
-                    // 載入上傳的檔案
-                    await loadDataFile(data.filename, fileType);
+                    // 修正檔案路徑處理
+                    const filename = data.filename || data.file_path;
                     
-                    // 更新上傳狀態顯示
-                    if (uploadStatus) {
-                        uploadStatus.textContent = '數據載入完成！';
-                        uploadStatus.classList.add('text-success');
+                    // 修正：確保使用正確的檔案類型和處理邏輯
+                    try {
+                        console.log(`正在載入上傳的檔案: ${filename}, 類型: ${fileType}`);
+                        await loadDataFile(filename, fileType);
+                        
+                        if (uploadStatus) {
+                            uploadStatus.textContent = '數據載入完成！';
+                            uploadStatus.classList.add('text-success');
+                        }
+                    } catch (loadError) {
+                        console.error('載入上傳檔案時發生錯誤:', loadError);
+                        showError(`載入檔案失敗: ${loadError.message}`);
+                        
+                        if (uploadStatus) {
+                            uploadStatus.textContent = `載入失敗: ${loadError.message}`;
+                            uploadStatus.classList.add('text-error');
+                        }
                     }
                     
                     // 設定延遲隱藏上傳進度條
@@ -678,7 +738,6 @@ function initUploadFeature() {
                             uploadStatus.classList.add('text-error');
                         }
                     }
-                    // 保持進度條顯示但不改變其樣式
                 }
             } catch (error) {
                 console.error('上傳檔案發生異常:', error);
@@ -688,7 +747,6 @@ function initUploadFeature() {
                     uploadStatus.textContent = `上傳檔案時發生錯誤: ${error.message || '請檢查網路連接'}`;
                     uploadStatus.classList.add('text-error');
                 }
-                // 不添加 progress-error 類別，因為可能不存在
             } finally {
                 showLoading(false);
             }
@@ -715,51 +773,78 @@ async function loadDataFile(filename, type) {
     try {
         showLoading(true);
         
-        // 獲取檔案資料
-        const data = await fetchFileData(filename, type);
-        if (data) {
-            // 獲取目前主題和圖表類型
-            const chartTypeElement = document.getElementById('chartType');
-            const chartThemeElement = document.getElementById('chartTheme');
-            
-            // 檢測檔案類型以自動選擇適合的圖表類型
-            let chartType = chartTypeElement ? chartTypeElement.value : appState.currentChartType;
-            
-            // 使用輔助函數根據檔案名稱判斷最適合的圖表類型
-            const detectedType = guessChartTypeFromFilename(filename);
-            if (detectedType) {
-                chartType = detectedType;
+        // 獲取檔案路徑的規範化處理
+        let filepath = filename;
+        
+        // 如果是上傳的檔案，需要加上上傳目錄前綴
+        if (!filename.includes('/')) {
+            if (type === 'csv') {
+                filepath = `uploads/csv/${filename}`;
+            } else if (type === 'json') {
+                filepath = `uploads/json/${filename}`;
+            } else if (type === 'excel') {
+                filepath = `uploads/excel/${filename}`;
             }
-            
-            // 更新圖表類型選擇器（如果圖表類型有變）
-            if (chartTypeElement && chartType !== chartTypeElement.value) {
-                chartTypeElement.value = chartType;
-                appState.currentChartType = chartType;
-                console.log(`圖表類型已根據檔案名稱自動更新為: ${chartType}`);
-            }
-            
-            const chartTheme = chartThemeElement ? chartThemeElement.value : appState.currentChartTheme;
-            
-            // 根據頁面主題同步圖表主題
-            const effectiveTheme = syncChartThemeWithPageTheme(appState);
-            
-            // 渲染圖表
-            createChart(data, chartType, effectiveTheme, appState);
-            
-            // 儲存目前檔案和類型
-            appState.currentDataFile = filename;
-            appState.currentDataType = type;
-            
-            // 更新範例檔案列表中的選中狀態
-            updateExampleFileList();
-            
-            showSuccess(`已載入檔案: ${filename}`);
-        } else {
-            showError('無法載入資料檔案');
         }
+        
+        console.log(`準備載入檔案，路徑: ${filepath}, 類型: ${type}`);
+        
+        // 獲取檔案資料
+        const data = await fetchFileData(filepath, type);
+        
+        if (!data) {
+            throw new Error(`無法獲取檔案內容: ${filepath}`);
+        }
+        
+        console.log('成功獲取檔案資料，準備渲染圖表');
+        
+        // 獲取目前主題和圖表類型
+        const chartTypeElement = document.getElementById('chartType');
+        const chartThemeElement = document.getElementById('chartTheme');
+        
+        // 檢測檔案類型以自動選擇適合的圖表類型
+        let chartType = chartTypeElement ? chartTypeElement.value : appState.currentChartType;
+        
+        // 使用輔助函數根據檔案名稱判斷最適合的圖表類型
+        const detectedType = guessChartTypeFromFilename(filename);
+        if (detectedType) {
+            chartType = detectedType;
+            console.log(`根據檔案名稱檢測到圖表類型: ${detectedType}`);
+        }
+        
+        // 更新圖表類型選擇器（如果圖表類型有變）
+        if (chartTypeElement && chartType !== chartTypeElement.value) {
+            chartTypeElement.value = chartType;
+            appState.currentChartType = chartType;
+            console.log(`圖表類型已自動更新為: ${chartType}`);
+        }
+        
+        // 根據頁面主題同步圖表主題
+        const effectiveTheme = syncChartThemeWithPageTheme(appState);
+        
+        // 處理資料格式
+        const chartData = ensureValidChartData(data, chartType);
+        
+        // 渲染圖表
+        console.log(`開始渲染圖表, 類型: ${chartType}, 主題: ${effectiveTheme}`);
+        const chart = createChart(chartData, chartType, effectiveTheme, appState);
+        
+        if (chart) {
+            console.log('圖表渲染成功');
+        } else {
+            console.warn('圖表可能未成功渲染');
+        }
+        
+        // 儲存目前檔案和類型
+        appState.currentDataFile = filename;
+        appState.currentDataType = type;
+        
+        showSuccess(`已成功載入檔案: ${filename}`);
+        return true;
     } catch (error) {
         console.error('載入資料檔案錯誤：', error);
-        showError('載入資料檔案時發生錯誤');
+        showError(`載入資料檔案時發生錯誤: ${error.message}`);
+        return false;
     } finally {
         showLoading(false);
     }
@@ -832,6 +917,20 @@ function initThemeSelector() {
 
 // 當 DOM 內容載入完畢後初始化頁面
 document.addEventListener('DOMContentLoaded', () => {
+    // 確保圖表容器可見
+    const chartContainer = document.getElementById('chartContainer');
+    if (chartContainer) {
+        chartContainer.style.display = 'block';
+    }
+    
+    // 初始化應用
     initPage();
     initThemeSelector();
+    
+    // 添加視窗大小變化監聽
+    window.addEventListener('resize', () => {
+        if (appState.myChart) {
+            appState.myChart.resize();
+        }
+    });
 });

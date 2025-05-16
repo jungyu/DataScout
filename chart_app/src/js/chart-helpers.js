@@ -101,7 +101,7 @@ export async function getExampleFilesFromApi(chartType) {
             
             // 返回該圖表類型的所有範例檔案
             if (data.categorized && chartType && data.categorized[chartType]) {
-                return data.categorized[chartType].map(file => file.filename);
+                return data.categorized[chartType];
             }
             
             // 如果沒有指定圖表類型，或者該類型沒有範例，返回所有範例
@@ -133,7 +133,13 @@ export async function loadExampleDataForChartType(chartType, appState) {
         
         if (exampleFiles && exampleFiles.length > 0) {
             // 找到對應的範例檔案，使用第一個
-            filename = exampleFiles[0];
+            // 檢查 exampleFiles 的結構，它可能是文件名字串陣列或物件陣列
+            if (typeof exampleFiles[0] === 'object' && exampleFiles[0].filename) {
+                filename = exampleFiles[0].filename;
+            } else {
+                filename = exampleFiles[0];
+            }
+            
             console.log(`從API獲取 ${chartType} 類型的範例檔案: ${filename}`);
             
             try {
