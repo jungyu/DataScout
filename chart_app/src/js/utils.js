@@ -52,9 +52,15 @@ export async function fetchFileData(filename, type) {
 /**
  * 顯示錯誤訊息
  * @param {string} message - 錯誤訊息
+ * @param {boolean} isDetailedLog - 是否詳細記錄錯誤 
  */
-export function showError(message) {
+export function showError(message, isDetailedLog = false) {
     console.error('錯誤:', message);
+    
+    if (isDetailedLog) {
+        console.trace('錯誤詳細堆疊:');
+    }
+    
     const errorMessage = document.getElementById('errorMessage');
     
     if (errorMessage) {
@@ -69,8 +75,16 @@ export function showError(message) {
             errorMessage.classList.add('hidden');
         }, 5000);
     } else {
-        // 如果找不到錯誤訊息元素，則使用 alert
-        alert(`錯誤: ${message}`);
+        // 如果找不到錯誤訊息元素，嘗試創建一個臨時錯誤提示
+        const tempErrorDiv = document.createElement('div');
+        tempErrorDiv.className = 'error-message fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
+        tempErrorDiv.textContent = `錯誤: ${message}`;
+        document.body.appendChild(tempErrorDiv);
+        
+        // 5秒後移除
+        setTimeout(() => {
+            document.body.removeChild(tempErrorDiv);
+        }, 5000);
     }
 }
 

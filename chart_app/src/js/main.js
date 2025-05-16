@@ -5,6 +5,7 @@ import { uploadChart, exportDataToCSV, exportDataToJSON, exportDataToExcel } fro
 import { initThemeHandler, syncChartThemeWithPageTheme } from './theme-handler.js';
 import { guessChartTypeFromFilename, getExampleFilesForChartType, refreshAvailableFiles } from './file-handler.js';
 import { fetchAvailableExamples, fetchChartTypes, fetchExampleData } from './example-loader.js';
+import { testAllChartTypes } from './chart-test.js';
 
 /**
  * 應用程式狀態
@@ -280,56 +281,169 @@ async function loadExampleFile(filename) {
 }
 
 /**
- * 確保資料符合 Chart.js 格式要求
- * @param {Object} data - 原始資料
+ * 確保圖表數據結構有效
+ * @param {object} data - 圖表數據
  * @param {string} chartType - 圖表類型
- * @returns {Object} 處理後的資料
+ * @returns {object} - 處理過的圖表數據
  */
 function ensureValidChartData(data, chartType) {
     try {
-        // 檢查是否已經是標準格式
-        if (data.datasets) {
-            return data;
-        }
+        console.log(`處理${chartType}類型的圖表數據`, data);
         
-        // 檢查是否是嵌套在 data 屬性中的標準格式
-        if (data.data && data.data.datasets) {
-            return data.data;
-        }
+        // 開始處理圖表數據前記錄這一步，方便後續排查
+        console.log('數據處理開始，圖表類型:', chartType);
         
-        // 檢查是否是其他結構格式
-        if (data.type && data.type === chartType && data.labels && data.datasets) {
-            return {
-                labels: data.labels,
-                datasets: data.datasets
+        // 確保基本結構存在
+        if (!data) {
+            console.warn('圖表數據為空，創建基本結構');
+            data = {
+                datasets: [],
+                labels: []
             };
         }
         
-        // 無法識別的格式，創建基本結構
-        console.warn('無法識別的資料格式，嘗試創建基本結構', data);
+        // 特殊處理蠟燭圖和OHLC數據
+        if ((chartType === 'candlestick' || chartType === 'ohlc') && data.datasets) {
+            console.log(`處理${chartType}金融圖表特殊結構數據`);
+            
+            // 金融圖表數據格式化
+            data.datasets.forEach(dataset => {
+                // 確保數據點格式正確
+                if (dataset.data && Array.isArray(dataset.data)) {
+                    dataset.data = dataset.data.map(point => {
+                        // 安全地解析時間值
+                        let timeValue;
+                        try {
+                            const rawTime = point.t || point.time || point.x || point.date;
+                            
+                            if (rawTime instanceof Date) {
+                                timeValue = rawTime;
+                            } else if (typeof rawTime === 'string') {
+                                // 嘗試多種日期格式解析
+                                if (rawTime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+                                    // ISO 格式
+                                    timeValue = new Date(rawTime);
+                                } else if (rawTime.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                    // YYYY-MM-DD 格式 - 使用UTC避免時區問題
+                                    const [year, month, day] = rawTime.split('-').map(Number);
+                                    timeValue = new Date(Date.UTC(year, month - 1, day));
+                                } else if (rawTime.match(/^\d+$/)) {
+                                    // 純數字（時間戳）
+                                    timeValue = new Date(parseInt(rawTime));
+                                } else {
+                                    // 其他格式嘗試標準解析
+                                    timeValue = new Date(rawTime);
+                                }
+                                
+                                // 驗證是否為有效日期
+                                if (isNaN(timeValue.getTime())) {
+                                    console.warn('無效的日期字符串，使用當前日期', rawTime);
+                                    timeValue = new Date();
+                                }
+                            } else if (typeof rawTime === 'number') {
+                                // 處理日期時間戳 (毫秒)
+                                timeValue = new Date(rawTime);
+                            } else {
+                                // 如果沒有有效的時間欄位，使用當前時間
+                                console.warn('無法識別的時間格式，將使用當前時間');
+                                timeValue = new Date();
+                            }
+                        } catch (dateError) {
+                            console.error('解析時間值時出錯:', dateError, '對應數據點:', point);
+                            // 發生錯誤時使用當前時間
+                            timeValue = new Date();
+                        }
+                        
+                        // 統一數據格式 - 確保t, o, h, l, c 屬性存在並是數字類型
+                        return {
+                            t: timeValue,
+                            o: Number(point.o || point.open || point.y || 0),
+                            h: Number(point.h || point.high || point.y || 0),
+                            l: Number(point.l || point.low || point.y || 0),
+                            c: Number(point.c || point.close || point.y || 0)
+                        };
+                    });
+                    
+                    // 確保數據按時間排序
+                    dataset.data.sort((a, b) => a.t - b.t);
+                }
+                
+                // 設置適當的色彩
+                if (!dataset.color) {
+                    dataset.color = {
+                        up: 'rgba(75, 192, 75, 1)',
+                        down: 'rgba(255, 99, 132, 1)',
+                        unchanged: 'rgba(160, 160, 160, 1)'
+                    };
+                }
+            });
+            
+            console.log(`${chartType}數據處理完成:`, data);
+        } 
+        // 特殊處理極坐標圖數據
+        else if (chartType === 'polarArea' && data) {
+            console.log('處理極坐標圖特殊結構數據');
+            
+            // 確保有標籤
+            if (!data.labels || !Array.isArray(data.labels) || data.labels.length === 0) {
+                console.warn('極坐標圖缺少標籤，生成預設標籤');
+                data.labels = ['項目 1', '項目 2', '項目 3', '項目 4', '項目 5'];
+            }
+            
+            // 確保有數據集
+            if (!data.datasets || !Array.isArray(data.datasets) || data.datasets.length === 0) {
+                console.warn('極坐標圖缺少數據集，生成預設數據集');
+                data.datasets = [{
+                    label: '數據系列',
+                    data: [10, 20, 30, 40, 50],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.6)',
+                        'rgba(54, 162, 235, 0.6)',
+                        'rgba(255, 206, 86, 0.6)',
+                        'rgba(75, 192, 192, 0.6)',
+                        'rgba(153, 102, 255, 0.6)'
+                    ]
+                }];
+            } 
+            // 如果數據集存在但缺少背景色
+            else if (data.datasets[0] && !data.datasets[0].backgroundColor) {
+                console.warn('極坐標圖數據集缺少背景色，添加預設顏色');
+                const defaultColors = [
+                    'rgba(255, 99, 132, 0.6)',
+                    'rgba(54, 162, 235, 0.6)',
+                    'rgba(255, 206, 86, 0.6)',
+                    'rgba(75, 192, 192, 0.6)',
+                    'rgba(153, 102, 255, 0.6)'
+                ];
+                
+                // 如果是單個數據集但需要多個顏色
+                if (!Array.isArray(data.datasets[0].backgroundColor)) {
+                    // 創建足夠長度的顏色數組
+                    const colors = [];
+                    for (let i = 0; i < data.datasets[0].data.length; i++) {
+                        colors.push(defaultColors[i % defaultColors.length]);
+                    }
+                    data.datasets[0].backgroundColor = colors;
+                }
+            }
+            
+            console.log('極坐標圖數據處理完成:', data);
+        }
         
-        return {
-            labels: data.labels || [],
-            datasets: [{
-                label: '資料集 1',
-                data: Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []),
-                backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1
-            }]
-        };
+        // 確保數據集和標籤存在
+        if (!data.datasets && !data.data) {
+            console.warn('數據缺少 datasets 屬性，創建空數據集');
+            data.datasets = [];
+        }
+        
+        console.log('數據處理完成，結果:', data);
+        return data;
     } catch (error) {
-        console.error('處理圖表資料格式時發生錯誤:', error);
-        // 返回一個最小可用結構
+        console.error('處理圖表數據時發生錯誤:', error);
+        // 返回一個最小可用的數據結構
         return {
-            labels: ['錯誤'],
-            datasets: [{
-                label: '錯誤資料',
-                data: [0],
-                backgroundColor: 'rgba(255, 99, 132, 0.6)',
-                borderColor: 'rgba(255, 99, 132, 1)',
-                borderWidth: 1
-            }]
+            datasets: [],
+            labels: []
         };
     }
 }
@@ -927,6 +1041,22 @@ document.addEventListener('DOMContentLoaded', () => {
     initPage();
     initThemeSelector();
     
+    // 初始化測試按鈕
+    const testChartsButton = document.getElementById('testCharts');
+    if (testChartsButton) {
+        testChartsButton.addEventListener('click', () => {
+            const canvas = document.getElementById('chartCanvas');
+            if (canvas) {
+                console.log('啟動圖表類型測試模式');
+                showSuccess('已啟動圖表測試模式');
+                testAllChartTypes(canvas, appState);
+            } else {
+                console.error('找不到圖表畫布元素');
+                showError('無法啟動測試模式：找不到圖表畫布');
+            }
+        });
+    }
+    
     // 添加視窗大小變化監聽
     window.addEventListener('resize', () => {
         if (appState.myChart) {
@@ -934,3 +1064,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// 添加以下檢查代碼來確保蠟燭圖插件正確加載
+
+// 檢查 Chart.js 是否正確載入
+if (typeof Chart === 'undefined') {
+    console.error('Chart.js 未正確載入，蠟燭圖將無法顯示');
+}
+
+// 檢查是否有蠟燭圖擴展
+if (Chart && !Chart.controllers.candlestick) {
+    console.error('Chart.js 蠟燭圖擴展未正確載入，請確保已引入 chartjs-chart-financial.js');
+}
+
+// 檢查是否有OHLC圖擴展
+if (Chart && !Chart.controllers.ohlc) {
+    console.error('Chart.js OHLC圖擴展未正確載入，請確保已引入 chartjs-chart-financial.js');
+}
+
+// 檢查是否有桑基圖擴展
+if (Chart && !Chart.controllers.sankey) {
+    console.error('Chart.js 桑基圖擴展未正確載入，請確保已引入 chartjs-chart-sankey.js');
+}
+
+// 確認可用的圖表類型
+if (Chart) {
+    console.log('可用圖表類型:', Object.keys(Chart.controllers || {}));
+}

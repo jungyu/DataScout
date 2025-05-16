@@ -8,16 +8,95 @@
     <link href="{{ url_for('static', path='/css/output.css') }}" rel="stylesheet">
     <!-- Google Fonts - Noto Sans TC -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    
     <!-- Chart.js 庫 -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Chart.js 時間軸適配器 - 用於時間序列圖表 -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    <!-- Chart.js 金融圖表擴展 -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    
+    <!-- Luxon 日期處理庫 -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.2.1/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.0/dist/chartjs-adapter-luxon.min.js"></script>
+    
+    <!-- Chart.js 金融圖表擴展 - 使用固定版本 -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js"></script>
+    
     <!-- Chart.js 桑基圖擴展 -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@0.12.0/dist/chartjs-chart-sankey.min.js"></script>
+    
+    <!-- 圖表修復程序 - 修復特殊圖表類型渲染問題 -->
+    <script src="{{ url_for('static', path='/js/chart-fix.js') }}"></script>
+    
+    <!-- 圖表增強腳本 - 確保與修復程序協同工作 -->
+    <script src="{{ url_for('static', path='/js/main-enhance.js') }}" defer></script>
+    
     <!-- Alpine.js -->
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    
+    <!-- 自定義初始化腳本 - 確保圖表庫正確載入和註冊 -->
+    <script>
+        // 頁面載入時檢查並註冊金融圖表控制器
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('檢查並註冊圖表控制器');
+            
+            // 檢查 Chart.js 是否已載入
+            if (typeof Chart !== 'undefined') {
+                console.log('Chart.js 已載入，版本:', Chart.version);
+                
+                // 列出已註冊的控制器
+                console.log('已註冊的控制器:', Object.keys(Chart.controllers || {}));
+                
+                // 檢查並註冊金融圖表控制器
+                try {
+                    // 檢查蠟燭圖控制器
+                    if (!Chart.controllers.candlestick && window.CandlestickController) {
+                        console.log('註冊 CandlestickController');
+                        Chart.register(window.CandlestickController);
+                    }
+                    
+                    // 檢查 OHLC 控制器
+                    if (!Chart.controllers.ohlc && window.OhlcController) {
+                        console.log('註冊 OhlcController');
+                        Chart.register(window.OhlcController);
+                    }
+                    
+                    // 如果從 window.Chart.controllers.financial 中獲取
+                    if (window.Chart && window.Chart.controllers && window.Chart.controllers.financial) {
+                        if (window.Chart.controllers.financial.CandlestickController) {
+                            Chart.register(window.Chart.controllers.financial.CandlestickController);
+                            console.log('從 financial 套件註冊 CandlestickController');
+                        }
+                        if (window.Chart.controllers.financial.OhlcController) {
+                            Chart.register(window.Chart.controllers.financial.OhlcController);
+                            console.log('從 financial 套件註冊 OhlcController');
+                        }
+                    }
+                    
+                    // 檢查並註冊極座標圖控制器
+                    if (!Chart.controllers.polarArea && Chart.PolarAreaController) {
+                        console.log('註冊 PolarAreaController');
+                        Chart.register(Chart.PolarAreaController);
+                    }
+                    
+                    // 手動從 chartjs-chart-financial 暴露控制器
+                    if (typeof window.ChartFinancial !== 'undefined') {
+                        console.log('從 ChartFinancial 全局對象註冊控制器');
+                        if (window.ChartFinancial.CandlestickController) {
+                            Chart.register(window.ChartFinancial.CandlestickController);
+                        }
+                        if (window.ChartFinancial.OhlcController) {
+                            Chart.register(window.ChartFinancial.OhlcController);
+                        }
+                    }
+                    
+                    // 再次檢查註冊結果
+                    console.log('註冊後的控制器:', Object.keys(Chart.controllers || {}));
+                } catch (error) {
+                    console.error('註冊圖表控制器時發生錯誤:', error);
+                }
+            } else {
+                console.warn('Chart.js 尚未載入，將在主腳本中重試');
+            }
+        });
+    </script>
 </head>
 
 <body class="min-h-screen bg-base-200">
@@ -116,6 +195,9 @@
                             <div class="flex flex-wrap gap-2">
                                 <button id="showDataSummary" class="btn btn-sm btn-outline btn-info">
                                     顯示資料摘要
+                                </button>
+                                <button id="testCharts" class="btn btn-sm btn-outline btn-warning">
+                                    測試圖表類型
                                 </button>
                             </div>
                             <div>

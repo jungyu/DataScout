@@ -12,7 +12,8 @@ export const CHART_TYPE_TO_EXAMPLE_FILE = {
     'scatter': 'example_scatter_stock_risk_return.json',
     'bubble': 'example_bubble_market_analysis.json',
     'candlestick': 'example_candlestick_gold_twd.json',
-    'mixed': 'example_mixed_sp500_price_volume.json'
+    'mixed': 'example_mixed_sp500_price_volume.json',
+    'sankey': 'example_sankey_energy_flow.json'
 };
 
 /**
@@ -43,7 +44,8 @@ export function findExampleDataFileForChartType(chartType, availableFiles) {
     const fallbackTypes = {
         'polarArea': 'radar',
         'ohlc': 'candlestick',
-        'scatter': 'bubble'
+        'scatter': 'bubble',
+        'sankey': 'sankey' // 桑基圖使用指定的範例
     };
     
     // 檢查是否有回退類型

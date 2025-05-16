@@ -19,7 +19,10 @@ export function guessChartTypeFromFilename(filename) {
     if (filename.includes('_scatter_')) return 'scatter';
     if (filename.includes('_bubble_')) return 'bubble';
     if (filename.includes('_candlestick_')) return 'candlestick';
+    if (filename.includes('_ohlc_')) return 'ohlc';
+    if (filename.includes('_polarArea_') || filename.includes('_polar_area_')) return 'polarArea';
     if (filename.includes('_mixed_')) return 'mixed';
+    if (filename.includes('_sankey_')) return 'sankey';
     
     return 'line'; // 預設為折線圖
 }
@@ -59,6 +62,9 @@ export function getCategorizedExampleFiles(appState) {
         'scatter': exampleFiles.filter(file => file.includes('example_scatter_')),
         'bubble': exampleFiles.filter(file => file.includes('example_bubble_')),
         'candlestick': exampleFiles.filter(file => file.includes('example_candlestick_')),
+        'ohlc': exampleFiles.filter(file => file.includes('example_ohlc_')),
+        'polarArea': exampleFiles.filter(file => 
+            file.includes('example_polarArea_') || file.includes('example_polar_area_')),
         'mixed': exampleFiles.filter(file => file.includes('example_mixed_'))
     };
     

@@ -1,8 +1,13 @@
 /**
- * 圖表渲染器模組 - 專門負責 Chart.js 圖表的創建和更新
+ * 圖表渲染器模組 - 專責圖表的創建和更新
  */
 
 import { showError } from './utils.js';
+import { 
+    validateCandlestickData, 
+    normalizeCandlestickData, 
+    detectTimeUnit 
+} from './candlestick-helper.js';
 
 /**
  * 創建或更新圖表
@@ -13,6 +18,221 @@ import { showError } from './utils.js';
  */
 export function createChart(data, chartType, theme, appState) {
     try {
+        // 確保 Chart.js 存在
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js 未載入，無法創建圖表');
+            throw new Error('Chart.js 函式庫未載入');
+        }
+        
+        // 檢查 Chart.js 版本
+        console.log('Chart.js 版本:', Chart.version);
+        
+        // 檢查有哪些可用的控制器
+        console.log('可用控制器:', Object.keys(Chart.controllers || {}));
+        
+        // 特殊圖表類型的處理 - 增強版
+        console.log(`處理圖表類型: ${chartType}`);
+        
+        // 初始化圖表控制器狀態檢查
+        const existingControllers = Object.keys(Chart.controllers || {});
+        console.log('當前註冊的控制器:', existingControllers);
+
+        // 確保支援極座標圖
+        if (chartType === 'polarArea') {
+            console.log('處理極座標圖 (polarArea)');
+            
+            // 檢查控制器是否存在
+            if (!Chart.controllers.polarArea) {
+                console.warn('未找到極座標圖控制器，嘗試手動註冊...');
+                
+                // 嘗試從Chart.js核心註冊控制器
+                try {
+                    if (Chart.PolarAreaController) {
+                        Chart.register(Chart.PolarAreaController);
+                        console.log('成功註冊極座標圖控制器');
+                    } else {
+                        console.error('未找到極座標圖控制器，將回退到圓餅圖');
+                        chartType = 'pie';
+                    }
+                } catch (error) {
+                    console.error('註冊極座標圖控制器失敗:', error);
+                    chartType = 'pie';
+                }
+            }
+        }
+        
+        // 金融圖表類型的特殊處理
+        if (['candlestick', 'ohlc'].includes(chartType)) {
+            console.log(`準備創建金融圖表: ${chartType}`);
+            
+            // 檢查金融圖表數據結構
+            if (data && data.datasets && data.datasets[0] && Array.isArray(data.datasets[0].data)) {
+                const samplePoint = data.datasets[0].data[0];
+                if (samplePoint) {
+                    console.log('數據點示例:', samplePoint);
+                    
+                    // 檢查時間字段並進行標準化
+                    const timeField = samplePoint.t || samplePoint.time || samplePoint.x || samplePoint.date;
+                    console.log('時間字段值:', timeField, '類型:', typeof timeField);
+                    
+                    // 標準化時間格式
+                    if (typeof timeField === 'string') {
+                        try {
+                            const dateObj = new Date(timeField);
+                            const isValid = !isNaN(dateObj.getTime());
+                            console.log('轉換後的日期對象:', dateObj, '是有效的:', isValid);
+                            
+                            // 預處理數據中的時間格式
+                            if (isValid && data.datasets) {
+                                data.datasets.forEach(dataset => {
+                                    if (dataset.data && Array.isArray(dataset.data)) {
+                                        dataset.data.forEach(point => {
+                                            const pointTime = point.t || point.time || point.x || point.date;
+                                            if (typeof pointTime === 'string') {
+                                                // 直接轉換為 Date 對象
+                                                point.t = new Date(pointTime);
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                            
+                            // YYYY-MM-DD 格式特殊處理
+                            if (timeField.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                const [year, month, day] = timeField.split('-').map(Number);
+                                const utcDate = new Date(Date.UTC(year, month - 1, day));
+                                console.log('使用 UTC 處理的日期:', utcDate);
+                            }
+                        } catch (dateError) {
+                            console.error('日期轉換出錯:', dateError);
+                        }
+                    }
+                }
+            }
+            
+            // 檢查並註冊金融圖表控制器
+            if (chartType === 'candlestick') {
+                if (!Chart.controllers.candlestick) {
+                    console.warn('未找到蠟燭圖控制器，嘗試手動註冊...');
+                    let controllerRegistered = false;
+                    
+                    // 方法1: 嘗試從window對象註冊
+                    try {
+                        if (window.CandlestickController) {
+                            Chart.register(window.CandlestickController);
+                            controllerRegistered = true;
+                            console.log('已從window.CandlestickController註冊蠟燭圖控制器');
+                        }
+                    } catch (e) {
+                        console.warn('從window.CandlestickController註冊失敗:', e);
+                    }
+                    
+                    // 方法2: 嘗試從financial包註冊
+                    if (!controllerRegistered && window.Chart && window.Chart.controllers && window.Chart.controllers.financial) {
+                        try {
+                            Chart.register(window.Chart.controllers.financial.CandlestickController);
+                            controllerRegistered = true;
+                            console.log('已從financial包註冊蠟燭圖控制器');
+                        } catch (e) {
+                            console.warn('從financial包註冊蠟燭圖控制器失敗:', e);
+                        }
+                    }
+                    
+                    // 方法3: 從全局命名空間尋找
+                    if (!controllerRegistered) {
+                        const globalControllers = Object.keys(window).filter(key => key.includes('Candlestick') || key.includes('candlestick'));
+                        console.log('可能的全局控制器:', globalControllers);
+                        
+                        for (const key of globalControllers) {
+                            if (window[key] && typeof window[key] === 'function') {
+                                try {
+                                    Chart.register(window[key]);
+                                    controllerRegistered = true;
+                                    console.log(`已從${key}註冊蠟燭圖控制器`);
+                                    break;
+                                } catch (e) {
+                                    console.warn(`從${key}註冊失敗:`, e);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 如果仍未註冊成功，回退到折線圖
+                    if (!controllerRegistered) {
+                        console.error('無法註冊蠟燭圖控制器，回退到折線圖');
+                        chartType = 'line';
+                    }
+                }
+            }
+            
+            // 檢查並註冊OHLC控制器
+            if (chartType === 'ohlc') {
+                if (!Chart.controllers.ohlc) {
+                    console.warn('未找到OHLC控制器，嘗試手動註冊...');
+                    let controllerRegistered = false;
+                    
+                    // 方法1: 嘗試從window對象註冊
+                    try {
+                        if (window.OhlcController) {
+                            Chart.register(window.OhlcController);
+                            controllerRegistered = true;
+                            console.log('已從window.OhlcController註冊OHLC控制器');
+                        }
+                    } catch (e) {
+                        console.warn('從window.Ohlc.Controller註冊失敗:', e);
+                    }
+                    
+                    // 方法2: 嘗試從financial包註冊
+                    if (!controllerRegistered && window.Chart && window.Chart.controllers && window.Chart.controllers.financial) {
+                        try {
+                            Chart.register(window.Chart.controllers.financial.OhlcController);
+                            controllerRegistered = true;
+                            console.log('已從financial包註冊OHLC控制器');
+                        } catch (e) {
+                            console.warn('從financial包註冊OHLC控制器失敗:', e);
+                        }
+                    }
+                    
+                    // 方法3: 從全局命名空間尋找
+                    if (!controllerRegistered) {
+                        const globalControllers = Object.keys(window).filter(key => key.includes('Ohlc') || key.includes('ohlc') || key.includes('OHLC'));
+                        console.log('可能的全局控制器:', globalControllers);
+                        
+                        for (const key of globalControllers) {
+                            if (window[key] && typeof window[key] === 'function') {
+                                try {
+                                    Chart.register(window[key]);
+                                    controllerRegistered = true;
+                                    console.log(`已從${key}註冊OHLC控制器`);
+                                    break;
+                                } catch (e) {
+                                    console.warn(`從${key}註冊失敗:`, e);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 如果仍未註冊成功，嘗試使用candlestick，或回退到折線圖
+                    if (!controllerRegistered) {
+                        if (Chart.controllers.candlestick) {
+                            console.warn('無法註冊OHLC控制器，回退到蠟燭圖');
+                            chartType = 'candlestick';
+                        } else {
+                            console.error('無法註冊OHLC控制器，回退到折線圖');
+                            chartType = 'line';
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 確保支持桑基圖
+        if (chartType === 'sankey' && (!Chart.controllers || !Chart.controllers.sankey)) {
+            console.warn('Chart.js 不支援桑基圖，嘗試使用折線圖代替');
+            console.error('請確保已引入 chartjs-chart-sankey.js 插件');
+            chartType = 'line'; // 回退到折線圖
+        }
+
         // 確保 appState 存在
         if (!appState) {
             console.error('appState 未定義');
@@ -28,26 +248,148 @@ export function createChart(data, chartType, theme, appState) {
         console.log('開始創建圖表:', chartType, '主題:', theme);
         console.log('資料結構:', data);
         
-        // 重要修改：銷毀先前的圖表實例，避免 Canvas 重用錯誤
+        // 增強的圖表銷毀邏輯 - 確保徹底清理圖表實例
         if (appState.myChart) {
             console.log('銷毀先前的圖表實例');
             try {
+                // 確保先解除事件監聽器
+                if (appState.myChart.canvas) {
+                    appState.myChart.canvas.removeEventListener('click', null);
+                    appState.myChart.canvas.removeEventListener('mousemove', null);
+                }
+                
+                // 停止任何可能的動畫
+                if (appState.myChart.stop) {
+                    appState.myChart.stop();
+                }
+                
+                // 正常銷毀圖表
                 appState.myChart.destroy();
+                
+                // 確保銷毀完成
+                if (Chart.instances && Chart.instances[appState.myChart.id]) {
+                    delete Chart.instances[appState.myChart.id];
+                }
             } catch (destroyError) {
                 console.warn('銷毀先前圖表時出錯:', destroyError);
             }
+            
+            // 清除狀態中的圖表引用
             appState.myChart = null;
         }
         
-        // 確保 canvas 清理完畢
+        // 確保 canvas 徹底清理完畢
         const ctx = canvas.getContext('2d');
+        ctx.save();
+        ctx.resetTransform();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
         
         // 準備圖表配置
         const chartConfig = prepareChartConfig(data, chartType, theme, appState);
         
-        // 創建新圖表
-        const chart = new Chart(ctx, chartConfig);
+        // 在創建圖表前輸出詳細的配置和狀態
+        console.log(`即將創建${chartType}圖表，詳細配置:`, {
+            chartType,
+            theme,
+            controllers: Object.keys(Chart.controllers || {}),
+            config: chartConfig
+        });
+        
+        // 更強健的圖表創建邏輯
+        let chart = null;
+        const maxRetries = 2; // 最大重試次數
+        
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                // 特殊處理 polarArea 圖表類型
+                if (chartType === 'polarArea' && attempt === 0) {
+                    // 確保極座標圖控制器已註冊
+                    if (!Chart.controllers.polarArea) {
+                        if (Chart.PolarAreaController) {
+                            Chart.register(Chart.PolarAreaController);
+                            console.log('在創建前註冊極座標圖控制器');
+                        }
+                    }
+                }
+                
+                // 特殊處理金融圖表
+                if (['candlestick', 'ohlc'].includes(chartType) && !Chart.controllers[chartType]) {
+                    console.warn(`創建前檢測到Chart.js缺少${chartType}控制器，嘗試最後手動註冊...`);
+                    
+                    // 嘗試從 window 對象獲取 chartjs-financial 插件的控制器
+                    try {
+                        if (chartType === 'candlestick' && window.Chart && window.Chart.controllers && 
+                            window.Chart.controllers.financial && 
+                            typeof window.Chart.controllers.financial.CandlestickController !== 'undefined') {
+                            Chart.register(window.Chart.controllers.financial.CandlestickController);
+                            console.log('手動註冊 CandlestickController 成功');
+                        } else if (chartType === 'ohlc' && window.Chart && window.Chart.controllers && 
+                                   window.Chart.controllers.financial && 
+                                   typeof window.Chart.controllers.financial.OhlcController !== 'undefined') {
+                            Chart.register(window.Chart.controllers.financial.OhlcController);
+                            console.log('手動註冊 OhlcController 成功');
+                        } else {
+                            // 如果仍然無法註冊，回退到基本圖表類型
+                            if (attempt === maxRetries) {
+                                console.error(`多次嘗試後仍找不到 ${chartType} 控制器，將回退到線圖`);
+                                chartConfig.type = 'line';
+                            }
+                        }
+                    } catch (regError) {
+                        console.error(`註冊 ${chartType} 控制器失敗:`, regError);
+                        if (attempt === maxRetries) {
+                            chartConfig.type = 'line';
+                        }
+                    }
+                }
+                
+                // 嘗試創建圖表
+                console.log(`嘗試 #${attempt + 1}: 創建${chartConfig.type}圖表`);
+                chart = new Chart(ctx, chartConfig);
+                
+                // 如果成功創建，跳出循環
+                console.log(`圖表創建成功，ID: ${chart.id}`);
+                break;
+            } catch (chartError) {
+                console.error(`嘗試 #${attempt + 1} 創建圖表失敗:`, chartError);
+                
+                // 如果不是最後一次嘗試，則清理 Canvas 並準備下次嘗試
+                if (attempt < maxRetries) {
+                    console.log('清理 Canvas 並準備重試...');
+                    try {
+                        // 徹底清理 Canvas
+                        ctx.save();
+                        ctx.resetTransform();
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.restore();
+                        
+                        // 如果是特殊圖表類型問題，嘗試回退到更基本的圖表類型
+                        if (['polarArea', 'candlestick', 'ohlc'].includes(chartConfig.type)) {
+                            if (chartConfig.type === 'polarArea') {
+                                console.log('嘗試從極座標圖回退到圓餅圖');
+                                chartConfig.type = 'pie';
+                            } else if (['candlestick', 'ohlc'].includes(chartConfig.type)) {
+                                console.log('嘗試從金融圖表回退到線圖');
+                                chartConfig.type = 'line';
+                            }
+                        }
+                    } catch (cleanError) {
+                        console.warn('清理 Canvas 時出錯:', cleanError);
+                    }
+                } else {
+                    // 最後一次嘗試也失敗，返回 null
+                    console.error('所有嘗試均失敗，無法創建圖表');
+                    return null;
+                }
+            }
+        }
+        
+        // 確認創建的圖表
+        if (!chart) {
+            console.error('無法創建圖表');
+            return null;
+        }
         
         // 保存到應用狀態
         appState.myChart = chart;
@@ -141,739 +483,1336 @@ function createErrorChart(canvas, errorMessage) {
  * @returns {Object} 圖表配置
  */
 function prepareChartConfig(data, chartType, theme, appState) {
-    try {
-        console.log('準備圖表配置:', { chartType, theme });
-        
-        // 處理和驗證圖表資料
-        const chartData = processChartData(data, chartType);
-        if (!chartData) {
-            throw new Error('無法處理圖表資料');
+    console.log('正在準備圖表配置，類型:', chartType, '主題:', theme);
+
+    // 驗證輸入
+    if (!data || !chartType) {
+        throw new Error('無效的圖表參數');
+    }
+
+    // 預設配置
+    const defaultConfig = {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+            duration: 1000,
+            easing: 'easeOutQuad'
         }
-        
-        // 根據蠟燭圖、金融圖表等特殊類型進行處理
-        let config = {};
-        
-        switch (chartType) {
-            case 'candlestick':
-                config = prepareCandlestickConfig(data, theme);
-                break;
-                
-            case 'mixed':
-            case 'barLine':
-                config = prepareMixedChartConfig(data, theme);
-                break;
-                
-            case 'ohlc':
-            case 'ohlcVolume':
-            case 'ohlcMaKd':
-                config = prepareFinancialChartConfig(data, chartType, theme);
-                break;
-                
-            default:
-                // 標準圖表類型
-                config = {
-                    type: chartType,
-                    data: chartData,
-                    options: generateChartOptions(chartType, chartData, theme)
-                };
-                break;
-        }
-        
-        // 如果存在標題，應用標題
-        if (data.chartTitle) {
-            if (!config.options) config.options = {};
-            if (!config.options.plugins) config.options.plugins = {};
-            if (!config.options.plugins.title) config.options.plugins.title = {};
+    };
+
+    // 根據圖表類型處理
+    switch (chartType.toLowerCase()) {
+        case 'sankey':
+            return {
+                type: 'sankey',
+                data: processSankeyData(data),
+                options: {
+                    ...defaultConfig,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                title: function(context) {
+                                    return context[0].label || '';
+                                },
+                                label: function(context) {
+                                    return `流量: ${context.raw.flow}`;
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: data.title || '桑基圖',
+                            font: { size: 16 }
+                        }
+                    }
+                }
+            };
             
-            config.options.plugins.title.display = true;
-            config.options.plugins.title.text = data.chartTitle;
-        }
-        
-        // 如果傳入的資料中有選項，合併這些選項
-        if (data.options) {
-            config.options = Object.assign({}, config.options || {}, data.options);
-        }
-        
-        // 從資料提取欄位信息
-        extractDataColumnInfo(chartData, appState);
-        
-        // 更新計數
-        updateDataPointsCount(chartData, appState);
-        
-        return config;
-    } catch (error) {
-        console.error('準備圖表配置時出錯:', error);
-        throw new Error(`準備圖表配置失敗: ${error.message}`);
-    }
-}
-
-/**
- * 處理蠟燭圖配置
- * @param {Object} data - 圖表資料
- * @param {string} theme - 圖表主題
- * @returns {Object} 蠟燭圖配置
- */
-function prepareCandlestickConfig(data, theme) {
-    try {
-        console.log('開始準備蠟燭圖配置', data);
-        
-        // 驗證資料格式
-        if (!data.datasets || !Array.isArray(data.datasets) || data.datasets.length === 0) {
-            if (data.data && data.data.datasets) {
-                data = data.data; // 使用嵌套的資料結構
-                console.log('使用嵌套資料結構', data);
-            } else {
-                throw new Error('無效的蠟燭圖資料格式');
-            }
-        }
-        
-        // 取得第一個數據集
-        const dataset = data.datasets[0];
-        if (!dataset || !dataset.data || !Array.isArray(dataset.data)) {
-            throw new Error('蠟燭圖數據集格式錯誤');
-        }
-        
-        console.log('蠟燭圖數據集：', dataset);
-        
-        // 確保數據中包含所有必要欄位
-        const validData = dataset.data.filter(item => {
-            return item && item.t && typeof item.o === 'number' && 
-                   typeof item.h === 'number' && typeof item.l === 'number' && 
-                   typeof item.c === 'number';
-        });
-        
-        if (validData.length === 0) {
-            throw new Error('蠟燭圖沒有有效的資料點');
-        }
-        
-        console.log(`蠟燭圖有效資料點數: ${validData.length}/${dataset.data.length}`);
-        
-        // 建立蠟燭圖配置
-        const config = {
-            type: 'candlestick',
-            data: {
-                datasets: [{
-                    label: dataset.label || '蠟燭圖',
-                    data: validData.map(item => ({
-                        t: new Date(item.t),
-                        o: item.o,
-                        h: item.h,
-                        l: item.l,
-                        c: item.c
-                    })),
-                    color: {
-                        up: dataset.color?.up || 'rgba(75, 192, 192, 1)',
-                        down: dataset.color?.down || 'rgba(255, 99, 132, 1)',
-                        unchanged: dataset.color?.unchanged || 'rgba(201, 203, 207, 1)'
+        case 'candlestick':
+            // 預處理蠟燭圖數據，確保時間格式正確
+            const processedData = processCandlestickData(data);
+            
+            // 檢查數據並確保時間格式正確
+            if (processedData.datasets && processedData.datasets.length > 0) {
+                processedData.datasets.forEach(dataset => {
+                    if (dataset.data && Array.isArray(dataset.data)) {
+                        dataset.data.forEach(point => {
+                            // 確保每個點都有 t 屬性，並且是 Date 對象
+                            if (point.t && !(point.t instanceof Date)) {
+                                try {
+                                    point.t = new Date(point.t);
+                                } catch (e) {
+                                    console.error('無法轉換時間格式:', point.t, e);
+                                    // 使用當前時間作為後備方案
+                                    point.t = new Date();
+                                }
+                            }
+                        });
                     }
-                }]
-            },
-            options: data.options || {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: {
-                            unit: 'day'
+                });
+            }
+            
+            // 檢測適合的時間單位
+            let timeUnit = 'day';
+            try {
+                if (processedData.datasets && processedData.datasets[0] && processedData.datasets[0].data) {
+                    const sampleData = processedData.datasets[0].data;
+                    if (sampleData.length > 0) {
+                        timeUnit = detectTimeUnit(sampleData);
+                        console.log('檢測到的時間單位:', timeUnit);
+                    }
+                }
+            } catch (e) {
+                console.warn('檢測時間單位失敗:', e);
+            }
+            
+            return {
+                type: 'candlestick',
+                data: processedData,
+                options: {
+                    ...defaultConfig,
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true, // 確保啟用工具提示
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function labelCandlestickPoint(context) {
+                                    const point = context.raw;
+                                    if (!point || typeof point !== 'object') return ['無效數據'];
+                                    
+                                    return [
+                                        `開盤: ${(point.o || 0).toFixed(2)}`,
+                                        `最高: ${(point.h || 0).toFixed(2)}`,
+                                        `最低: ${(point.l || 0).toFixed(2)}`,
+                                        `收盤: ${(point.c || 0).toFixed(2)}`
+                                    ];
+                                },
+                                title: function formatCandlestickTitle(context) {
+                                    if (!context || !context[0] || !context[0].raw || !context[0].raw.t) {
+                                        return '無效時間';
+                                    }
+                                    try {
+                                        const candleDate = new Date(context[0].raw.t);
+                                        // 確認日期有效
+                                        if (isNaN(candleDate.getTime())) {
+                                            return '無效時間';
+                                        }
+                                        return candleDate.toLocaleString();
+                                    } catch (e) {
+                                        console.error('格式化時間出錯:', e);
+                                        return '無效時間';
+                                    }
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: data.title || '價格圖表',
+                            font: { size: 16 }
                         }
                     },
-                    y: {
-                        beginAtZero: false
-                    }
-                },
-                plugins: {
-                    legend: {
-                        position: 'top',
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: (context) => {
-                                const point = context.raw;
-                                return [
-                                    `開盤: ${point.o}`,
-                                    `最高: ${point.h}`,
-                                    `最低: ${point.l}`,
-                                    `收盤: ${point.c}`
-                                ];
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: timeUnit, // 使用檢測到的時間單位
+                                displayFormats: {
+                                    millisecond: 'HH:mm:ss.SSS',
+                                    second: 'HH:mm:ss',
+                                    minute: 'HH:mm',
+                                    hour: 'HH:mm',
+                                    day: 'yyyy-MM-dd',
+                                    week: 'yyyy-MM-dd',
+                                    month: 'yyyy-MM',
+                                    quarter: 'yyyy-[Q]Q',
+                                    year: 'yyyy'
+                                },
+                                tooltipFormat: 'yyyy-MM-dd HH:mm:ss'
+                            },
+                            title: {
+                                display: true,
+                                text: '時間'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '價格'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(2);
+                                }
                             }
                         }
                     }
                 }
-            }
-        };
-        
-        // 應用主題設置
-        applyTheme(config.options, theme);
-        
-        return config;
-    } catch (error) {
-        console.error('準備蠟燭圖配置時出錯:', error);
-        throw new Error(`準備蠟燭圖配置失敗: ${error.message}`);
-    }
-}
+            };
+            
+        case 'ohlc':
+            console.log('進入 OHLC 圖表處理分支');
+            // 預處理 OHLC 數據，確保時間格式正確
+            const ohlcData = processCandlestickData(data); // OHLC圖使用與蠟燭圖相同的數據結構
+            console.log('OHLC 數據處理完成:', ohlcData ? '成功' : '失敗');
 
-/**
- * 處理混合圖表配置
- * @param {Object} data - 圖表資料
- * @param {string} theme - 圖表主題
- * @returns {Object} 混合圖表配置
- */
-function prepareMixedChartConfig(data, theme) {
-    try {
-        // 驗證資料格式
-        if (!data.datasets && data.data && data.data.datasets) {
-            data = data.data; // 使用嵌套的資料結構
-        }
-        
-        if (!data.datasets || !Array.isArray(data.datasets)) {
-            throw new Error('無效的混合圖表資料格式');
-        }
-        
-        // 為每個數據集指定類型 (如果未指定)
-        const datasets = data.datasets.map((dataset, index) => {
-            const newDataset = { ...dataset };
-            if (!newDataset.type) {
-                // 預設第一個數據集為柱狀圖，其餘為線圖
-                newDataset.type = index === 0 ? 'bar' : 'line';
-            }
-            return newDataset;
-        });
-        
-        // 建立混合圖表配置
-        const config = {
-            type: 'bar', // 基本類型為柱狀圖，但個別數據集可以覆蓋
-            data: {
-                labels: data.labels || [],
-                datasets: datasets
-            },
-            options: data.options || {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: false
+            // 檢查數據並確保時間格式正確
+            if (ohlcData.datasets && ohlcData.datasets.length > 0) {
+                ohlcData.datasets.forEach(dataset => {
+                    if (dataset.data && Array.isArray(dataset.data)) {
+                        dataset.data.forEach(point => {
+                            // 確保每個點都有 t 屬性，並且是 Date 對象
+                            if (point.t && !(point.t instanceof Date)) {
+                                try {
+                                    point.t = new Date(point.t);
+                                } catch (e) {
+                                    console.error('無法轉換時間格式:', point.t, e);
+                                    // 使用當前時間作為後備方案
+                                    point.t = new Date();
+                                }
+                            }
+                        });
                     }
-                },
-                plugins: {
-                    legend: {
-                        position: 'top',
+                });
+            }
+            
+            // 檢測適合的時間單位
+            let ohlcTimeUnit = 'day';
+            try {
+                if (ohlcData.datasets && ohlcData.datasets[0] && ohlcData.datasets[0].data) {
+                    const sampleData = ohlcData.datasets[0].data;
+                    if (sampleData.length > 0) {
+                        ohlcTimeUnit = detectTimeUnit(sampleData);
+                        console.log('檢測到的時間單位:', ohlcTimeUnit);
                     }
                 }
+            } catch (e) {
+                console.warn('檢測時間單位失敗:', e);
             }
-        };
-        
-        // 應用主題設置
-        applyTheme(config.options, theme);
-        
-        return config;
-    } catch (error) {
-        console.error('準備混合圖表配置時出錯:', error);
-        throw new Error(`準備混合圖表配置失敗: ${error.message}`);
-    }
-}
-
-/**
- * 處理金融圖表配置
- * @param {Object} data - 圖表資料
- * @param {string} chartType - 圖表類型
- * @param {string} theme - 圖表主題
- * @returns {Object} 金融圖表配置
- */
-function prepareFinancialChartConfig(data, chartType, theme) {
-    try {
-        // 驗證資料格式
-        if (!data.datasets && data.data && data.data.datasets) {
-            data = data.data; // 使用嵌套的資料結構
-        }
-        
-        if (!data.datasets || !Array.isArray(data.datasets)) {
-            throw new Error('無效的金融圖表資料格式');
-        }
-        
-        // 取得主數據集 (OHLC)
-        const mainDataset = data.datasets[0];
-        if (!mainDataset || !mainDataset.data || !Array.isArray(mainDataset.data)) {
-            throw new Error('金融圖表主數據集格式錯誤');
-        }
-        
-        // 建立基本 OHLC 配置
-        const config = {
-            type: 'ohlc',
-            data: {
-                datasets: [{
-                    label: mainDataset.label || 'OHLC',
-                    data: mainDataset.data.map(item => ({
-                        t: new Date(item.t),
-                        o: item.o,
-                        h: item.h,
-                        l: item.l,
-                        c: item.c
-                    })),
-                    color: {
-                        up: mainDataset.color?.up || 'rgba(75, 192, 192, 1)',
-                        down: mainDataset.color?.down || 'rgba(255, 99, 132, 1)',
-                        unchanged: mainDataset.color?.unchanged || 'rgba(201, 203, 207, 1)'
-                    }
-                }]
-            },
-            options: data.options || {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: {
-                            unit: 'day'
+            
+            return {
+                type: 'ohlc',
+                data: ohlcData,
+                options: {
+                    ...defaultConfig,
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true, // 確保啟用工具提示
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function labelOhlcPoint(context) {
+                                    const point = context.raw;
+                                    if (!point || typeof point !== 'object') return ['無效數據'];
+                                    
+                                    return [
+                                        `開盤: ${(point.o || 0).toFixed(2)}`,
+                                        `最高: ${(point.h || 0).toFixed(2)}`,
+                                        `最低: ${(point.l || 0).toFixed(2)}`,
+                                        `收盤: ${(point.c || 0).toFixed(2)}`
+                                    ];
+                                },
+                                title: function formatOhlcTitle(context) {
+                                    if (!context || !context[0] || !context[0].raw || !context[0].raw.t) {
+                                        return '無效時間';
+                                    }
+                                    try {
+                                        const ohlcDate = new Date(context[0].raw.t);
+                                        // 確認日期有效
+                                        if (isNaN(ohlcDate.getTime())) {
+                                            return '無效時間';
+                                        }
+                                        return ohlcDate.toLocaleString();
+                                    } catch (e) {
+                                        console.error('格式化時間出錯:', e);
+                                        return '無效時間';
+                                    }
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: data.title || 'OHLC價格圖表',
+                            font: { size: 16 }
                         }
                     },
-                    y: {
-                        beginAtZero: false
-                    }
-                },
-                plugins: {
-                    legend: {
-                        position: 'top',
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: (context) => {
-                                const point = context.raw;
-                                return [
-                                    `開盤: ${point.o}`,
-                                    `最高: ${point.h}`,
-                                    `最低: ${point.l}`,
-                                    `收盤: ${point.c}`
-                                ];
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: ohlcTimeUnit, // 使用檢測到的時間單位
+                                displayFormats: {
+                                    millisecond: 'HH:mm:ss.SSS',
+                                    second: 'HH:mm:ss',
+                                    minute: 'HH:mm',
+                                    hour: 'HH:mm',
+                                    day: 'yyyy-MM-dd',
+                                    week: 'yyyy-MM-dd',
+                                    month: 'yyyy-MM',
+                                    quarter: 'yyyy-[Q]Q',
+                                    year: 'yyyy'
+                                },
+                                tooltipFormat: 'yyyy-MM-dd HH:mm:ss'
+                            },
+                            title: {
+                                display: true,
+                                text: '時間'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '價格'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(2);
+                                }
                             }
                         }
                     }
                 }
-            }
-        };
-        
-        // 根據圖表類型添加額外數據集
-        if (chartType === 'ohlcVolume' && data.datasets.length > 1) {
-            // 添加成交量數據集
-            const volumeDataset = data.datasets[1];
-            config.data.datasets.push({
+            };
+
+        case 'bar':
+            return {
                 type: 'bar',
-                label: volumeDataset.label || '成交量',
-                data: volumeDataset.data,
-                backgroundColor: volumeDataset.backgroundColor || 'rgba(54, 162, 235, 0.5)',
-                borderColor: volumeDataset.borderColor || 'rgba(54, 162, 235, 1)',
-                borderWidth: 1,
-                yAxisID: 'volume'
-            });
-            
-            // 添加成交量 Y 軸
-            config.options.scales.volume = {
-                position: 'right',
-                beginAtZero: true,
-                grid: {
-                    drawOnChartArea: false
+                data: processBarData(data),
+                options: {
+                    ...defaultConfig,
+                    plugins: {
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        title: {
+                            display: true,
+                            text: data.title || '長條圖',
+                            font: { size: 16 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '類別'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '數值'
+                            }
+                        }
+                    }
                 }
+            };
+            
+        case 'pie':
+            return {
+                type: 'pie',
+                data: processPieData(data),
+                options: {
+                    ...defaultConfig,
+                    plugins: {
+                        tooltip: {
+                            mode: 'point',
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: data.title || '圓餅圖',
+                            font: { size: 16 }
+                        },
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            };
+            
+        case 'doughnut':
+            return {
+                type: 'doughnut',
+                data: processPieData(data),
+                options: {
+                    ...defaultConfig,
+                    plugins: {
+                        tooltip: {
+                            mode: 'point',
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: data.title || '環狀圖',
+                            font: { size: 16 }
+                        },
+                        legend: {
+                            position: 'right'
+                        }
+                    },
+                    cutout: '50%'
+                }
+            };
+            
+        case 'radar':
+            return {
+                type: 'radar',
+                data: processRadarData(data),
+                options: {
+                    ...defaultConfig,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: data.title || '雷達圖',
+                            font: { size: 16 }
+                        }
+                    },
+                    scales: {
+                        r: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            };
+            
+        case 'polarArea':
+            return {
+                type: 'polarArea',
+                data: processPieData(data), // 極座標圖數據結構與圓餅圖類似
+                options: {
+                    ...defaultConfig,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: data.title || '極座標圖',
+                            font: { size: 16 }
+                        },
+                        legend: {
+                            position: 'right'
+                        }
+                    },
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            // 增強極座標圖軸的配置
+                            ticks: {
+                                precision: 0,
+                                stepSize: 10,
+                                font: {
+                                    size: 10
+                                }
+                            },
+                            pointLabels: {
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            grid: {
+                                circular: true
+                            }
+                        }
+                    }
+                }
+            };
+            
+        case 'scatter':
+            return {
+                type: 'scatter',
+                data: processScatterData(data),
+                options: {
+                    ...defaultConfig,
+                    plugins: {
+                        tooltip: {
+                            mode: 'point',
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return `(${point.x}, ${point.y})`;
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: data.title || '散點圖',
+                            font: { size: 16 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'X'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Y'
+                            }
+                        }
+                    }
+                }
+            };
+            
+        case 'bubble':
+            return {
+                type: 'bubble',
+                data: processBubbleData(data),
+                options: {
+                    ...defaultConfig,
+                    plugins: {
+                        tooltip: {
+                            mode: 'point',
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return `(${point.x}, ${point.y}, ${point.r})`;
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: data.title || '氣泡圖',
+                            font: { size: 16 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'X'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Y'
+                            }
+                        }
+                    }
+                }
+            };
+        
+        case 'line':
+            return {
+                type: 'line',
+                data: processLineData(data),
+                options: {
+                    ...defaultConfig,
+                    plugins: {
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        title: {
+                            display: true,
+                            text: data.title || '折線圖',
+                            font: { size: 16 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                displayFormats: {
+                                    day: 'yyyy-MM-dd'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: '時間'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '數值'
+                            }
+                        }
+                    }
+                }
+            };
+        
+        default:
+            console.warn(`未知圖表類型 '${chartType}'，使用折線圖替代。`);
+            return {
+                type: 'line',
+                data: processLineData(data),
+                options: {
+                    ...defaultConfig,
+                    plugins: {
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        title: {
+                            display: true,
+                            text: data.title || '資料圖表',
+                            font: { size: 16 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                displayFormats: {
+                                    day: 'yyyy-MM-dd'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: '時間'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '數值'
+                            }
+                        }
+                    }
+                }
+            };
+    }
+}
+
+// 處理蠟燭圖資料
+function processCandlestickData(data) {
+    console.log('processCandlestickData 被調用，數據類型:', typeof data);
+    const processedData = {
+        datasets: [{
+            label: '價格',
+            data: []
+        }]
+    };
+
+    try {
+        console.log('處理蠟燭圖數據:', data);
+        // 獲取數據來源
+        const sourceData = data.datasets?.[0]?.data || data.data?.datasets?.[0]?.data || data.data || [];
+        
+        // 如果是原始數據格式，提取數據
+        if (sourceData.datasets && sourceData.datasets[0] && Array.isArray(sourceData.datasets[0].data)) {
+            processedData.datasets[0].data = sourceData.datasets[0].data;
+        } else {
+            processedData.datasets[0].data = sourceData;
+        }
+        
+        // 設置標籤
+        if (data.datasets && data.datasets[0] && data.datasets[0].label) {
+            processedData.datasets[0].label = data.datasets[0].label;
+        } else if (data.data && data.data.datasets && data.data.datasets[0] && data.data.datasets[0].label) {
+            processedData.datasets[0].label = data.data.datasets[0].label;
+        }
+        
+        console.log('原始數據點數:', processedData.datasets[0].data.length);
+        
+        // 處理每個數據點
+        processedData.datasets[0].data = processedData.datasets[0].data
+            .filter(item => (
+                item &&
+                (item.t !== undefined || item.time !== undefined || item.x !== undefined || item.date !== undefined) &&
+                (item.o !== undefined || item.open !== undefined) &&
+                (item.h !== undefined || item.high !== undefined) &&
+                (item.l !== undefined || item.low !== undefined) &&
+                (item.c !== undefined || item.close !== undefined)
+            ))
+            .map(item => {
+                // 處理時間字段
+                let timeValue;
+                try {
+                    const rawTime = item.t || item.time || item.x || item.date;
+                    
+                    if (rawTime instanceof Date) {
+                        timeValue = rawTime;
+                    } else if (typeof rawTime === 'string') {
+                        // 嘗試以多種格式解析日期字符串
+                        if (rawTime.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                            // YYYY-MM-DD 格式，確保使用 UTC 時間以避免時區問題
+                            const [year, month, day] = rawTime.split('-').map(Number);
+                            timeValue = new Date(Date.UTC(year, month - 1, day));
+                        } else {
+                            // 嘗試標準解析
+                            timeValue = new Date(rawTime);
+                        }
+                    } else if (typeof rawTime === 'number') {
+                        timeValue = new Date(rawTime);
+                    } else {
+                        console.warn('無法識別的時間格式:', rawTime);
+                        timeValue = new Date();
+                    }
+                    
+                    // 驗證解析出的時間是否有效
+                    if (isNaN(timeValue.getTime())) {
+                        console.error('解析出無效的時間:', item.t || item.time || item.x || item.date);
+                        throw new Error('Invalid time value');
+                    }
+                    
+                } catch (dateError) {
+                    console.error('解析日期出錯:', dateError, '原始數據:', item);
+                    throw dateError; // 重新拋出錯誤，讓外層處理
+                }
+                
+                // 標準化 OHLC 值
+                return {
+                    t: timeValue,
+                    o: Number(item.o || item.open || 0),
+                    h: Number(item.h || item.high || 0),
+                    l: Number(item.l || item.low || 0),
+                    c: Number(item.c || item.close || 0)
+                };
+            });
+
+        console.log('處理後數據點數:', processedData.datasets[0].data.length);
+        
+        // 如果沒有有效數據，則生成樣本數據
+        if (processedData.datasets[0].data.length === 0) {
+            console.warn('沒有有效的蠟燭圖數據，使用生成的樣本數據');
+            processedData.datasets[0].data = generateSampleData(30);
+        }
+        
+        // 設置顏色風格
+        if (data.datasets && data.datasets[0] && data.datasets[0].color) {
+            processedData.datasets[0].color = data.datasets[0].color;
+        } else {
+            processedData.datasets[0].color = {
+                up: 'rgba(75, 192, 75, 1)',
+                down: 'rgba(255, 99, 132, 1)',
+                unchanged: 'rgba(160, 160, 160, 1)'
             };
         }
         
-        // 應用主題設置
-        applyTheme(config.options, theme);
-        
-        return config;
+        console.log('處理後的蠟燭圖數據:', processedData);
     } catch (error) {
-        console.error('準備金融圖表配置時出錯:', error);
-        throw new Error(`準備金融圖表配置失敗: ${error.message}`);
+        console.error('處理蠟燭圖資料時出錯:', error);
+        console.log('嘗試生成樣本數據');
+        processedData.datasets[0].data = generateSampleData(30);
     }
+
+    console.log('processCandlestickData 處理完成，返回數據');
+    return processedData;
 }
 
-/**
- * 處理圖表資料，確保符合 Chart.js 格式
- * @param {Object} data - 原始資料
- * @param {string} chartType - 圖表類型
- * @returns {Object} 處理後的資料
- */
-function processChartData(data, chartType) {
-    // 如果資料已經是標準 Chart.js 格式，直接使用
-    if (data.datasets) {
-        return data;
+// 生成範例資料 - 確保這是唯一的定義，移除了重複的定義
+function generateSampleData(count) {
+    const data = [];
+    const now = Date.now();
+    let price = 100;
+
+    for (let i = 0; i < count; i++) {
+        const change = price * (Math.random() * 0.1 - 0.05);
+        const open = price;
+        const close = price + change;
+        const high = Math.max(open, close) * (1 + Math.random() * 0.02);
+        const low = Math.min(open, close) * (1 - Math.random() * 0.02);
+
+        data.push({
+            t: new Date(now + i * 86400000),
+            o: Number(open.toFixed(2)),
+            h: Number(high.toFixed(2)),
+            l: Number(low.toFixed(2)),
+            c: Number(close.toFixed(2))
+        });
+
+        price = close;
     }
-    
-    // 如果資料在 data 屬性中
-    if (data.data && data.data.datasets) {
-        return data.data;
-    }
-    
-    // 其他情況: 嘗試從提供的資料中構建 Chart.js 格式
-    console.warn('資料格式未符合 Chart.js 標準，嘗試自動適配');
-    
+
+    return data;
+}
+
+// 處理一般線圖資料
+function processLineData(data) {
+    const processedData = {
+        datasets: [{
+            label: '數值',
+            data: [],
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.1
+        }]
+    };
+
     try {
-        // 建立基本的資料結構
-        const chartData = {
-            labels: data.labels || [],
-            datasets: []
-        };
+        const sourceData = data.datasets?.[0]?.data || data.data || [];
+        processedData.datasets[0].data = sourceData
+            .filter(item => item && (item.y || item.value))
+            .map(item => ({
+                x: new Date(item.x || item.time || Date.now()),
+                y: Number(item.y || item.value)
+            }))
+            .filter(item => !isNaN(item.y));
+
+        if (processedData.datasets[0].data.length === 0) {
+            const now = Date.now();
+            processedData.datasets[0].data = Array(10).fill(0).map((_, i) => ({
+                x: new Date(now + i * 86400000),
+                y: Math.random() * 100
+            }));
+        }
+    } catch (error) {
+        console.error('處理線圖資料時出錯:', error);
+        processedData.datasets[0].data = [];
+    }
+
+    return processedData;
+}
+
+// 處理桑基圖資料
+function processSankeyData(data) {
+    const processedData = {
+        datasets: [{
+            label: '流量',
+            data: [],
+            colorFrom: (context) => {
+                // 根據來源節點生成顏色
+                const fromLabel = context.dataset.data[context.dataIndex].from;
+                const hash = Array.from(fromLabel).reduce((acc, char) => {
+                    return char.charCodeAt(0) + ((acc << 5) - acc);
+                }, 0);
+                const h = Math.abs(hash) % 360;
+                return `hsla(${h}, 75%, 50%, 0.8)`;
+            },
+            colorTo: (context) => {
+                // 根據目標節點生成顏色
+                const toLabel = context.dataset.data[context.dataIndex].to;
+                const hash = Array.from(toLabel).reduce((acc, char) => {
+                    return char.charCodeAt(0) + ((acc << 5) - acc);
+                }, 0);
+                const h = Math.abs(hash) % 360;
+                return `hsla(${h}, 75%, 60%, 0.8)`;
+            },
+            colorMode: 'gradient',
+            padding: 20
+        }]
+    };
+
+    try {
+        // 檢查是否有 nodes/links 格式的數據（標準桑基圖格式）
+        if (data.data && data.data.nodes && data.data.links) {
+            const nodes = data.data.nodes;
+            const links = data.data.links;
+            
+            // 從 nodes/links 格式轉換為 from/to/flow 格式
+            processedData.datasets[0].data = links.map(link => {
+                let source, target;
+                
+                // 處理索引或字符串類型的來源/目標
+                if (typeof link.source === 'number') {
+                    source = nodes[link.source].name;
+                } else if (typeof link.source === 'string') {
+                    source = link.source;
+                }
+                
+                if (typeof link.target === 'number') {
+                    target = nodes[link.target].name;
+                } else if (typeof link.target === 'string') {
+                    target = link.target;
+                }
+                
+                return {
+                    from: source || `節點${link.source}`,
+                    to: target || `節點${link.target}`,
+                    flow: Number(link.value)
+                };
+            });
+            
+            console.log('已處理桑基圖標準格式數據');
+            return processedData;
+        }
         
-        // 如果有數據陣列，將其轉換為數據集
-        if (Array.isArray(data)) {
-            chartData.datasets.push({
-                label: '數據集1',
-                data: data,
+        // 嘗試直接使用 from/to/flow 格式
+        const sourceData = data.datasets?.[0]?.data || data.data || [];
+        
+        if (Array.isArray(sourceData) && sourceData.length > 0) {
+            // 檢查資料格式是否為 from/to/flow 格式
+            const isFromToFormat = sourceData.some(item => 
+                item && 
+                typeof item.from === 'string' && 
+                typeof item.to === 'string' && 
+                !isNaN(Number(item.flow))
+            );
+            
+            if (isFromToFormat) {
+                processedData.datasets[0].data = sourceData.map(item => ({
+                    from: item.from,
+                    to: item.to,
+                    flow: Number(item.flow)
+                }));
+                console.log('已處理桑基圖 from/to/flow 格式數據');
+                return processedData;
+            } else {
+                console.warn('桑基圖資料格式無效，請確保每個資料點都有正確的格式');
+            }
+        }
+        
+        // 如果沒有有效資料，生成示範資料
+        if (processedData.datasets[0].data.length === 0) {
+            processedData.datasets[0].data = generateSampleSankeyData();
+            console.log('使用範例桑基圖資料');
+        }
+    } catch (error) {
+        console.error('處理桑基圖資料時出錯:', error);
+        processedData.datasets[0].data = generateSampleSankeyData();
+    }
+
+    return processedData;
+}
+
+// 生成桑基圖範例資料
+function generateSampleSankeyData() {
+    return [
+        { from: '來源A', to: '目標X', flow: 20 },
+        { from: '來源A', to: '目標Y', flow: 15 },
+        { from: '來源B', to: '目標X', flow: 10 },
+        { from: '來源B', to: '目標Z', flow: 25 },
+        { from: '來源C', to: '目標Y', flow: 30 },
+        { from: '來源C', to: '目標Z', flow: 18 }
+    ];
+}
+
+// 處理長條圖資料
+function processBarData(data) {
+    const processedData = {
+        labels: [],
+        datasets: [{
+            label: '數值',
+            data: [],
+            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 1
+        }]
+    };
+
+    try {
+        // 處理標籤
+        if (data.labels && Array.isArray(data.labels)) {
+            processedData.labels = data.labels;
+        }
+        
+        // 處理數據集
+        const sourceDatasets = data.datasets || [];
+        if (sourceDatasets.length > 0) {
+            processedData.datasets = sourceDatasets;
+        } else if (Array.isArray(data.data)) {
+            processedData.datasets[0].data = data.data;
+            
+            // 如果沒有標籤但有數據，生成數字標籤
+            if (processedData.labels.length === 0 && data.data.length > 0) {
+                processedData.labels = Array.from({ length: data.data.length }, (_, i) => `項目 ${i + 1}`);
+            }
+        }
+        
+        // 確保至少有一個數據集
+        if (processedData.datasets.length === 0) {
+            processedData.datasets = [{
+                label: '數值',
+                data: Array(5).fill(0).map(() => Math.floor(Math.random() * 100)),
                 backgroundColor: 'rgba(75, 192, 192, 0.6)',
                 borderColor: 'rgba(75, 192, 192, 1)',
                 borderWidth: 1
-            });
-        } 
-        // 如果有 datasets 屬性但格式不完全符合
-        else if (Array.isArray(data.datasets)) {
-            chartData.datasets = data.datasets.map((dataset, index) => {
-                return {
-                    label: dataset.label || `數據集${index+1}`,
-                    data: dataset.data || [],
-                    backgroundColor: dataset.backgroundColor || generateColor(index, 'background'),
-                    borderColor: dataset.borderColor || generateColor(index, 'border'),
-                    borderWidth: dataset.borderWidth || 1
-                };
-            });
-        }
-        // 如果有單一數據集
-        else if (Array.isArray(data.data)) {
-            chartData.datasets.push({
-                label: data.label || '數據集',
-                data: data.data,
-                backgroundColor: data.backgroundColor || 'rgba(75, 192, 192, 0.6)',
-                borderColor: data.borderColor || 'rgba(75, 192, 192, 1)',
-                borderWidth: data.borderWidth || 1
-            });
+            }];
         }
         
-        return chartData;
+        // 確保有標籤
+        if (processedData.labels.length === 0 && processedData.datasets[0].data.length > 0) {
+            processedData.labels = Array.from(
+                { length: processedData.datasets[0].data.length }, 
+                (_, i) => `項目 ${i + 1}`
+            );
+        }
     } catch (error) {
-        console.error('處理圖表資料時發生錯誤:', error);
-        return null;
+        console.error('處理長條圖資料時出錯:', error);
+        
+        // 生成範例資料
+        processedData.labels = ['項目1', '項目2', '項目3', '項目4', '項目5'];
+        processedData.datasets[0].data = [65, 59, 80, 81, 56];
     }
+
+    return processedData;
 }
 
-/**
- * 生成圖表配置選項
- * @param {string} chartType - 圖表類型
- * @param {Object} data - 圖表資料
- * @param {string} theme - 圖表主題
- * @returns {Object} 圖表配置選項
- */
-function generateChartOptions(chartType, data, theme) {
-    // 基本配置
-    const options = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'top',
-                labels: {
-                    font: {
-                        family: "'Noto Sans TC', sans-serif"
-                    }
-                }
-            },
-            title: {
-                display: false
-            },
-            tooltip: {
-                callbacks: {}
-            }
-        }
+// 處理圓餅圖和環狀圖資料
+function processPieData(data) {
+    const processedData = {
+        labels: [],
+        datasets: [{
+            label: '數值',
+            data: [],
+            backgroundColor: [
+                'rgba(255, 99, 132, 0.6)',
+                'rgba(54, 162, 235, 0.6)',
+                'rgba(255, 206, 86, 0.6)',
+                'rgba(75, 192, 192, 0.6)',
+                'rgba(153, 102, 255, 0.6)',
+                'rgba(255, 159, 64, 0.6)'
+            ],
+            hoverOffset: 4
+        }]
     };
-    
-    // 根據圖表類型調整配置
-    switch (chartType) {
-        case 'line':
-            options.scales = {
-                y: {
-                    beginAtZero: false
-                }
-            };
-            break;
-            
-        case 'bar':
-            options.scales = {
-                y: {
-                    beginAtZero: true
-                }
-            };
-            break;
-            
-        case 'pie':
-        case 'doughnut':
-        case 'polarArea':
-            options.plugins.legend.position = 'right';
-            break;
-            
-        case 'radar':
-            options.scales = {
-                r: {
-                    angleLines: {
-                        display: true
-                    },
-                    ticks: {
-                        backdropColor: 'transparent'
-                    }
-                }
-            };
-            break;
-            
-        case 'scatter':
-        case 'bubble':
-            options.scales = {
-                x: {
-                    type: 'linear',
-                    position: 'bottom'
-                },
-                y: {
-                    beginAtZero: false
-                }
-            };
-            break;
-    }
-    
-    // 應用主題設置
-    applyTheme(options, theme);
-    
-    return options;
-}
 
-/**
- * 根據索引生成顏色
- * @param {number} index - 顏色索引
- * @param {string} type - 'background' 或 'border'
- * @returns {string} 顏色字串
- */
-function generateColor(index, type) {
-    // 預設顏色集
-    const colors = [
-        { bg: 'rgba(75, 192, 192, 0.6)', border: 'rgba(75, 192, 192, 1)' },
-        { bg: 'rgba(255, 99, 132, 0.6)', border: 'rgba(255, 99, 132, 1)' },
-        { bg: 'rgba(54, 162, 235, 0.6)', border: 'rgba(54, 162, 235, 1)' },
-        { bg: 'rgba(255, 206, 86, 0.6)', border: 'rgba(255, 206, 86, 1)' },
-        { bg: 'rgba(153, 102, 255, 0.6)', border: 'rgba(153, 102, 255, 1)' },
-        { bg: 'rgba(255, 159, 64, 0.6)', border: 'rgba(255, 159, 64, 1)' },
-        { bg: 'rgba(199, 199, 199, 0.6)', border: 'rgba(199, 199, 199, 1)' }
-    ];
-    
-    // 使用模數取顏色
-    const colorIndex = index % colors.length;
-    return type === 'background' ? colors[colorIndex].bg : colors[colorIndex].border;
-}
-
-/**
- * 應用主題設置
- * @param {Object} options - 圖表配置選項
- * @param {string} theme - 主題名稱
- */
-function applyTheme(options, theme) {
-    const themes = {
-        default: {
-            fontColor: '#666',
-            gridColor: 'rgba(0, 0, 0, 0.1)',
-            titleColor: '#333'
-        },
-        light: {
-            fontColor: '#555',
-            gridColor: 'rgba(0, 0, 0, 0.05)',
-            titleColor: '#333'
-        },
-        dark: {
-            fontColor: '#ddd',
-            gridColor: 'rgba(255, 255, 255, 0.1)',
-            titleColor: '#fff'
-        },
-        pastel: {
-            fontColor: '#6c757d',
-            gridColor: 'rgba(188, 223, 245, 0.5)',
-            titleColor: '#5b8c85'
-        },
-        vibrant: {
-            fontColor: '#333',
-            gridColor: 'rgba(63, 81, 181, 0.2)',
-            titleColor: '#ff5722'
+    try {
+        // 處理標籤
+        if (data.labels && Array.isArray(data.labels)) {
+            processedData.labels = data.labels;
         }
+        
+        // 處理數據集
+        const sourceDatasets = data.datasets || [];
+        if (sourceDatasets.length > 0) {
+            processedData.datasets = sourceDatasets;
+        } else if (Array.isArray(data.data)) {
+            processedData.datasets[0].data = data.data;
+            
+            // 如果沒有標籤但有數據，生成數字標籤
+            if (processedData.labels.length === 0 && data.data.length > 0) {
+                processedData.labels = Array.from({ length: data.data.length }, (_, i) => `項目 ${i + 1}`);
+            }
+        }
+        
+        // 確保至少有一個數據集
+        if (processedData.datasets.length === 0 || processedData.datasets[0].data.length === 0) {
+            processedData.labels = ['紅色', '藍色', '黃色', '綠色', '紫色'];
+            processedData.datasets[0].data = [30, 20, 25, 15, 10];
+        }
+        
+        // 確保有標籤
+        if (processedData.labels.length === 0 && processedData.datasets[0].data.length > 0) {
+            processedData.labels = Array.from(
+                { length: processedData.datasets[0].data.length }, 
+                (_, i) => `項目 ${i + 1}`
+            );
+        }
+        
+        // 確保背景顏色陣列足夠
+        const dataLength = processedData.datasets[0].data.length;
+        if (processedData.datasets[0].backgroundColor.length < dataLength) {
+            // 使用色輪生成足夠的顏色
+            const baseColors = processedData.datasets[0].backgroundColor.slice();
+            while (processedData.datasets[0].backgroundColor.length < dataLength) {
+                const index = processedData.datasets[0].backgroundColor.length % baseColors.length;
+                const baseColor = baseColors[index];
+                // 微調顏色以增加多樣性
+                const adjustedColor = baseColor.replace(/[0-9.]+\)$/, (match) => {
+                    return (parseFloat(match) * 0.9).toFixed(1) + ')';
+                });
+                processedData.datasets[0].backgroundColor.push(adjustedColor);
+            }
+        }
+    } catch (error) {
+        console.error('處理圓餅圖資料時出錯:', error);
+        
+        // 生成範例資料
+        processedData.labels = ['紅色', '藍色', '黃色', '綠色', '紫色'];
+        processedData.datasets[0].data = [30, 20, 25, 15, 10];
+    }
+
+    return processedData;
+}
+
+// 處理雷達圖資料
+function processRadarData(data) {
+    const processedData = {
+        labels: [],
+        datasets: [{
+            label: '數值',
+            data: [],
+            fill: true,
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+            pointBorderColor: '#fff',
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: 'rgba(54, 162, 235, 1)'
+        }]
     };
-    
-    // 獲取主題設置 (如果不存在則使用預設)
-    const themeSettings = themes[theme] || themes.default;
-    
-    // 套用主題設置到選項
-    if (options.scales) {
-        const axisKeys = Object.keys(options.scales);
-        axisKeys.forEach(key => {
-            if (options.scales[key].grid) {
-                options.scales[key].grid.color = themeSettings.gridColor;
-            } else {
-                options.scales[key].grid = { color: themeSettings.gridColor };
-            }
-            
-            if (options.scales[key].ticks) {
-                options.scales[key].ticks.color = themeSettings.fontColor;
-            } else {
-                options.scales[key].ticks = { color: themeSettings.fontColor };
-            }
-        });
-    }
-    
-    // 套用到圖例和標題
-    if (options.plugins && options.plugins.legend) {
-        if (options.plugins.legend.labels) {
-            options.plugins.legend.labels.color = themeSettings.fontColor;
-        } else {
-            options.plugins.legend.labels = { color: themeSettings.fontColor };
+
+    try {
+        // 處理標籤
+        if (data.labels && Array.isArray(data.labels)) {
+            processedData.labels = data.labels;
         }
+        
+        // 處理數據集
+        const sourceDatasets = data.datasets || [];
+        if (sourceDatasets.length > 0) {
+            processedData.datasets = sourceDatasets;
+        } else if (Array.isArray(data.data)) {
+            processedData.datasets[0].data = data.data;
+            
+            // 如果沒有標籤但有數據，生成數字標籤
+            if (processedData.labels.length === 0 && data.data.length > 0) {
+                processedData.labels = Array.from({ length: data.data.length }, (_, i) => `維度 ${i + 1}`);
+            }
+        }
+        
+        // 確保至少有一個數據集
+        if (processedData.datasets.length === 0 || processedData.datasets[0].data.length === 0) {
+            processedData.labels = ['速度', '耐力', '力量', '敏捷', '技巧'];
+            processedData.datasets[0].data = [65, 59, 90, 81, 56];
+        }
+        
+        // 確保有標籤且數量一致
+        if (processedData.labels.length === 0 && processedData.datasets[0].data.length > 0) {
+            processedData.labels = Array.from(
+                { length: processedData.datasets[0].data.length }, 
+                (_, i) => `維度 ${i + 1}`
+            );
+        } else if (processedData.labels.length < processedData.datasets[0].data.length) {
+            // 補充標籤
+            const additionalLabels = Array.from(
+                { length: processedData.datasets[0].data.length - processedData.labels.length }, 
+                (_, i) => `維度 ${processedData.labels.length + i + 1}`
+            );
+            processedData.labels = [...processedData.labels, ...additionalLabels];
+        }
+    } catch (error) {
+        console.error('處理雷達圖資料時出錯:', error);
+        
+        // 生成範例資料
+        processedData.labels = ['速度', '耐力', '力量', '敏捷', '技巧'];
+        processedData.datasets[0].data = [65, 59, 90, 81, 56];
     }
-    
-    if (options.plugins && options.plugins.title) {
-        options.plugins.title.color = themeSettings.titleColor;
+
+    return processedData;
+}
+
+// 處理散點圖資料
+function processScatterData(data) {
+    const processedData = {
+        datasets: [{
+            label: '數值',
+            data: [],
+            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            pointRadius: 6
+        }]
+    };
+
+    try {
+        // 處理數據集
+        const sourceDatasets = data.datasets || [];
+        if (sourceDatasets.length > 0) {
+            processedData.datasets = sourceDatasets.map(dataset => ({
+                ...dataset,
+                pointRadius: dataset.pointRadius || 6
+            }));
+        } else if (Array.isArray(data.data)) {
+            // 檢查是否為有效的散點圖數據
+            const isValidScatterData = data.data.every(item => 
+                typeof item === 'object' && 
+                (item.x !== undefined || item.y !== undefined)
+            );
+            
+            if (isValidScatterData) {
+                processedData.datasets[0].data = data.data;
+            } else {
+                // 如果不是有效的散點圖數據，則轉換
+                processedData.datasets[0].data = data.data.map((val, idx) => ({
+                    x: idx,
+                    y: val
+                }));
+            }
+        }
+        
+        // 確保至少有一個數據集
+        if (processedData.datasets.length === 0 || processedData.datasets[0].data.length === 0) {
+            // 生成範例資料
+            processedData.datasets[0].data = Array(10).fill(0).map(() => ({
+                x: Math.random() * 100,
+                y: Math.random() * 100
+            }));
+        }
+    } catch (error) {
+        console.error('處理散點圖資料時出錯:', error);
+        
+        // 生成範例資料
+        processedData.datasets[0].data = Array(10).fill(0).map(() => ({
+            x: Math.random() * 100,
+            y: Math.random() * 100
+        }));
     }
+
+    return processedData;
+}
+
+// 處理氣泡圖資料
+function processBubbleData(data) {
+    const processedData = {
+        datasets: [{
+            label: '數值',
+            data: [],
+            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+            borderColor: 'rgba(75, 192, 192, 1)'
+        }]
+    };
+
+    try {
+        // 處理數據集
+        const sourceDatasets = data.datasets || [];
+        if (sourceDatasets.length > 0) {
+            processedData.datasets = sourceDatasets;
+        } else if (Array.isArray(data.data)) {
+            // 檢查是否為有效的氣泡圖數據
+            const isValidBubbleData = data.data.every(item => 
+                typeof item === 'object' && 
+                (item.x !== undefined || item.y !== undefined)
+            );
+            
+            if (isValidBubbleData) {
+                // 確保所有點都有 r 屬性
+                processedData.datasets[0].data = data.data.map(item => ({
+                    x: item.x,
+                    y: item.y,
+                    r: item.r || Math.floor(Math.random() * 15) + 5
+                }));
+            } else {
+                // 如果不是有效的氣泡圖數據，則轉換
+                processedData.datasets[0].data = data.data.map((val, idx) => ({
+                    x: idx,
+                    y: val,
+                    r: Math.floor(Math.random() * 15) + 5
+                }));
+            }
+        }
+        
+        // 確保至少有一個數據集
+        if (processedData.datasets.length === 0 || processedData.datasets[0].data.length === 0) {
+            // 生成範例資料
+            processedData.datasets[0].data = Array(10).fill(0).map(() => ({
+                x: Math.random() * 100,
+                y: Math.random() * 100,
+                r: Math.floor(Math.random() * 15) + 5
+            }));
+        }
+    } catch (error) {
+        console.error('處理氣泡圖資料時出錯:', error);
+        
+        // 生成範例資料
+        processedData.datasets[0].data = Array(10).fill(0).map(() => ({
+            x: Math.random() * 100,
+            y: Math.random() * 100,
+            r: Math.floor(Math.random() * 15) + 5
+        }));
+    }
+
+    return processedData;
 }
 
 /**
- * 從圖表資料中提取欄位資訊
- * @param {Object} chartData - 圖表資料
- * @param {Object} appState - 應用狀態
+ * 處理圖表資料
+ * @param {Object} data - 原始資料
+ * @returns {Object} 處理後的資料
  */
-function extractDataColumnInfo(chartData, appState) {
-    // 檢查 appState 是否存在
-    if (!appState) {
-        console.warn('應用狀態 (appState) 未定義，無法保存欄位資訊');
-        return;
-    }
+function processChartData(data) {
+    if (!data) return null;
 
-    const columnInfo = {
-        labels: chartData.labels || [],
+    const chartData = {
         datasets: []
     };
-    
-    if (chartData.datasets) {
-        chartData.datasets.forEach(dataset => {
-            columnInfo.datasets.push({
-                label: dataset.label || '未命名數據集',
-                dataCount: Array.isArray(dataset.data) ? dataset.data.length : 0,
-                dataType: getDataType(dataset.data)
-            });
+
+    if (Array.isArray(data)) {
+        // 如果是陣列，假設是單一資料集
+        chartData.datasets.push({
+            data: data
+        });
+    } else if (data.datasets) {
+        // 如果有 datasets 屬性
+        chartData.datasets = data.datasets;
+    } else if (data.data) {
+        // 如果有 data 屬性
+        chartData.datasets.push({
+            data: data.data
         });
     }
-    
-    appState.dataColumnInfo = columnInfo;
+
+    return chartData;
+}
+
+// 如果 detectTimeUnit 未定義，提供基本實現
+if (typeof detectTimeUnit !== 'function') {
+    window.detectTimeUnit = function(data) {
+        if (!Array.isArray(data) || data.length < 2) {
+            return 'day';
+        }
+
+        const timeDiff = data[1].t - data[0].t;
+        if (timeDiff < 60000) return 'second';
+        if (timeDiff < 3600000) return 'minute';
+        if (timeDiff < 86400000) return 'hour';
+        if (timeDiff < 604800000) return 'day';
+        if (timeDiff < 2592000000) return 'week';
+        if (timeDiff < 31536000000) return 'month';
+        return 'year';
+    };
 }
 
 /**
- * 更新資料點計數
- * @param {Object} chartData - 圖表資料
- * @param {Object} appState - 應用狀態
+ * 將圖表匯出為圖片檔
+ * @param {string} format - 圖片格式，如 'image/png', 'image/webp'
+ * @param {object} appState - 應用狀態
  */
-function updateDataPointsCount(chartData, appState) {
-    // 檢查 appState 是否存在
-    if (!appState) {
-        console.warn('應用狀態 (appState) 未定義，無法更新資料點計數');
+export function captureChart(format = 'image/png', appState) {
+    if (!appState.myChart) {
+        showError('無圖表可供匯出');
         return;
     }
     
-    let totalPoints = 0;
-    let datasetCount = 0;
-    
-    if (chartData.datasets) {
-        datasetCount = chartData.datasets.length;
-        
-        chartData.datasets.forEach(dataset => {
-            if (Array.isArray(dataset.data)) {
-                totalPoints += dataset.data.length;
-            }
-        });
-    }
-    
-    // 保存到 appState.dataStats
-    if (!appState.dataStats) {
-        appState.dataStats = {};
-    }
-    appState.dataStats.totalPoints = totalPoints;
-    appState.dataStats.datasetCount = datasetCount;
-    
-    // 更新 DOM 元素
-    const totalPointsElement = document.getElementById('totalDataPoints');
-    const datasetCountElement = document.getElementById('datasetCount');
-    
-    if (totalPointsElement) {
-        totalPointsElement.textContent = totalPoints.toString();
-    }
-    
-    if (datasetCountElement) {
-        datasetCountElement.textContent = datasetCount.toString();
-    }
-}
-
-/**
- * 取得資料類型
- * @param {Array} data - 資料陣列
- * @returns {string} 資料類型
- */
-function getDataType(data) {
-    if (!Array.isArray(data) || data.length === 0) {
-        return 'unknown';
-    }
-    
-    const firstItem = data[0];
-    
-    if (typeof firstItem === 'number') {
-        return 'number';
-    } else if (typeof firstItem === 'string') {
-        return 'string';
-    } else if (typeof firstItem === 'boolean') {
-        return 'boolean';
-    } else if (firstItem instanceof Date) {
-        return 'date';
-    } else if (typeof firstItem === 'object') {
-        if (firstItem === null) {
-            return 'null';
-        }
-        
-        if (firstItem.hasOwnProperty('x') && firstItem.hasOwnProperty('y')) {
-            return 'coordinates';
-        }
-        
-        return 'object';
-    }
-    
-    return 'unknown';
-}
-
-/**
- * 將圖表截圖為特定格式的圖片
- * @param {string} type - 圖片格式 ('image/png' 或 'image/webp')
- * @param {Object} appState - 應用狀態
- */
-export function captureChart(type, appState) {
     try {
-        if (!appState.myChart) {
-            showError('沒有可用的圖表可供截圖');
-            return;
-        }
+        // 獲取圖表的 base64 編碼的資料 URL
+        const dataURL = appState.myChart.toBase64Image(format);
         
-        // 獲取圖表的 base64 圖像
-        const img = appState.myChart.toBase64Image(type, 1.0);
-        
-        // 建立臨時連結進行下載
+        // 創建一個隱藏的下載連結元素
         const link = document.createElement('a');
-        const now = new Date();
-        const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-');
+        link.href = dataURL;
+        link.download = `chart-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.${format.split('/')[1]}`;
         
-        // 設定下載名稱和連結
-        link.download = `chart-${timestamp}.${type === 'image/webp' ? 'webp' : 'png'}`;
-        link.href = img;
-        
-        // 手動觸發點擊事件
+        // 觸發下載
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         
-        console.log('圖表已導出為圖片');
+        console.log(`已匯出圖表為 ${format} 格式`);
     } catch (error) {
-        console.error('截圖時發生錯誤:', error);
-        showError(`無法截圖: ${error.message}`);
+        console.error('匯出圖表錯誤:', error);
+        showError('匯出圖表失敗');
     }
 }

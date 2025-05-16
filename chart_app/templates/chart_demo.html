@@ -78,6 +78,7 @@
                 <option value="AAPL_stock_data_2010-01-01_to_2025_05_06">蘋果公司股價</option>
                 <option value="Gold_TWD_price_2004-03-25_to_2025-05-05">台幣黃金價格 (蠟燭圖)</option>
                 <option value="Gold_TWD_price_2004-03-25_to_2025-05-05_line">台幣黃金價格 (折線圖)</option>
+                <option value="Taiwan_index_ohlc">台灣加權指數 (OHLC圖)</option>
                 <option value="SP500_price_2000-01-01_to_2025_05_06">標普500指數</option>
                 <option value="fred_GDP_20250506">美國 GDP</option>
                 <option value="fred_UNRATE_20250506">美國失業率</option>
@@ -120,11 +121,12 @@
                     // 取得畫布
                     const ctx = document.getElementById('chart-canvas').getContext('2d');
                     
-                    // 檢測是否為蠟燭圖
-                    if (data.type === 'candlestick') {
-                        // 創建蠟燭圖
+                    // 檢測是否為金融圖表（蠟燭圖或OHLC圖）
+                    if (data.type === 'candlestick' || data.type === 'ohlc') {
+                        // 創建金融圖表
+                        console.log(`創建 ${data.type} 圖表，數據:`, data.data);
                         currentChart = new Chart(ctx, {
-                            type: 'candlestick',
+                            type: data.type,
                             data: data.data,
                             options: data.options
                         });
@@ -144,9 +146,9 @@
                 });
         }
 
-        // 頁面載入時預先載入第一個圖表
+        // 頁面載入時預先載入 OHLC 圖表
         document.addEventListener('DOMContentLoaded', function() {
-            loadChart('AAPL_stock_data_2010-01-01_to_2025_05_06');
+            loadChart('Taiwan_index_ohlc');
         });
     </script>
 </body>
