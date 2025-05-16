@@ -1,0 +1,44 @@
+{
+  "type": "sankey",
+  "options": {
+    "responsive": true,
+    "title": {
+      "display": true,
+      "text": "台灣能源流向圖"
+    }
+  },
+  "data": {
+    "nodes": [
+      { "name": "進口能源" },
+      { "name": "化石燃料" },
+      { "name": "再生能源" },
+      { "name": "核能" },
+      { "name": "發電" },
+      { "name": "工業" },
+      { "name": "運輸" },
+      { "name": "住宅" },
+      { "name": "商業" },
+      { "name": "能源損失" },
+      { "name": "淨出口" }
+    ],
+    "links": [
+      { "source": 0, "target": 1, "value": 75 },
+      { "source": 0, "target": 2, "value": 15 },
+      { "source": 0, "target": 3, "value": 10 },
+      { "source": 1, "target": 4, "value": 45 },
+      { "source": 1, "target": 5, "value": 15 },
+      { "source": 1, "target": 6, "value": 15 },
+      { "source": 2, "target": 4, "value": 10 },
+      { "source": 2, "target": 5, "value": 3 },
+      { "source": 2, "target": 7, "value": 2 },
+      { "source": 3, "target": 4, "value": 10 },
+      { "source": 4, "target": 5, "value": 25 },
+      { "source": 4, "target": 7, "value": 20 },
+      { "source": 4, "target": 8, "value": 12 },
+      { "source": 4, "target": 9, "value": 8 },
+      { "source": 5, "target": 9, "value": 8 },
+      { "source": 5, "target": 10, "value": 7 }
+    ]
+  },
+  "chartTitle": "Taiwan Energy Flow Diagram"
+}

@@ -1,0 +1,69 @@
+{
+  "type": "polarArea",
+  "options": {
+    "responsive": true,
+    "title": {
+      "display": true,
+      "text": "技能評估雷達圖"
+    },
+    "scales": {
+      "r": {
+        "beginAtZero": true,
+        "max": 10,
+        "ticks": {
+          "stepSize": 2
+        }
+      }
+    },
+    "plugins": {
+      "legend": {
+        "position": "bottom"
+      }
+    }
+  },
+  "data": {
+    "labels": [
+      "技術知識",
+      "溝通能力",
+      "問題解決",
+      "團隊合作",
+      "專案管理",
+      "創新思維",
+      "領導能力"
+    ],
+    "datasets": [
+      {
+        "label": "小組A評分",
+        "data": [
+          8,
+          7,
+          9,
+          6,
+          8,
+          7,
+          5
+        ],
+        "backgroundColor": [
+          "rgba(255, 99, 132, 0.5)",
+          "rgba(54, 162, 235, 0.5)",
+          "rgba(255, 206, 86, 0.5)",
+          "rgba(75, 192, 192, 0.5)",
+          "rgba(153, 102, 255, 0.5)",
+          "rgba(255, 159, 64, 0.5)",
+          "rgba(201, 203, 207, 0.5)"
+        ],
+        "borderColor": [
+          "rgba(255, 99, 132, 1)",
+          "rgba(54, 162, 235, 1)",
+          "rgba(255, 206, 86, 1)",
+          "rgba(75, 192, 192, 1)",
+          "rgba(153, 102, 255, 1)",
+          "rgba(255, 159, 64, 1)",
+          "rgba(201, 203, 207, 1)"
+        ],
+        "borderWidth": 1
+      }
+    ]
+  },
+  "chartTitle": "Skill Assessment Radar"
+}
