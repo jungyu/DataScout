@@ -2,6 +2,25 @@
 
 整合 FastAPI 後端、Jinja2 模板渲染、Tailwind CSS、Chart.js 以及 canvas 截圖功能的資料視覺化應用，支援多種資料來源和圖表類型。使用標準化的 JSON 資料格式，確保圖表正確顯示。
 
+**重要更新**: 前端代碼已經完成重構，從單一大型文件分割為多個職責明確的模組，提高了可維護性和可擴展性。詳細資訊請參閱 [重構文檔](docs/refactoring.md)。
+
+## 模組化架構
+
+本專案採用模組化設計，前端代碼經過重構，分為以下核心模組：
+
+- **main.js**: 應用程式主入口，匯入和匯出其他模組功能
+- **state-manager.js**: 集中管理應用程式狀態，提供存取介面
+- **app-initializer.js**: 處理應用程式初始化和配置邏輯
+- **ui-controller.js**: 管理所有用戶界面交互和事件處理
+- **data-loader.js**: 處理資料載入和格式轉換
+- **chart-manager.js**: 管理圖表創建、更新和銷毀
+- **dependency-checker.js**: 檢查必要依賴項目是否正確載入
+
+關於重構的詳細資訊：
+- [重構文檔](docs/refactoring.md)
+- [變更記錄](docs/refactoring-changelog.md)
+- [測試計劃](docs/test-plan.md)
+
 ## 功能
 
 - FastAPI 後端提供 API 端點和網頁渲染
@@ -31,14 +50,27 @@ chart_app/
 │   ├── css/                # CSS 檔案
 │   │   └── output.css      # 編譯後的 Tailwind CSS
 │   ├── js/                 # JavaScript 檔案
-│   │   ├── script.js       # 前端主要功能實現
-│   │   └── chart-json.js   # JSON 格式處理工具
+│   │   ├── dist/           # 編譯後的 JS 檔案
+│   │   └── src/            # 源碼 JS 檔案
+│   │       ├── main.js                # 主入口點
+│   │       ├── app-initializer.js     # 應用程式初始化
+│   │       ├── state-manager.js       # 狀態管理
+│   │       ├── ui-controller.js       # UI 控制
+│   │       ├── data-loader.js         # 資料載入
+│   │       ├── chart-manager.js       # 圖表管理
+│   │       ├── dependency-checker.js  # 依賴檢查
+│   │       └── ...                    # 其他輔助模組
 │   └── uploads/            # 上傳檔案存放目錄
-├── docs/                   # 文檔目錄
-│   └── chart_formats.md    # Chart.js JSON 格式文檔
+├── docs/                   # 文件目錄
+│   ├── chart_formats.md    # Chart.js JSON 格式文檔
+│   ├── refactoring.md      # 重構文檔
+│   ├── refactoring-changelog.md # 重構變更記錄
+│   └── test-plan.md        # 測試計劃
 ├── frontend/               # 前端開發檔案
 │   ├── input.css           # Tailwind CSS 輸入檔案
 │   └── tailwind.config.js  # Tailwind 設定檔
+├── tests/                  # 測試目錄
+│   └── test_refactored_modules.js # 重構模組測試
 ├── requirements.txt        # Python 相依性列表
 └── package.json            # npm 相依性及指令
 ```
@@ -85,61 +117,19 @@ npm run start
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-### 4. 訪問應用
+### 4. 執行測試
 
-打開瀏覽器訪問: [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+```bash
+# 執行 JavaScript 模組測試
+npm run test
 
-### 5. 資料目錄
-
-應用程式會從以下目錄讀取數據文件：
-
-- CSV 檔案: `/Users/aaron/Projects/DataScout/data/csv/`
-- JSON 檔案: `/Users/aaron/Projects/DataScout/data/json/`
-- Excel 檔案: `/Users/aaron/Projects/DataScout/data/excel/`
-- 持久化檔案: `/Users/aaron/Projects/DataScout/persistence/`
-- 上傳檔案: `/Users/aaron/Projects/DataScout/chart_app/static/uploads/`
-
-請確保這些目錄存在，或者在 `app/main.py` 中修改這些路徑。
-
-## JSON 資料標準格式
-
-從 1.1.0 版本開始，本應用程式僅接受符合 Chart.js 標準的 JSON 格式，以確保圖表可靠顯示。這是為了解決之前因為靈活的資料格式處理導致的圖表顯示錯誤問題。
-
-### 標準 Chart.js JSON 格式
-
-```json
-{
-  "type": "line",
-  "labels": ["2025-01", "2025-02", "2025-03", "2025-04", "2025-05"],
-  "datasets": [
-    {
-      "label": "銷售額",
-      "data": [12800, 19500, 15200, 18100, 23000],
-      "backgroundColor": "rgba(75, 192, 192, 0.6)",
-      "borderColor": "rgba(75, 192, 192, 1.0)",
-      "borderWidth": 2
-    }
-  ],
-  "chartTitle": "2025年銷售表現"
-}
+# 產生測試覆蓋率報告
+npm run test:coverage
 ```
 
-### 格式驗證與轉換
+### 5. 訪問應用
 
-- 上傳的 JSON 檔案會自動進行格式驗證
-- 如果格式無效，會顯示詳細的錯誤訊息
-- 系統提供 `ChartJSAdapter` 類別和前端處理工具，自動標準化資料格式
-- 在 `/docs/chart-format` 路徑可查看完整格式文檔
-
-### 提供的範例檔案
-
-我們在 `/data/json/` 目錄下提供了幾個標準的 JSON 範例檔案：
-
-- `example_line_chart.json`: 折線圖範例
-- `example_bar_chart.json`: 長條圖範例
-- `example_pie_chart.json`: 圓餅圖範例
-
-您可以參考這些檔案來建立自己的 Chart.js JSON 資料。
+打開瀏覽器訪問: [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
 
 ## API 端點
 
@@ -157,21 +147,21 @@ python -m uvicorn app.main:app --reload --port 8000
 
 ## 技術堆疊
 
-- **後端**: 
+- **後端**
   - FastAPI: 提供高性能 API 服務
   - Pandas & NumPy: 數據處理與分析
   - OpenPyXL & XLRD: Excel 檔案處理
   - Scikit-learn: 數據分析（可選）
   
-- **前端**: 
+- **前端**
   - Tailwind CSS: 現代化 UI 設計
   - Chart.js: 互動式圖表渲染
   - JavaScript: 前端邏輯處理
   
-- **模板引擎**: 
+- **模板引擎**
   - Jinja2: 伺服器端模板渲染
   
-- **開發工具**: 
+- **開發工具**
   - Node.js & npm: 前端資源管理
   - Concurrently: 同時運行多個命令
   - UVicorn: ASGI 伺服器

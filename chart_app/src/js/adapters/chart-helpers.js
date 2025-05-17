@@ -1,6 +1,6 @@
-import { showError, showLoading, fetchFileData } from './utils.js';
+import { showError, showLoading, fetchFileData } from '../utils/utils.js';
 import { createChart } from './chart-renderer.js';
-import { syncChartThemeWithPageTheme } from './theme-handler.js';
+import { syncChartThemeWithPageTheme } from '../utils/theme-handler.js';
 
 // 圖表範例資料檔案對應
 export const CHART_TYPE_TO_EXAMPLE_FILE = {

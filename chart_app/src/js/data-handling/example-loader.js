@@ -1,7 +1,7 @@
 /**
  * 範例加載器模組 - 專門用於處理範例檔案的載入和處理
  */
-import { showError, showSuccess, showLoading } from './utils.js';
+import import { showError, showSuccess, showLoading } from './utils.js'; from "../utils/utils.js";
 
 /**
  * 獲取所有可用的範例檔案

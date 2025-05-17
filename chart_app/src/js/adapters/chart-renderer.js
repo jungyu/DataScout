@@ -2,7 +2,7 @@
  * 圖表渲染器模組 - 專責圖表的創建和更新
  */
 
-import { showError } from './utils.js';
+import { showError } from '../utils/utils.js';
 import { 
     validateCandlestickData, 
     normalizeCandlestickData, 

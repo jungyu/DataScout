@@ -1,32 +1,34 @@
-import { showError, showSuccess, showLoading, showChartMessage, hideChartMessage, fetchAllDataFiles, fetchFileData } from './utils.js';
-import { CHART_TYPE_TO_EXAMPLE_FILE, loadExampleDataForChartType } from './chart-helpers.js';
-import { createChart, captureChart } from './chart-renderer.js';
-import { uploadChart, exportDataToCSV, exportDataToJSON, exportDataToExcel } from './data-exporter.js';
-import { initThemeHandler, syncChartThemeWithPageTheme } from './theme-handler.js';
-import { guessChartTypeFromFilename, getExampleFilesForChartType, refreshAvailableFiles } from './file-handler.js';
-import { fetchAvailableExamples, fetchChartTypes, fetchExampleData } from './example-loader.js';
-import { verifyDateAdapter } from './chart-date-adapter.js';
-
 /**
- * 應用程式狀態
+ * DataScout 圖表應用程式主入口
+ * 這個文件經過重構，將功能分散到不同的模組中以便維護
  */
-// 初始化時顯示啟動訊息，確認程式碼正確載入
-console.log('初始化 chart_app - ' + new Date().toISOString());
-window.chartAppLoaded = true;
 
-const appState = {
-    myChart: null,
-    currentDataFile: null,
-    currentDataType: 'json',
-    currentChartType: 'radar',  // 預設為雷達圖
-    currentChartTheme: 'default',
-    availableDataFiles: {},
-    dataColumnInfo: null,
-    dataStats: {
-        totalPoints: 0,
-        datasetCount: 0
+import './core/app-initializer.js';
+import { checkAllDependencies } from './utils/dependency-checker.js';
+
+// 將主要功能導出供全局使用
+export { initPage } from './core/app-initializer.js';
+export { loadDataFile, refreshChart } from './data-handling/data-loader.js';
+export { createOrUpdateChart, updateChartTheme, updateChartData } from './core/chart-manager.js';
+export { getAppState, setStateValue } from './core/state-manager.js';
+
+// 初始化時顯示啟動訊息，確認程式碼正確載入
+console.log('載入重構後的 chart_app 主模組 - ' + new Date().toISOString());
+
+// 檢查依賴項目
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(checkAllDependencies, 1000); // 延遲檢查以確保所有資源都已載入
+});
+
+// 視窗調整大小時，重新調整圖表
+window.addEventListener('resize', () => {
+    const { getAppState } = require('./core/state-manager.js');
+    const appState = getAppState();
+    
+    if (appState.myChart) {
+        appState.myChart.resize();
     }
-};
+});
 
 /**
  * 從 URL 查詢參數取得指定值
