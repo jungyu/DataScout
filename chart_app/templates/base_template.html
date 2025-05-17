@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} | DataScout 圖表應用</title>
+    <!-- 修改靜態檔案引用方式 -->
+    <link href="{{ request.state.static_url('css/output.css') }}" rel="stylesheet">
+    <link href="{{ request.state.static_url('css/custom.css') }}" rel="stylesheet">
+    <!-- 其他CSS引用 -->
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-100">
+    <!-- 頁面內容 -->
+    {% block content %}{% endblock %}
+    
+    <!-- 核心腳本 -->
+    <script src="{{ request.state.static_url('js/jquery-3.6.0.min.js') }}"></script>
+    <script src="{{ request.state.static_url('js/chart.min.js') }}"></script>
+    <script src="{{ request.state.static_url('js/chart-extensions.js') }}"></script>
+    
+    <!-- 額外腳本 -->
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

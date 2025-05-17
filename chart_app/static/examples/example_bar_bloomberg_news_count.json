@@ -1,42 +1,30 @@
 {
   "type": "bar",
-  "options": {
-    "responsive": true,
-    "title": {
-      "display": true,
-      "text": "彭博新聞每日文章統計"
-    },
-    "scales": {
-      "y": {
-        "beginAtZero": true
-      }
-    }
-  },
+  "labels": [
+    "經濟",
+    "政治",
+    "科技",
+    "健康",
+    "娛樂",
+    "體育",
+    "國際"
+  ],
   "datasets": [
     {
-      "label": "新聞文章數量",
+      "label": "彭博社",
       "data": [
-        23,
-        18,
-        25,
-        17,
-        12,
-        28,
-        22
+        120,
+        80,
+        110,
+        60,
+        30,
+        20,
+        90
       ],
-      "backgroundColor": "rgba(75, 192, 192, 0.2)",
-      "borderColor": "rgba(75, 192, 192, 1)",
+      "backgroundColor": "rgba(54, 162, 235, 0.6)",
+      "borderColor": "rgba(54, 162, 235, 1)",
       "borderWidth": 1
     }
   ],
-  "labels": [
-    "2025-05-07",
-    "2025-05-08",
-    "2025-05-09",
-    "2025-05-10",
-    "2025-05-11",
-    "2025-05-12",
-    "2025-05-13"
-  ],
-  "chartTitle": "Bloomberg News Count"
+  "chartTitle": "彭博社新聞分類統計"
 }

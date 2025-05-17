@@ -37,5 +37,11 @@
     "tailwindcss",
     "olap",
     "data-analysis"
-  ]
+  ],
+  "dependencies": {
+    "chart.js": "^3.9.1",
+    "chartjs-adapter-luxon": "^1.3.0",
+    "lru-cache": "^11.1.0",
+    "luxon": "^2.5.0"
+  }
 }

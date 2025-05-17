@@ -1,45 +1,37 @@
 {
   "type": "line",
-  "options": {
-    "responsive": true,
-    "title": {
-      "display": true,
-      "text": "美國失業率趨勢"
-    },
-    "scales": {
-      "x": {
-        "type": "time",
-        "time": {}
-      },
-      "y": {
-        "beginAtZero": false
-      }
-    }
-  },
+  "labels": [
+    "2018",
+    "2019",
+    "2020-Q1",
+    "2020-Q2",
+    "2020-Q3",
+    "2020-Q4",
+    "2021",
+    "2022",
+    "2023",
+    "2024"
+  ],
   "datasets": [
     {
-      "label": "美國失業率",
+      "label": "失業率",
       "data": [
-        {
-          "y": 4.0
-        },
-        {
-          "y": 4.1
-        },
-        {
-          "y": 4.0
-        },
-        {
-          "y": 3.8
-        }
+        3.9,
+        3.7,
+        3.8,
+        13.2,
+        8.5,
+        6.8,
+        5.4,
+        3.7,
+        3.5,
+        3.6
       ],
-      "backgroundColor": "rgba(75, 192, 192, 0.2)",
-      "borderColor": "rgba(75, 192, 192, 1)",
-      "borderWidth": 1,
       "fill": false,
-      "tension": 0.1,
-      "pointRadius": 1
+      "backgroundColor": "rgba(54, 162, 235, 0.6)",
+      "borderColor": "rgba(54, 162, 235, 1)",
+      "borderWidth": 2
     }
   ],
-  "chartTitle": "Fred Unemployment"
+  "chartTitle": "美國失業率"
 }

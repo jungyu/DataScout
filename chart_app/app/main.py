@@ -30,6 +30,12 @@ except ImportError:
     logging.error("缺少必要的數據處理套件。請確保 pandas 和 numpy 已正確安裝。")
     pd = None
     np = None
+    
+# 導入API路由模組
+try:
+    from app.apis.example_router import example_router
+except ImportError:
+    logging.warning("無法導入 example_router 模組，API 端點可能無法正常工作")
 
 # 添加本地模組導入
 try:
@@ -90,6 +96,16 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# 掛載靜態檔案目錄
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# 包含API路由模組
+try:
+    app.include_router(example_router)
+    logger.info("已成功載入範例檔案API路由")
+except NameError as e:
+    logger.warning(f"無法包含範例檔案API路由: {e}")
+
 # 設定目錄路徑
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path("/Users/aaron/Projects/DataScout/data")
@@ -118,13 +134,18 @@ os.makedirs(UPLOAD_EXCEL_DIR, exist_ok=True)
 # 設定模板引擎
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+# 自定義模板上下文處理器，用於修復靜態文件路徑問題
+@app.middleware("http")
+async def add_templates_context(request: Request, call_next):
+    # 將 request 物件注入到所有模板的上下文中
+    request.state.static_url = lambda path: f"/static/{path}"
+    response = await call_next(request)
+    return response
+
 # 建立上傳資料夾（如果不存在）
 for directory in [UPLOAD_DIR, TEMP_DIR]:
     if not os.path.exists(directory):
         os.makedirs(directory)
-
-# 設定靜態檔案目錄
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
 # 資料來源類型枚舉
@@ -135,6 +156,93 @@ DATA_SOURCE_TYPES = {
     "persistence": "持久化存儲",
     "uploaded": "上傳的檔案"
 }
+
+# 在現有的 add_templates_context 中間件後面添加以下函數
+
+def convert_df_to_chartjs(df):
+    """
+    將 DataFrame 轉換為 Chart.js 格式
+    
+    Args:
+        df (pd.DataFrame): 待轉換的數據框
+        
+    Returns:
+        dict: Chart.js 格式的數據
+    """
+    try:
+        # 檢測日期列
+        date_column = None
+        for col in ['Date', 'DATE', 'date', 'datetime', 'time', 'timestamp', 'Time', 'Timestamp']:
+            if col in df.columns:
+                date_column = col
+                break
+        
+        # 如果沒有日期列，使用索引作為標籤
+        if date_column is None:
+            labels = df.index.astype(str).tolist()
+        else:
+            # 將日期轉換為字符串格式
+            if pd.api.types.is_datetime64_any_dtype(df[date_column]):
+                labels = df[date_column].dt.strftime('%Y-%m-%d').tolist()
+            else:
+                labels = df[date_column].astype(str).tolist()
+        
+        # 如果有日期列，從數據框中排除它
+        if date_column and date_column in df.columns:
+            df_values = df.drop(columns=[date_column])
+        else:
+            df_values = df
+        
+        # 只保留數值型列
+        df_values = df_values.select_dtypes(include=['number'])
+        
+        # 創建數據集
+        datasets = []
+        color_palette = [
+            "rgba(75, 192, 192, 0.6)",    # 綠松石色
+            "rgba(153, 102, 255, 0.6)",   # 紫色
+            "rgba(255, 159, 64, 0.6)",    # 橙色
+            "rgba(54, 162, 235, 0.6)",    # 藍色
+            "rgba(255, 99, 132, 0.6)",    # 粉色
+            "rgba(255, 206, 86, 0.6)",    # 黃色
+            "rgba(199, 199, 199, 0.6)",   # 灰色
+            "rgba(83, 102, 255, 0.6)",    # 暗藍色
+            "rgba(255, 99, 71, 0.6)",     # 西紅柿色
+            "rgba(50, 205, 50, 0.6)"      # 石灰色
+        ]
+        
+        # 最多選擇10個列進行繪圖
+        for i, column in enumerate(df_values.columns[:10]):
+            # 檢查列的數據類型是否為數值型
+            if np.issubdtype(df_values[column].dtype, np.number):
+                color_index = i % len(color_palette)
+                color = color_palette[color_index]
+                
+                # 過濾掉 NaN 值
+                valid_data = df_values[column].ffill().bfill().tolist()
+                
+                datasets.append({
+                    "label": str(column),
+                    "data": valid_data,
+                    "backgroundColor": color,
+                    "borderColor": color.replace("0.6", "1.0"),
+                    "borderWidth": 1
+                })
+        
+        # 返回 Chart.js 格式的資料
+        return {
+            "labels": labels,
+            "datasets": datasets,
+            "chartTitle": "資料視覺化"
+        }
+    except Exception as e:
+        logger.exception("DataFrame 轉換為 Chart.js 格式時出錯")
+        return {
+            "labels": [],
+            "datasets": [],
+            "chartTitle": "無法載入資料",
+            "error": str(e)
+        }
 
 
 def get_data_files(data_type: str) -> list[dict]:
@@ -1226,111 +1334,28 @@ async def get_csv_data(filename: str = Query(..., description="CSV 文件名")):
     })
 
 
-@app.get("/examples/list/")
-async def list_examples(chart_type: Optional[str] = None):
+@app.get("/api/examples/chart-types/")
+async def api_chart_types():
     """
-    列出可用的範例檔案
+    獲取所有可用的圖表類型
     
-    Args:
-        chart_type (str, optional): 如果提供，只返回指定圖表類型的範例
-        
     Returns:
-        dict: 範例檔案列表
+        dict: 包含圖表類型的字典
     """
-    try:
-        examples_list = []
-        pattern = "*.json"  # 預設查找所有 JSON 檔案
-        
-        # 查找指定目錄下的所有範例檔案
-        for file_path in glob.glob(str(EXAMPLES_DIR / pattern)):
-            file_name = os.path.basename(file_path)
-            
-            # 嘗試讀取檔案以確定圖表類型
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    file_chart_type = data.get('type', 'unknown')
-            except Exception:
-                file_chart_type = 'unknown'
-            
-            # 如果指定了圖表類型且不匹配，則跳過
-            if chart_type and file_chart_type != chart_type:
-                continue
-            
-            # 建立範例描述
-            display_name = file_name.replace("_", " ").replace(".json", "")
-            examples_list.append({
-                "filename": file_name,
-                "display_name": display_name,
-                "chart_type": file_chart_type,
-                "path": f"/api/examples/get/?filename={file_name}"
-            })
-        
-        # 依文件名排序
-        examples_list.sort(key=lambda x: x["display_name"])
-        
-        # 將範例按圖表類型分類
-        categorized_examples = {}
-        for example in examples_list:
-            chart_type = example["chart_type"]
-            if chart_type not in categorized_examples:
-                categorized_examples[chart_type] = []
-            categorized_examples[chart_type].append(example)
-        
-        return {
-            "examples": examples_list, 
-            "total": len(examples_list),
-            "categorized": categorized_examples
-        }
-        
-    except Exception as e:
-        logger.error(f"列出範例檔案時發生錯誤: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"列出範例檔案時發生錯誤: {str(e)}"}
-        )
-
-
-@app.get("/examples/get/")
-async def get_example(filename: str = Query(..., description="範例檔案名稱")):
-    """
-    獲取特定的範例檔案內容
+    chart_types = {
+        "line": "折線圖",
+        "bar": "長條圖",
+        "pie": "圓餅圖",
+        "doughnut": "環狀圖",
+        "radar": "雷達圖",
+        "polarArea": "極座標圖",
+        "scatter": "散點圖",
+        "bubble": "氣泡圖",
+        "candlestick": "蠟燭圖",
+        "mixed": "混合圖表"
+    }
     
-    Args:
-        filename (str): 範例檔案名稱
-        
-    Returns:
-        JSON: 範例檔案內容
-    """
-    try:
-        # 檢查文件名稱安全性
-        safe_filename = secure_filename(filename)
-        file_path = EXAMPLES_DIR / safe_filename
-        
-        if not os.path.exists(file_path):
-            return JSONResponse(
-                status_code=404,
-                content={"error": f"範例檔案 {filename} 不存在"}
-            )
-        
-        # 讀取範例檔案
-        with open(file_path, 'r', encoding='utf-8') as f:
-            example_data = json.load(f)
-            
-        return example_data
-        
-    except json.JSONDecodeError:
-        logger.error(f"範例檔案 {filename} 格式無效")
-        return JSONResponse(
-            status_code=400,
-            content={"error": f"範例檔案 {filename} 格式無效"}
-        )
-    except Exception as e:
-        logger.error(f"讀取範例檔案 {filename} 時發生錯誤: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"讀取範例檔案時發生錯誤: {str(e)}"}
-        )
+    return {"chart_types": chart_types}
 
 
 @app.get("/api/examples/list/")

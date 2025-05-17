@@ -6,10 +6,15 @@ import { initThemeHandler, syncChartThemeWithPageTheme } from './theme-handler.j
 import { guessChartTypeFromFilename, getExampleFilesForChartType, refreshAvailableFiles } from './file-handler.js';
 import { fetchAvailableExamples, fetchChartTypes, fetchExampleData } from './example-loader.js';
 import { testAllChartTypes } from './chart-test.js';
+import { verifyDateAdapter } from './chart-date-adapter.js';
 
 /**
  * 應用程式狀態
  */
+// 初始化時顯示啟動訊息，確認程式碼正確載入
+console.log('初始化 chart_app - ' + new Date().toISOString());
+window.chartAppLoaded = true;
+
 const appState = {
     myChart: null,
     currentDataFile: null,

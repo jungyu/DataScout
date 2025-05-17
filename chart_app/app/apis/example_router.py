@@ -25,7 +25,7 @@ example_router = APIRouter(
 
 # 取得基礎目錄路徑
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-EXAMPLES_DIR = BASE_DIR / "examples"
+EXAMPLES_DIR = BASE_DIR / "static" / "examples"
 
 # 確保範例目錄存在
 if not os.path.exists(EXAMPLES_DIR):

@@ -18,9 +18,26 @@ import {
  */
 export function createChart(data, chartType, theme, appState) {
     try {
+        // 添加調試信息
+        console.log('嘗試創建圖表 - ' + new Date().toISOString(), {
+            chartType,
+            theme,
+            dataAvailable: !!data
+        });
+        
+        // 輸出詳細的數據結構，有助於調試
+        console.log('創建圖表的詳細數據:', JSON.stringify(data, null, 2).substring(0, 500) + '...');
+        
         // 確保 Chart.js 存在
         if (typeof Chart === 'undefined') {
             console.error('Chart.js 未載入，無法創建圖表');
+            
+            // 更新頁面上的調試信息
+            const debugInfo = document.getElementById('debug-info');
+            if (debugInfo) {
+                debugInfo.innerText = 'ERROR: Chart.js 未載入，無法創建圖表';
+            }
+            
             throw new Error('Chart.js 函式庫未載入');
         }
         
@@ -32,6 +49,39 @@ export function createChart(data, chartType, theme, appState) {
         
         // 特殊圖表類型的處理 - 增強版
         console.log(`處理圖表類型: ${chartType}`);
+        
+        // 對於特殊圖表類型的轉換處理
+        if (chartType === 'butterfly') {
+            console.log('檢測到蝴蝶圖，這將被轉換為帶有特殊配置的柱狀圖');
+            // 不改變圖表類型，讓 prepareChartConfig 處理轉換
+        }
+
+        if (chartType === 'sankey') {
+            console.log('檢測到桑基圖，檢查是否已載入 sankey 控制器');
+            
+            // 檢查是否有 sankey 控制器
+            if (!Chart.controllers.sankey) {
+                console.warn('未找到桑基圖控制器，可能需要額外的插件');
+                
+                // 嘗試載入 Chart.js Sankey 插件
+                try {
+                    if (window.ChartSankey) {
+                        console.log('檢測到 ChartSankey 插件，嘗試註冊');
+                        Chart.register(window.ChartSankey);
+                    } else {
+                        // 如果沒有 Sankey 插件，回退到使用其他圖表類型
+                        console.warn('未找到 Sankey 圖表插件，回退到使用混合圖表類型');
+                        chartType = 'bar'; // 使用柱狀圖作為回退
+                        
+                        // 提示使用者
+                        showError('桑基圖需要額外的插件支援，已回退到使用柱狀圖替代。');
+                    }
+                } catch (error) {
+                    console.error('載入桑基圖插件失敗:', error);
+                    chartType = 'bar';
+                }
+            }
+        }
         
         // 初始化圖表控制器狀態檢查
         const existingControllers = Object.keys(Chart.controllers || {});
@@ -278,12 +328,74 @@ export function createChart(data, chartType, theme, appState) {
             appState.myChart = null;
         }
         
-        // 確保 canvas 徹底清理完畢
+        // 檢查是否有其他圖表實例正在使用同一畫布
+        const existingChart = Chart.getChart(canvas);
+        if (existingChart) {
+            console.log('發現同一畫布上存在其他圖表實例，ID:', existingChart.id);
+            try {
+                // 在銷毀前先分離事件監聽器
+                if (existingChart.canvas) {
+                    existingChart.canvas.removeEventListener('click', null);
+                    existingChart.canvas.removeEventListener('mousemove', null);
+                    existingChart.canvas.removeEventListener('mouseout', null);
+                }
+                
+                // 確保停止任何進行中的動畫
+                if (existingChart.stop) {
+                    existingChart.stop();
+                }
+                
+                // 銷毀該實例
+                existingChart.destroy();
+                console.log('成功銷毀畫布上的舊圖表實例');
+                
+                // 從全局實例登記表中移除引用
+                if (Chart.instances && existingChart.id) {
+                    delete Chart.instances[existingChart.id];
+                }
+            } catch (err) {
+                console.error('銷毀畫布上的舊圖表實例時出錯:', err);
+                
+                // 備用清理方式 - 直接清理 Canvas
+                try {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                } catch (e) {
+                    console.error('Canvas 清理失敗:', e);
+                }
+            }
+        }
+        
+        // 確保 canvas 徹底清理完畢並重新初始化
         const ctx = canvas.getContext('2d');
         ctx.save();
         ctx.resetTransform();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.restore();
+        
+        // 確保 canvas 尺寸正確
+        const chartContainer = document.getElementById('chartContainer');
+        if (chartContainer) {
+            const containerWidth = chartContainer.clientWidth;
+            const containerHeight = chartContainer.clientHeight;
+            
+            // 重新設置 canvas 尺寸，解決舊版本兼容性問題
+            canvas.width = containerWidth * 2;  // 高解析度
+            canvas.height = containerHeight * 2;
+            canvas.style.width = `${containerWidth}px`;
+            canvas.style.height = `${containerHeight}px`;
+            
+            console.log(`Canvas 尺寸重設為 ${containerWidth}x${containerHeight}`);
+        }
+        
+        // 確保 Chart.js 的 registry 正常
+        if (Chart.registry) {
+            console.log('Chart.js registry 狀態:', {
+                controllers: Object.keys(Chart.registry.controllers).length,
+                elements: Object.keys(Chart.registry.elements).length,
+                plugins: Object.keys(Chart.registry.plugins).length
+            });
+        }
         
         // 準備圖表配置
         const chartConfig = prepareChartConfig(data, chartType, theme, appState);
@@ -341,6 +453,84 @@ export function createChart(data, chartType, theme, appState) {
                         if (attempt === maxRetries) {
                             chartConfig.type = 'line';
                         }
+                    }
+                }
+                
+                // 增強版日期轉接器處理邏輯
+                if (chartConfig.options && chartConfig.options.scales && 
+                   (chartConfig.options.scales.x && chartConfig.options.scales.x.type === 'time')) {
+                    // 檢查 Luxon 和轉接器是否可用
+                    if (typeof luxon === 'undefined' || typeof Chart.adapters._date === 'undefined') {
+                        console.warn('Luxon 或日期轉接器未正確載入，嘗試手動註冊');
+                        
+                        try {
+                            // 嘗試註冊內置日期轉接器
+                            if (typeof luxon !== 'undefined') {
+                                Chart.register({
+                                    id: 'luxonAdapter',
+                                    _date: {
+                                        parse: function(value) {
+                                            if (value instanceof Date) {
+                                                return value;
+                                            }
+                                            
+                                            if (typeof value === 'string') {
+                                                try {
+                                                    return luxon.DateTime.fromISO(value).toJSDate();
+                                                } catch (e) {
+                                                    return new Date(value);
+                                                }
+                                            }
+                                            
+                                            return new Date(value);
+                                        },
+                                        format: function(timestamp, format) {
+                                            const dt = luxon.DateTime.fromJSDate(timestamp);
+                                            if (format === 'yyyy-MM-dd') {
+                                                return dt.toFormat('yyyy-MM-dd');
+                                            } else if (format === 'yyyy-MM-dd HH:mm:ss') {
+                                                return dt.toFormat('yyyy-MM-dd HH:mm:ss');
+                                            } else {
+                                                return dt.toLocaleString(luxon.DateTime.DATETIME_SHORT);
+                                            }
+                                        },
+                                        add: function(time, amount, unit) {
+                                            const dt = luxon.DateTime.fromJSDate(time);
+                                            const result = dt.plus({ [unit]: amount });
+                                            return result.toJSDate();
+                                        },
+                                        diff: function(max, min, unit) {
+                                            const dtMax = luxon.DateTime.fromJSDate(max);
+                                            const dtMin = luxon.DateTime.fromJSDate(min);
+                                            return dtMax.diff(dtMin, unit).values[unit];
+                                        },
+                                        startOf: function(time, unit) {
+                                            const dt = luxon.DateTime.fromJSDate(time);
+                                            const result = dt.startOf(unit);
+                                            return result.toJSDate();
+                                        },
+                                        endOf: function(time, unit) {
+                                            const dt = luxon.DateTime.fromJSDate(time);
+                                            const result = dt.endOf(unit);
+                                            return result.toJSDate();
+                                        }
+                                    }
+                                });
+                                console.log('已手動註冊 Luxon 日期轉接器');
+                            } else {
+                                // 如果無法註冊，則切換到類別軸
+                                console.log('無法註冊日期轉接器，切換到類別軸以避免問題');
+                                chartConfig.options.scales.x.type = 'category';
+                                delete chartConfig.options.scales.x.time;
+                            }
+                        } catch (adapterError) {
+                            console.error('註冊日期轉接器時出錯:', adapterError);
+                            // 回退到類別軸
+                            chartConfig.options.scales.x.type = 'category';
+                            delete chartConfig.options.scales.x.time;
+                        }
+                    } else {
+                        console.log('日期轉接器已正確載入');
                     }
                 }
                 
@@ -502,6 +692,79 @@ function prepareChartConfig(data, chartType, theme, appState) {
 
     // 根據圖表類型處理
     switch (chartType.toLowerCase()) {
+        case 'butterfly':
+            // 處理蝴蝶圖數據
+            console.log('處理蝴蝶圖，將轉換為特殊配置的橫向柱狀圖');
+            
+            // 使用蝴蝶圖專用處理函數，如果可用的話
+            let butterflyData;
+            if (typeof window.processButterFlyData === 'function') {
+                console.log('使用專用的蝴蝶圖數據處理函數');
+                butterflyData = window.processButterFlyData(data);
+            } else {
+                console.log('使用標準柱狀圖處理函數處理蝴蝶圖數據');
+                butterflyData = processBarData(data);
+                
+                // 確保第二個數據集的值為負數
+                if (butterflyData.datasets && butterflyData.datasets.length >= 2) {
+                    butterflyData.datasets[1].data = butterflyData.datasets[1].data.map(val => {
+                        return val > 0 ? -Math.abs(val) : val;
+                    });
+                }
+            }
+            
+            return {
+                type: 'bar',
+                data: butterflyData,
+                options: {
+                    ...defaultConfig,
+                    indexAxis: 'y', // 橫向柱狀圖
+                    plugins: {
+                        tooltip: {
+                            mode: 'index',
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    // 顯示絕對值
+                                    return `${context.dataset.label}: ${Math.abs(value)}`;
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: data.title || data.chartTitle || '蝴蝶圖',
+                            font: { size: 16 }
+                        },
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: false,
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: (data.options && data.options.scales && data.options.scales.x && data.options.scales.x.title && data.options.scales.x.title.text) || '數值'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    // 顯示絕對值
+                                    return Math.abs(value);
+                                }
+                            }
+                        },
+                        y: {
+                            stacked: false,
+                            title: {
+                                display: true,
+                                text: (data.options && data.options.scales && data.options.scales.y && data.options.scales.y.title && data.options.scales.y.title.text) || '類別'
+                            }
+                        }
+                    }
+                }
+            };
+            
         case 'sankey':
             return {
                 type: 'sankey',
@@ -521,7 +784,7 @@ function prepareChartConfig(data, chartType, theme, appState) {
                         },
                         title: {
                             display: true,
-                            text: data.title || '桑基圖',
+                            text: data.title || data.chartTitle || '桑基圖',
                             font: { size: 16 }
                         }
                     }
@@ -1029,46 +1292,110 @@ function prepareChartConfig(data, chartType, theme, appState) {
             };
         
         case 'line':
-            return {
-                type: 'line',
-                data: processLineData(data),
-                options: {
-                    ...defaultConfig,
-                    plugins: {
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false
-                        },
-                        title: {
-                            display: true,
-                            text: data.title || '折線圖',
-                            font: { size: 16 }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'day',
-                                displayFormats: {
-                                    day: 'yyyy-MM-dd'
-                                }
+            // 判斷數據是否包含時間序列
+            let useTimeAxis = false;
+            let hasTimeData = false;
+            
+            try {
+                const processedLineData = processLineData(data);
+                
+                // 檢查是否有時間序列數據
+                if (processedLineData.datasets && processedLineData.datasets.length > 0 && 
+                    processedLineData.datasets[0].data && processedLineData.datasets[0].data.length > 0) {
+                    
+                    const samplePoint = processedLineData.datasets[0].data[0];
+                    if (samplePoint && (samplePoint.x instanceof Date || typeof samplePoint.x === 'string' && !isNaN(new Date(samplePoint.x).getTime()))) {
+                        hasTimeData = true;
+                    }
+                }
+                
+                // 檢查日期適配器是否可用
+                useTimeAxis = hasTimeData && typeof luxon !== 'undefined' && typeof Chart.adapters._date !== 'undefined';
+                
+                return {
+                    type: 'line',
+                    data: processedLineData,
+                    options: {
+                        ...defaultConfig,
+                        plugins: {
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
                             },
                             title: {
                                 display: true,
-                                text: '時間'
+                                text: data.title || '折線圖',
+                                font: { size: 16 }
                             }
                         },
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: '數值'
+                        scales: {
+                            x: useTimeAxis ? {
+                                type: 'time',
+                                time: {
+                                    unit: 'day',
+                                    displayFormats: {
+                                        day: 'yyyy-MM-dd'
+                                    }
+                                },
+                                title: {
+                                    display: true,
+                                    text: '時間'
+                                }
+                            } : {
+                                type: 'category',
+                                title: {
+                                    display: true,
+                                    text: '類別'
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: '數值'
+                                }
                             }
                         }
                     }
-                }
-            };
+                };
+            } catch (error) {
+                console.error('處理折線圖配置時出錯:', error);
+                // 返回安全的備用配置，不使用時間軸
+                return {
+                    type: 'line',
+                    data: processLineData(data),
+                    options: {
+                        ...defaultConfig,
+                        plugins: {
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
+                            },
+                            title: {
+                                display: true,
+                                text: data.title || '折線圖',
+                                font: { size: 16 }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'category',
+                                title: {
+                                    display: true,
+                                    text: '類別'
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: '數值'
+                                }
+                            }
+                        }
+                    }
+                };
+            }
         
         default:
             console.warn(`未知圖表類型 '${chartType}'，使用折線圖替代。`);
@@ -1111,9 +1438,9 @@ function prepareChartConfig(data, chartType, theme, appState) {
                         }
                     }
                 }
-            };
+            }
+        }
     }
-}
 
 // 處理蠟燭圖資料
 function processCandlestickData(data) {
@@ -1407,6 +1734,123 @@ function generateSampleSankeyData() {
         { from: '來源C', to: '目標Y', flow: 30 },
         { from: '來源C', to: '目標Z', flow: 18 }
     ];
+}
+
+// 處理蠟燭圖資料
+function processButterFlyData(data) {
+    console.log('processButterFlyData 被調用，數據類型:', typeof data);
+    const processedData = {
+        datasets: [{
+            label: '價格',
+            data: []
+        }]
+    };
+
+    try {
+        console.log('處理蝴蝶圖數據:', data);
+        // 獲取數據來源
+        const sourceData = data.datasets?.[0]?.data || data.data?.datasets?.[0]?.data || data.data || [];
+        
+        // 如果是原始數據格式，提取數據
+        if (sourceData.datasets && sourceData.datasets[0] && Array.isArray(sourceData.datasets[0].data)) {
+            processedData.datasets[0].data = sourceData.datasets[0].data;
+        } else {
+            processedData.datasets[0].data = sourceData;
+        }
+        
+        // 設置標籤
+        if (data.datasets && data.datasets[0] && data.datasets[0].label) {
+            processedData.datasets[0].label = data.datasets[0].label;
+        } else if (data.data && data.data.datasets && data.data.datasets[0] && data.data.datasets[0].label) {
+            processedData.datasets[0].label = data.data.datasets[0].label;
+        }
+        
+        console.log('原始數據點數:', processedData.datasets[0].data.length);
+        
+        // 處理每個數據點
+        processedData.datasets[0].data = processedData.datasets[0].data
+            .filter(item => (
+                item &&
+                (item.t !== undefined || item.time !== undefined || item.x !== undefined || item.date !== undefined) &&
+                (item.o !== undefined || item.open !== undefined) &&
+                (item.h !== undefined || item.high !== undefined) &&
+                (item.l !== undefined || item.low !== undefined) &&
+                (item.c !== undefined || item.close !== undefined)
+            ))
+            .map(item => {
+                // 處理時間字段
+                let timeValue;
+                try {
+                    const rawTime = item.t || item.time || item.x || item.date;
+                    
+                    if (rawTime instanceof Date) {
+                        timeValue = rawTime;
+                    } else if (typeof rawTime === 'string') {
+                        // 嘗試以多種格式解析日期字符串
+                        if (rawTime.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                            // YYYY-MM-DD 格式，確保使用 UTC 時間以避免時區問題
+                            const [year, month, day] = rawTime.split('-').map(Number);
+                            timeValue = new Date(Date.UTC(year, month - 1, day));
+                        } else {
+                            // 嘗試標準解析
+                            timeValue = new Date(rawTime);
+                        }
+                    } else if (typeof rawTime === 'number') {
+                        timeValue = new Date(rawTime);
+                    } else {
+                        console.warn('無法識別的時間格式:', rawTime);
+                        timeValue = new Date();
+                    }
+                    
+                    // 驗證解析出的時間是否有效
+                    if (isNaN(timeValue.getTime())) {
+                        console.error('解析出無效的時間:', item.t || item.time || item.x || item.date);
+                        throw new Error('Invalid time value');
+                    }
+                    
+                } catch (dateError) {
+                    console.error('解析日期出錯:', dateError, '原始數據:', item);
+                    throw dateError; // 重新拋出錯誤，讓外層處理
+                }
+                
+                // 標準化 OHLC 值
+                return {
+                    t: timeValue,
+                    o: Number(item.o || item.open || 0),
+                    h: Number(item.h || item.high || 0),
+                    l: Number(item.l || item.low || 0),
+                    c: Number(item.c || item.close || 0)
+                };
+            });
+
+        console.log('處理後數據點數:', processedData.datasets[0].data.length);
+        
+        // 如果沒有有效數據，則生成樣本數據
+        if (processedData.datasets[0].data.length === 0) {
+            console.warn('沒有有效的蝴蝶圖數據，使用生成的樣本數據');
+            processedData.datasets[0].data = generateSampleData(30);
+        }
+        
+        // 設置顏色風格
+        if (data.datasets && data.datasets[0] && data.datasets[0].color) {
+            processedData.datasets[0].color = data.datasets[0].color;
+        } else {
+            processedData.datasets[0].color = {
+                up: 'rgba(75, 192, 75, 1)',
+                down: 'rgba(255, 99, 132, 1)',
+                unchanged: 'rgba(160, 160, 160, 1)'
+            };
+        }
+        
+        console.log('處理後的蝴蝶圖數據:', processedData);
+    } catch (error) {
+        console.error('處理蝴蝶圖資料時出錯:', error);
+        console.log('嘗試生成樣本數據');
+        processedData.datasets[0].data = generateSampleData(30);
+    }
+
+    console.log('processButterFlyData 處理完成，返回數據');
+    return processedData;
 }
 
 // 處理長條圖資料
@@ -1768,22 +2212,27 @@ function processChartData(data) {
 }
 
 // 如果 detectTimeUnit 未定義，提供基本實現
-if (typeof detectTimeUnit !== 'function') {
-    window.detectTimeUnit = function(data) {
-        if (!Array.isArray(data) || data.length < 2) {
-            return 'day';
-        }
-
-        const timeDiff = data[1].t - data[0].t;
-        if (timeDiff < 60000) return 'second';
-        if (timeDiff < 3600000) return 'minute';
-        if (timeDiff < 86400000) return 'hour';
-        if (timeDiff < 604800000) return 'day';
-        if (timeDiff < 2592000000) return 'week';
-        if (timeDiff < 31536000000) return 'month';
-        return 'year';
-    };
+function setupDetectTimeUnit() {
+    if (typeof detectTimeUnit !== 'function') {
+        window.detectTimeUnit = function(data) {
+            if (!Array.isArray(data) || data.length < 2) {
+                return 'day';
+            }
+    
+            const timeDiff = data[1].t - data[0].t;
+            if (timeDiff < 60000) return 'second';
+            if (timeDiff < 3600000) return 'minute';
+            if (timeDiff < 86400000) return 'hour';
+            if (timeDiff < 604800000) return 'day';
+            if (timeDiff < 2592000000) return 'week';
+            if (timeDiff < 31536000000) return 'month';
+            return 'year';
+        };
+    }
 }
+
+// 確保檢測時間單位函數已設置
+setupDetectTimeUnit();
 
 /**
  * 將圖表匯出為圖片檔

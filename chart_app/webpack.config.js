@@ -4,6 +4,7 @@ module.exports = {
   mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
   entry: {
     main: './src/js/main.js',
+    'chart-adapter': './src/js/chart-date-adapter.js',
   },
   output: {
     filename: '[name].bundle.js',

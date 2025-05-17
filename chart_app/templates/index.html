@@ -12,9 +12,29 @@
     <!-- Chart.js 庫 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     
-    <!-- Luxon 日期處理庫 -->
-    <script src="https://cdn.jsdelivr.net/npm/luxon@3.2.1/build/global/luxon.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.0/dist/chartjs-adapter-luxon.min.js"></script>
+    <!-- Chart.js 日期適配器 (npm打包版本) -->
+    <script src="{{ url_for('static', path='/js/dist/chart-adapter.bundle.js') }}"></script>
+    
+    <!-- Chart.js 全局配置 - 提供更穩定的圖表渲染 -->
+    <script src="{{ url_for('static', path='/js/chart-globals.js') }}"></script>
+    
+    <!-- Chart.js 專用 Padding 修復腳本 - 解決 this._padding is undefined 問題 -->
+    <script src="{{ url_for('static', path='/js/chart-padding-fix.js') }}"></script>
+    
+    <!-- Chart.js 動畫與佈局修復腳本 - 解決動畫和位置計算問題 -->
+    <script src="{{ url_for('static', path='/js/chart-anim-fix.js') }}"></script>
+    
+    <!-- Chart.js 圖例與工具提示修復腳本 - 解決位置錯誤 -->
+    <script src="{{ url_for('static', path='/js/chart-legend-fix.js') }}"></script>
+    
+    <!-- Chart.js DOM 操作修復腳本 - 解決 DOM 元素存取錯誤 -->
+    <script src="{{ url_for('static', path='/js/chart-dom-fix.js') }}"></script>
+    
+    <!-- 圖表容器初始化器 - 確保圖表畫布正確初始化 -->
+    <script src="{{ url_for('static', path='/js/chart-container.js') }}"></script>
+    
+    <!-- Chart.js 安全初始化腳本 - 提供穩定的圖表創建功能 -->
+    <script src="{{ url_for('static', path='/js/chart-safe-init.js') }}"></script>
     
     <!-- Chart.js 金融圖表擴展 - 使用固定版本 -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js"></script>
@@ -22,11 +42,26 @@
     <!-- Chart.js 桑基圖擴展 -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@0.12.0/dist/chartjs-chart-sankey.min.js"></script>
     
+    <!-- 蝴蝶圖輔助工具 -->
+    <script src="{{ url_for('static', path='js/butterfly-helper.js') }}"></script>
+    
+    <!-- 自定義圖表擴展 - 提供對特殊圖表類型的支援 -->
+    <script src="{{ request.state.static_url('js/chart-extensions.js') }}"></script>
+    
     <!-- 圖表修復程序 - 修復特殊圖表類型渲染問題 -->
-    <script src="{{ url_for('static', path='/js/chart-fix.js') }}"></script>
+    <script src="{{ url_for('static', path='js/chart-fix.js') }}"></script>
     
     <!-- 圖表增強腳本 - 確保與修復程序協同工作 -->
-    <script src="{{ url_for('static', path='/js/main-enhance.js') }}" defer></script>
+    <script src="{{ url_for('static', path='js/main-enhance.js') }}" defer></script>
+    
+    <!-- 圖表除錯腳本 -->
+    <script src="{{ url_for('static', path='js/chart-debug.js') }}"></script>
+    
+    <!-- 圖表緊急修補腳本 -->
+    <script src="{{ url_for('static', path='js/chart-patch.js') }}"></script>
+    
+    <!-- 圖表安全包裝器腳本 - 最後載入，以確保所有修復都被正確應用 -->
+    <script src="{{ url_for('static', path='/js/chart-wrapper.js') }}"></script>
     
     <!-- Alpine.js -->
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
@@ -68,6 +103,14 @@
                             Chart.register(window.Chart.controllers.financial.OhlcController);
                             console.log('從 financial 套件註冊 OhlcController');
                         }
+                    }
+                    
+                    // 初始化自定義圖表擴展
+                    if (typeof initChartExtensions === 'function') {
+                        console.log('初始化自定義圖表擴展');
+                        initChartExtensions();
+                    } else {
+                        console.warn('未找到 initChartExtensions 函數，可能特殊圖表類型無法正常顯示');
                     }
                     
                     // 檢查並註冊極座標圖控制器
@@ -419,6 +462,7 @@
     <footer class="footer footer-center p-4 bg-base-300 text-base-content">
         <div>
             <p>&copy; 2025 DataScout - 資料視覺化平台</p>
+            <p id="debug-info">正在檢查靜態檔案加載...</p>
         </div>
     </footer>
 
@@ -436,62 +480,49 @@
             const chartMessage = document.getElementById('chartMessage');
             if (chartMessage) chartMessage.classList.remove('hidden');
             
-            // 確保圖表容器尺寸正確
-            const resizeChart = function() {
-                const chartContainer = document.getElementById('chartContainer');
-                const canvas = document.getElementById('chartCanvas');
-                if (chartContainer && canvas) {
-                    canvas.style.width = `${chartContainer.clientWidth}px`;
-                    canvas.style.height = `${chartContainer.clientHeight}px`;
-                }
-            };
-            
-            // 初始調整和視窗變化時調整
-            resizeChart();
-            window.addEventListener('resize', resizeChart);
-        });
-        
-        // 頁面載入時設置資料來源 tabs 切換處理
-        document.addEventListener('DOMContentLoaded', function() {
-            // 資料來源 tabs 切換處理
-            document.querySelectorAll('.tabs .tab').forEach(tab => {
-                tab.addEventListener('click', function() {
-                    // 移除所有 active 狀態
-                    document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('tab-active'));
-                    // 添加當前 active 狀態
-                    this.classList.add('tab-active');
-                    
-                    // 處理資料來源切換邏輯
-                    const source = this.getAttribute('data-source');
-                    console.log('切換資料來源:', source);
-                    if (source === 'example') {
-                        document.getElementById('exampleFilesContainer').classList.remove('hidden');
-                        document.getElementById('uploadSection').classList.add('hidden');
-                    } else {
-                        document.getElementById('exampleFilesContainer').classList.add('hidden');
-                        document.getElementById('uploadSection').classList.remove('hidden');
+            // 使用圖表容器初始化器確保圖表畫布正確初始化
+            if (window.initChartContainer) {
+                window.initChartContainer();
+                console.log('圖表容器已初始化');
+            } else {
+                // 確保圖表容器尺寸正確 (備用方法)
+                const resizeChart = function() {
+                    const chartContainer = document.getElementById('chartContainer');
+                    const canvas = document.getElementById('chartCanvas');
+                    if (chartContainer && canvas) {
+                        canvas.style.width = `${chartContainer.clientWidth}px`;
+                        canvas.style.height = `${chartContainer.clientHeight}px`;
                     }
-                    
-                    // 觸發自定義事件，通知資料來源變更
-                    const sourceChangeEvent = new CustomEvent('datasource-changed', { 
-                        detail: { source: source }
-                    });
-                    document.dispatchEvent(sourceChangeEvent);
-                    
-                    console.log('資料來源已切換為:', source, source === 'example' ? '範例資料' : '自有資料');
-                });
+                };
+                
+                // 初始調整和視窗變化時調整
+                resizeChart();
+            }
+            
+            // 確保在視窗大小變化時重新調整圖表尺寸
+            window.addEventListener('resize', function() {
+                if (window.initChartContainer) {
+                    window.initChartContainer();
+                } else {
+                    const chartContainer = document.getElementById('chartContainer');
+                    const canvas = document.getElementById('chartCanvas');
+                    if (chartContainer && canvas) {
+                        canvas.style.width = `${chartContainer.clientWidth}px`;
+                        canvas.style.height = `${chartContainer.clientHeight}px`;
+                    }
+                }
             });
             
-            // JSON 格式範例折疊面板處理
-            document.getElementById('showJsonFormatBtn').addEventListener('click', function() {
-                const jsonExample = document.getElementById('jsonFormatExample');
-                jsonExample.classList.toggle('collapse-open');
-            });
+            // 檢查靜態資源是否載入
+            document.getElementById('debug-info').innerText = '靜態資源檢查: main.bundle.js 已加載';
             
-            // 資料摘要折疊面板處理
-            document.getElementById('showDataSummary').addEventListener('click', function() {
-                document.getElementById('dataInfo').classList.toggle('collapse-open');
-            });
+            // 檢查 Chart.js 是否正確載入
+            if (typeof Chart !== 'undefined') {
+                document.getElementById('debug-info').innerText += ' | Chart.js 已載入，版本: ' + Chart.version;
+            } else {
+                document.getElementById('debug-info').innerText += ' | Chart.js 未載入或無法使用';
+                console.error('Chart.js 未載入或無法使用');
+            }
         });
     </script>
 </body>

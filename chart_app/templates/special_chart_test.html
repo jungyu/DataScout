@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>特殊圖表類型測試</title>
+    
+    <!-- 導入 Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    
+    <!-- 導入桑基圖插件 -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@0.12.0/dist/chartjs-chart-sankey.min.js"></script>
+    
+    <!-- 導入我們的輔助腳本 -->
+    <script src="/static/js/butterfly-helper.js"></script>
+    <script src="/static/js/chart-extensions.js"></script>
+    <script src="/static/js/chart-fix.js"></script>
+    <script src="/static/js/chart-test.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 500px;
+            width: 100%;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            margin-top: 40px;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+        }
+        
+        .test-controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .code-section {
+            margin-top: 20px;
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow: auto;
+        }
+        
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>特殊圖表類型測試頁面</h1>
+    
+    <p>此頁面用於測試 Chart.js 對特殊圖表類型（如蝴蝶圖和桑基圖）的支援。</p>
+    
+    <h2>1. 蝴蝶圖 (Butterfly Chart) 測試</h2>
+    
+    <div class="test-controls">
+        <button id="testButterflyChart">測試蝴蝶圖</button>
+        <button id="resetButterflyChart">重置</button>
+    </div>
+    
+    <div class="chart-container">
+        <canvas id="butterflyChart"></canvas>
+    </div>
+    
+    <div class="code-section">
+        <pre id="butterflyCode">// 點擊「測試蝴蝶圖」按鈕查看示例代碼</pre>
+    </div>
+    
+    <h2>2. 桑基圖 (Sankey Chart) 測試</h2>
+    
+    <div class="test-controls">
+        <button id="testSankeyChart">測試桑基圖</button>
+        <button id="resetSankeyChart">重置</button>
+    </div>
+    
+    <div class="chart-container">
+        <canvas id="sankeyChart"></canvas>
+    </div>
+    
+    <div class="code-section">
+        <pre id="sankeyCode">// 點擊「測試桑基圖」按鈕查看示例代碼</pre>
+    </div>
+    
+    <script>
+        // 初始化圖表控制器
+        if (typeof initChartExtensions === 'function') {
+            initChartExtensions();
+        }
+        
+        // 全局變量
+        let butterflyChartInstance = null;
+        let sankeyChartInstance = null;
+        
+        // 蝴蝶圖測試
+        document.getElementById('testButterflyChart').addEventListener('click', function() {
+            // 先銷毀現有圖表
+            if (butterflyChartInstance) {
+                butterflyChartInstance.destroy();
+            }
+            
+            // 蝴蝶圖數據
+            const butterflyData = {
+                type: 'butterfly',
+                chartTitle: '人口金字塔示例',
+                options: {
+                    responsive: true,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            stacked: false,
+                            title: {
+                                display: true,
+                                text: '人口數量(萬)'
+                            }
+                        },
+                        y: {
+                            stacked: false,
+                            title: {
+                                display: true,
+                                text: '年齡層'
+                            }
+                        }
+                    }
+                },
+                data: {
+                    labels: [
+                        '0-9歲',
+                        '10-19歲',
+                        '20-29歲',
+                        '30-39歲',
+                        '40-49歲',
+                        '50-59歲',
+                        '60-69歲',
+                        '70-79歲',
+                        '80歲以上'
+                    ],
+                    datasets: [
+                        {
+                            label: '男性',
+                            data: [95, 110, 142, 168, 175, 165, 128, 87, 42],
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '女性',
+                            data: [-92, -108, -138, -165, -172, -170, -135, -95, -51],
+                            backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                }
+            };
+            
+            // 顯示示例代碼
+            document.getElementById('butterflyCode').textContent = JSON.stringify(butterflyData, null, 2);
+            
+            // 獲取 Canvas 上下文
+            const ctx = document.getElementById('butterflyChart').getContext('2d');
+            
+            // 創建蝴蝶圖
+            butterflyChartInstance = new Chart(ctx, {
+                type: 'bar', // 使用柱狀圖作為基礎
+                data: processButterFlyData(butterflyData),
+                options: {
+                    responsive: true,
+                    indexAxis: 'y', // 橫向柱狀圖
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    // 顯示絕對值
+                                    return `${context.dataset.label}: ${Math.abs(context.raw)}`;
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: '人口金字塔示例'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                callback: function(value) {
+                                    // 顯示絕對值
+                                    return Math.abs(value);
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: '人口數量(萬)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '年齡層'
+                            }
+                        }
+                    }
+                }
+            });
+        });
+        
+        // 重置蝴蝶圖
+        document.getElementById('resetButterflyChart').addEventListener('click', function() {
+            if (butterflyChartInstance) {
+                butterflyChartInstance.destroy();
+                butterflyChartInstance = null;
+            }
+            document.getElementById('butterflyCode').textContent = '// 點擊「測試蝴蝶圖」按鈕查看示例代碼';
+        });
+        
+        // 桑基圖測試
+        document.getElementById('testSankeyChart').addEventListener('click', function() {
+            // 先銷毀現有圖表
+            if (sankeyChartInstance) {
+                sankeyChartInstance.destroy();
+            }
+            
+            // 桑基圖數據
+            const sankeyData = {
+                type: 'sankey',
+                chartTitle: '能源流向圖示例',
+                data: {
+                    nodes: [
+                        { name: '進口能源' },
+                        { name: '化石燃料' },
+                        { name: '再生能源' },
+                        { name: '核能' },
+                        { name: '發電' },
+                        { name: '工業' },
+                        { name: '運輸' },
+                        { name: '住宅' },
+                        { name: '商業' },
+                        { name: '能源損失' },
+                        { name: '淨出口' }
+                    ],
+                    links: [
+                        { source: 0, target: 1, value: 75 },
+                        { source: 0, target: 2, value: 15 },
+                        { source: 0, target: 3, value: 10 },
+                        { source: 1, target: 4, value: 45 },
+                        { source: 1, target: 5, value: 15 },
+                        { source: 1, target: 6, value: 15 },
+                        { source: 2, target: 4, value: 10 },
+                        { source: 2, target: 5, value: 3 },
+                        { source: 2, target: 7, value: 2 },
+                        { source: 3, target: 4, value: 10 },
+                        { source: 4, target: 5, value: 25 },
+                        { source: 4, target: 7, value: 20 },
+                        { source: 4, target: 8, value: 12 },
+                        { source: 4, target: 9, value: 8 },
+                        { source: 5, target: 9, value: 8 },
+                        { source: 5, target: 10, value: 7 }
+                    ]
+                }
+            };
+            
+            // 顯示示例代碼
+            document.getElementById('sankeyCode').textContent = JSON.stringify(sankeyData, null, 2);
+            
+            // 獲取 Canvas 上下文
+            const ctx = document.getElementById('sankeyChart').getContext('2d');
+            
+            try {
+                // 檢查 Sankey 圖表控制器是否可用
+                if (!Chart.controllers.sankey) {
+                    throw new Error('桑基圖控制器未註冊');
+                }
+                
+                // 創建桑基圖
+                sankeyChartInstance = new Chart(ctx, {
+                    type: 'sankey',
+                    data: {
+                        datasets: [{
+                            label: '流量',
+                            data: sankeyData.data.links.map(link => ({
+                                from: sankeyData.data.nodes[link.source].name,
+                                to: sankeyData.data.nodes[link.target].name,
+                                flow: link.value
+                            })),
+                            colorFrom: (c) => {
+                                const fromLabel = c.dataset.data[c.dataIndex].from;
+                                const hash = Array.from(fromLabel).reduce((acc, char) => {
+                                    return char.charCodeAt(0) + ((acc << 5) - acc);
+                                }, 0);
+                                const h = Math.abs(hash) % 360;
+                                return `hsla(${h}, 75%, 50%, 0.8)`;
+                            },
+                            colorTo: (c) => {
+                                const toLabel = c.dataset.data[c.dataIndex].to;
+                                const hash = Array.from(toLabel).reduce((acc, char) => {
+                                    return char.charCodeAt(0) + ((acc << 5) - acc);
+                                }, 0);
+                                const h = Math.abs(hash) % 360;
+                                return `hsla(${h}, 75%, 60%, 0.8)`;
+                            },
+                            colorMode: 'gradient',
+                            padding: 20
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: '能源流向圖示例'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(c) {
+                                        return `${c[0].dataset.data[c[0].dataIndex].from} → ${c[0].dataset.data[c[0].dataIndex].to}`;
+                                    },
+                                    label: function(c) {
+                                        return `流量: ${c.raw.flow}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('創建桑基圖失敗:', error);
+                alert('創建桑基圖失敗: ' + error.message);
+                
+                // 顯示錯誤信息
+                ctx.font = '16px Arial';
+                ctx.fillStyle = 'red';
+                ctx.textAlign = 'center';
+                ctx.fillText('創建桑基圖失敗: ' + error.message, ctx.canvas.width / 2, 30);
+                
+                ctx.fillStyle = 'black';
+                ctx.fillText('請確認已正確載入 chartjs-chart-sankey 插件', ctx.canvas.width / 2, 60);
+            }
+        });
+        
+        // 重置桑基圖
+        document.getElementById('resetSankeyChart').addEventListener('click', function() {
+            if (sankeyChartInstance) {
+                sankeyChartInstance.destroy();
+                sankeyChartInstance = null;
+            }
+            document.getElementById('sankeyCode').textContent = '// 點擊「測試桑基圖」按鈕查看示例代碼';
+        });
+    </script>
+</body>
+</html>

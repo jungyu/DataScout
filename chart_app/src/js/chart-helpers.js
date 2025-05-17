@@ -13,7 +13,8 @@ export const CHART_TYPE_TO_EXAMPLE_FILE = {
     'bubble': 'example_bubble_market_analysis.json',
     'candlestick': 'example_candlestick_gold_twd.json',
     'mixed': 'example_mixed_sp500_price_volume.json',
-    'sankey': 'example_sankey_energy_flow.json'
+    'sankey': 'example_sankey_energy_flow.json',
+    'butterfly': 'example_butterfly_population_pyramid.json'
 };
 
 /**
@@ -23,17 +24,31 @@ export const CHART_TYPE_TO_EXAMPLE_FILE = {
  * @returns {string} - 範例資料檔案名稱
  */
 export function findExampleDataFileForChartType(chartType, availableFiles) {
+    // 防禦性檢查
+    if (!chartType) {
+        chartType = 'line'; // 如果沒有指定圖表類型，預設使用折線圖
+    }
+    
+    // 確保 availableFiles 是陣列且包含字串
+    if (!Array.isArray(availableFiles)) {
+        console.warn('availableFiles 不是陣列，使用預設值');
+        availableFiles = [];
+    }
+    
+    // 過濾非字串項目
+    const validFiles = Array.isArray(availableFiles) ? availableFiles.filter(file => typeof file === 'string') : [];
+    
     // 先使用預設對應表查找
     const defaultFile = CHART_TYPE_TO_EXAMPLE_FILE[chartType];
     
     // 如果配置表中有對應的範例檔案，且該檔案確實存在，則使用它
-    if (defaultFile && availableFiles.includes(defaultFile)) {
+    if (defaultFile && Array.isArray(validFiles) && validFiles.length > 0 && validFiles.some(file => file && typeof file === 'string' && file.includes(defaultFile))) {
         return defaultFile;
     }
     
     // 否則在可用檔案中搜尋符合此圖表類型的檔案
     const typePattern = `example_${chartType}_`;
-    const matchingFiles = availableFiles.filter(file => file.includes(typePattern));
+    const matchingFiles = Array.isArray(validFiles) ? validFiles.filter(file => file && typeof file === 'string' && file.includes(typePattern)) : [];
     
     if (matchingFiles.length > 0) {
         // 找到匹配的檔案，返回第一個
@@ -42,10 +57,11 @@ export function findExampleDataFileForChartType(chartType, availableFiles) {
     
     // 如果沒有找到匹配的檔案，則回退到預設值或其他圖表類型
     const fallbackTypes = {
-        'polarArea': 'radar',
-        'ohlc': 'candlestick',
-        'scatter': 'bubble',
-        'sankey': 'sankey' // 桑基圖使用指定的範例
+        'butterfly': 'bar',       // 蝴蝶圖回退到柱狀圖
+        'polarArea': 'radar',     // 極座標圖回退到雷達圖
+        'ohlc': 'candlestick',    // OHLC 回退到蠟燭圖
+        'scatter': 'bubble',      // 散點圖回退到氣泡圖
+        'sankey': 'bar'           // 桑基圖回退到柱狀圖
     };
     
     // 檢查是否有回退類型
@@ -53,7 +69,7 @@ export function findExampleDataFileForChartType(chartType, availableFiles) {
     if (fallbackType) {
         // 嘗試查找回退類型的檔案
         const fallbackPattern = `example_${fallbackType}_`;
-        const fallbackFiles = availableFiles.filter(file => file.includes(fallbackPattern));
+        const fallbackFiles = Array.isArray(validFiles) ? validFiles.filter(file => file && typeof file === 'string' && file.includes(fallbackPattern)) : [];
         
         if (fallbackFiles.length > 0) {
             return fallbackFiles[0];
@@ -61,16 +77,16 @@ export function findExampleDataFileForChartType(chartType, availableFiles) {
     }
     
     // 最後回退到任何可用的範例檔案
-    if (availableFiles.length > 0) {
+    if (Array.isArray(validFiles) && validFiles.length > 0) {
         // 優先選擇 line 或 bar 類型的範例
-        const lineExamples = availableFiles.filter(file => file.includes('example_line_'));
+        const lineExamples = validFiles.filter(file => file && typeof file === 'string' && file.includes('example_line_'));
         if (lineExamples.length > 0) return lineExamples[0];
         
-        const barExamples = availableFiles.filter(file => file.includes('example_bar_'));
+        const barExamples = validFiles.filter(file => file && typeof file === 'string' && file.includes('example_bar_'));
         if (barExamples.length > 0) return barExamples[0];
         
         // 如果沒有，返回第一個可用的範例
-        return availableFiles[0];
+        return Array.isArray(availableFiles) && availableFiles.length > 0 ? availableFiles[0] : 'example_line_chart.json';
     }
     
     // 如果所有嘗試都失敗，返回預設值
@@ -160,8 +176,31 @@ export async function loadExampleDataForChartType(chartType, appState) {
         // 如果從專用API獲取失敗，嘗試使用一般方法
         if (!data) {
             // 回退方式：從可用資料檔案中查找
-            const availableFiles = appState.availableDataFiles?.json || [];
-            const exampleFilesFromGeneral = availableFiles.filter(file => file.includes('example_'));
+            let availableFiles = [];
+            
+            // 確保 availableFiles 是一個陣列
+            if (appState.availableDataFiles && appState.availableDataFiles.json) {
+                if (Array.isArray(appState.availableDataFiles.json)) {
+                    availableFiles = appState.availableDataFiles.json;
+                } else if (typeof appState.availableDataFiles.json === 'object') {
+                    // 如果是物件，嘗試提取可能的陣列或鍵值
+                    const jsonData = appState.availableDataFiles.json;
+                    if (jsonData.files && Array.isArray(jsonData.files)) {
+                        availableFiles = jsonData.files;
+                    } else {
+                        // 如果是其他形式的物件，使用物件的鍵作為檔案名
+                        availableFiles = Object.keys(jsonData);
+                    }
+                }
+            }
+            
+            console.log('可用檔案列表:', availableFiles);
+            
+            // 確保每個檔案項目都是字串
+            const validFiles = Array.isArray(availableFiles) ? availableFiles.filter(file => typeof file === 'string') : [];
+            const exampleFilesFromGeneral = validFiles.filter(file => file && typeof file === 'string' && file.includes('example_'));
+            
+            console.log('篩選後的範例檔案:', exampleFilesFromGeneral);
             
             // 智能查找對應的範例檔案
             filename = findExampleDataFileForChartType(chartType, exampleFilesFromGeneral);
