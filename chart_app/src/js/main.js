@@ -5,7 +5,6 @@ import { uploadChart, exportDataToCSV, exportDataToJSON, exportDataToExcel } fro
 import { initThemeHandler, syncChartThemeWithPageTheme } from './theme-handler.js';
 import { guessChartTypeFromFilename, getExampleFilesForChartType, refreshAvailableFiles } from './file-handler.js';
 import { fetchAvailableExamples, fetchChartTypes, fetchExampleData } from './example-loader.js';
-import { testAllChartTypes } from './chart-test.js';
 import { verifyDateAdapter } from './chart-date-adapter.js';
 
 /**
@@ -1052,9 +1051,8 @@ document.addEventListener('DOMContentLoaded', () => {
         testChartsButton.addEventListener('click', () => {
             const canvas = document.getElementById('chartCanvas');
             if (canvas) {
-                console.log('啟動圖表類型測試模式');
-                showSuccess('已啟動圖表測試模式');
-                testAllChartTypes(canvas, appState);
+                console.log('圖表測試功能已移除');
+                showSuccess('測試功能已移至測試目錄');
             } else {
                 console.error('找不到圖表畫布元素');
                 showError('無法啟動測試模式：找不到圖表畫布');

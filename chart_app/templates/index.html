@@ -18,17 +18,8 @@
     <!-- Chart.js 全局配置 - 提供更穩定的圖表渲染 -->
     <script src="{{ url_for('static', path='/js/chart-globals.js') }}"></script>
     
-    <!-- Chart.js 專用 Padding 修復腳本 - 解決 this._padding is undefined 問題 -->
-    <script src="{{ url_for('static', path='/js/chart-padding-fix.js') }}"></script>
-    
-    <!-- Chart.js 動畫與佈局修復腳本 - 解決動畫和位置計算問題 -->
-    <script src="{{ url_for('static', path='/js/chart-anim-fix.js') }}"></script>
-    
-    <!-- Chart.js 圖例與工具提示修復腳本 - 解決位置錯誤 -->
-    <script src="{{ url_for('static', path='/js/chart-legend-fix.js') }}"></script>
-    
-    <!-- Chart.js DOM 操作修復腳本 - 解決 DOM 元素存取錯誤 -->
-    <script src="{{ url_for('static', path='/js/chart-dom-fix.js') }}"></script>
+    <!-- Chart.js 綜合修復腳本 - 解決所有常見圖表渲染問題 -->
+    <script src="{{ url_for('static', path='/js/chart-fixes.js') }}"></script>
     
     <!-- 圖表容器初始化器 - 確保圖表畫布正確初始化 -->
     <script src="{{ url_for('static', path='/js/chart-container.js') }}"></script>
@@ -48,7 +39,7 @@
     <!-- 自定義圖表擴展 - 提供對特殊圖表類型的支援 -->
     <script src="{{ request.state.static_url('js/chart-extensions.js') }}"></script>
     
-    <!-- 圖表修復程序 - 修復特殊圖表類型渲染問題 -->
+    <!-- 圖表修復程序 - 處理特殊圖表類型問題 (已保留，視需要可移除) -->
     <script src="{{ url_for('static', path='js/chart-fix.js') }}"></script>
     
     <!-- 圖表增強腳本 - 確保與修復程序協同工作 -->
@@ -57,8 +48,7 @@
     <!-- 圖表除錯腳本 -->
     <script src="{{ url_for('static', path='js/chart-debug.js') }}"></script>
     
-    <!-- 圖表緊急修補腳本 -->
-    <script src="{{ url_for('static', path='js/chart-patch.js') }}"></script>
+    <!-- 注意: chart-patch.js 功能已整合到 chart-fixes.js -->
     
     <!-- 圖表安全包裝器腳本 - 最後載入，以確保所有修復都被正確應用 -->
     <script src="{{ url_for('static', path='/js/chart-wrapper.js') }}"></script>
