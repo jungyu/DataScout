@@ -14,15 +14,42 @@ export * from './utils/json-validator.js';
 // 重新導出核心模組
 export * from './core/app-initializer.js';
 export * from './core/state-manager.js';
-export * from './core/ui-controller.js';
-export * from './core/chart-manager.js'; 
+// 選擇性導出 UI 控制器，避免命名衝突
+import { 
+    setupUIEventListeners, 
+    updateExampleFileList 
+} from './core/ui-controller.js';
+export { 
+    setupUIEventListeners, 
+    updateExampleFileList 
+};
+
+// 選擇性導出 chart-manager.js 中的函數，避免命名衝突
+import { 
+    createOrUpdateChart, 
+    updateChartTheme, 
+    updateChartData 
+} from './core/chart-manager.js'; 
+export { 
+    createOrUpdateChart, 
+    updateChartTheme, 
+    updateChartData 
+};
 
 // 重新導出資料處理相關模組
 export * from './data-handling/data-loader.js';
 export * from './data-handling/data-processor.js';
 export * from './data-handling/data-exporter.js';
-// 導出重組後的範例模組
-export * from './data-handling/examples/index.js';
+
+// 選擇性導出範例模組，避免命名衝突
+import { 
+    fetchAvailableExamples, 
+    loadExampleDataForChartType 
+} from './data-handling/examples/index.js';
+export { 
+    fetchAvailableExamples, 
+    loadExampleDataForChartType 
+};
 
 // 重新導出轉接器模組
 export * from './adapters/chart-type-adapters.js';
@@ -30,9 +57,26 @@ export * from './adapters/chart-renderer.js';
 export * from './adapters/chart-date-adapter.js';
 export * from './adapters/chart-fix.js';
 export * from './adapters/candlestick-helper.js';
-// 選擇性匯入 chart-helpers.js 中的函數，避免命名衝突
-import { showChartLegend, createChartTooltip } from './adapters/chart-helpers.js';
-export { showChartLegend, createChartTooltip };
+
+// 導入 chart-helpers.js 中的所有函數，避免命名衝突
+import { 
+    CHART_TYPE_TO_EXAMPLE_FILE, 
+    findExampleDataFileForChartType,
+    getExampleDataFileForChartType, 
+    getExampleFilesFromApi, 
+    initChartTypeSelector, 
+    initDataSourceToggle, 
+    loadExampleDataForChartType as loadExampleDataFromHelper
+} from './adapters/chart-helpers.js';
+export { 
+    CHART_TYPE_TO_EXAMPLE_FILE as CHART_HELPER_EXAMPLE_FILE_MAP, 
+    findExampleDataFileForChartType,
+    getExampleDataFileForChartType, 
+    getExampleFilesFromApi, 
+    initChartTypeSelector, 
+    initDataSourceToggle, 
+    loadExampleDataFromHelper
+};
 
 // 導出主入口
 export * from './main.js';

@@ -154,13 +154,28 @@
                 const originalTooltipPositioner = Chart.defaults.plugins.tooltip.position;
                 Chart.defaults.plugins.tooltip.position = function(chart, options, point) {
                     try {
+                        // 檢查 point 是否有效，防止遞歸與空值錯誤
+                        if (!point || typeof point !== 'object') {
+                            console.warn('Chart.js 修復: 無效的工具提示點位，使用預設值');
+                            return { x: 0, y: 0 };
+                        }
+                        
                         if (originalTooltipPositioner) {
+                            // 防止遞歸調用
+                            const stack = new Error().stack || '';
+                            const recursionCheck = stack.includes('position->position') || 
+                                                  stack.includes('valueOf->valueOf') ||
+                                                  stack.includes('toString->toString');
+                            if (recursionCheck) {
+                                console.warn('Chart.js 修復: 檢測到工具提示遞歸調用');
+                                return { x: point.x || 0, y: point.y || 0 };
+                            }
                             return originalTooltipPositioner(chart, options, point);
                         }
-                        return { x: point.x, y: point.y };
+                        return { x: point.x || 0, y: point.y || 0 };
                     } catch (e) {
                         console.warn('Chart.js 修復: 工具提示位置計算錯誤', e);
-                        return { x: point.x, y: point.y };
+                        return { x: point?.x || 0, y: point?.y || 0 };
                     }
                 };
             }

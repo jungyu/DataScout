@@ -237,22 +237,31 @@
             
             // 檢查金融圖表擴展是否已載入
             const hasFinancialExtension = typeof window.CandlestickController !== 'undefined' || 
-                (window.Chart && window.Chart.controllers && window.Chart.controllers.financial);
+                (window.Chart && window.Chart.controllers && window.Chart.controllers.financial) ||
+                (window.Chart && window.Chart.registry && window.Chart.registry.controllers && 
+                (window.Chart.registry.controllers.candlestick || window.Chart.registry.controllers.ohlc));
             
             if (!hasFinancialExtension) {
-                console.warn('未找到金融圖表擴展，嘗試動態載入');
+                console.log('未找到金融圖表擴展，使用初始化模組載入');
                 
-                // 動態載入金融圖表擴展
-                const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js';
-                script.onload = function() {
-                    console.log('金融圖表擴展已動態載入');
-                    registerFinancialControllers();
-                };
-                script.onerror = function() {
-                    console.error('金融圖表擴展載入失敗');
-                };
-                document.head.appendChild(script);
+                // 使用初始化模組載入金融圖表
+                if (typeof window.initChartExtensions === 'function') {
+                    window.initChartExtensions();
+                } else {
+                    console.warn('未找到 initChartExtensions，嘗試手動載入金融圖表擴展');
+                    
+                    // 動態載入金融圖表擴展
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js';
+                    script.onload = function() {
+                        console.log('金融圖表擴展已動態載入');
+                        registerFinancialControllers();
+                    };
+                    script.onerror = function() {
+                        console.error('金融圖表擴展載入失敗');
+                    };
+                    document.head.appendChild(script);
+                }
             } else {
                 registerFinancialControllers();
             }
@@ -581,14 +590,32 @@
         }
         
         // 2. 確保桑基圖控制器註冊
-        if (typeof Chart !== 'undefined' && !Chart.controllers.sankey) {
-            console.log('未找到桑基圖控制器，嘗試初始化...');
-            if (typeof window.initChartExtensions === 'function') {
-                try {
-                    window.initChartExtensions();
-                    console.log('已初始化圖表擴展');
-                } catch (e) {
-                    console.error('初始化圖表擴展時出錯:', e);
+        if (typeof Chart !== 'undefined') {
+            const hasSankeyController = 
+                (Chart.controllers && Chart.controllers.sankey) || 
+                (Chart.registry && Chart.registry.controllers && Chart.registry.controllers.sankey);
+                
+            if (!hasSankeyController) {
+                console.log('未找到桑基圖控制器，嘗試初始化...');
+                if (typeof window.initChartExtensions === 'function') {
+                    try {
+                        window.initChartExtensions();
+                        console.log('已初始化圖表擴展');
+                    } catch (e) {
+                        console.error('初始化圖表擴展時出錯:', e);
+                    }
+                } else {
+                    console.warn('未找到 initChartExtensions 函數，特殊圖表類型可能無法正常顯示');
+                    // 嘗試載入擴展初始化腳本
+                    const script = document.createElement('script');
+                    script.src = document.location.origin + '/static/js/chart-extensions-init.js';
+                    script.onload = function() {
+                        if (typeof window.initChartExtensions === 'function') {
+                            window.initChartExtensions();
+                            console.log('已動態載入並初始化圖表擴展');
+                        }
+                    };
+                    document.head.appendChild(script);
                 }
             }
         }

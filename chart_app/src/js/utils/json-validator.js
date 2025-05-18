@@ -66,12 +66,17 @@ export function validateChartJsJSON(data) {
                         continue;
                     }
                     
-                    if (typeof point.x === 'undefined' || typeof point.y === 'undefined') {
+                    // 更嚴格但更寬容的數據點檢查
+                    if (!point) {
                         result.isValid = false;
-                        result.errors.push(`數據集 #${i + 1} 的 'data[${j}]' 必須包含 'x' 和 'y' 屬性`);
+                        result.errors.push(`數據集 #${i + 1} 的 'data[${j}]' 為空值`);
+                    } else if (typeof point.x === 'undefined' || typeof point.y === 'undefined') {
+                        // 警告但不視為失敗，部分圖表類型可能有其他格式
+                        result.warnings = result.warnings || [];
+                        result.warnings.push(`數據集 #${i + 1} 的 'data[${j}]' 缺少 'x' 或 'y' 屬性，可能導致渲染問題`);
                     }
                     
-                    if (data.type === 'bubble' && typeof point.r === 'undefined') {
+                    if (point && data.type === 'bubble' && typeof point.r === 'undefined') {
                         result.isValid = false;
                         result.errors.push(`氣泡圖的數據集 #${i + 1} 的 'data[${j}]' 必須包含 'r' 屬性（氣泡半徑）`);
                     }

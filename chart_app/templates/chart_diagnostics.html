@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖表診斷 | DataScout 圖表應用</title>
+    <!-- 修改靜態檔案引用方式 -->
+    <link href="{{ request.state.static_url('css/output.css') }}" rel="stylesheet">
+    <link href="{{ request.state.static_url('css/custom.css') }}" rel="stylesheet">
+    <style>
+        .diagnostic-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+        .test-button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .test-button:hover {
+            background-color: #2563eb;
+        }
+        .info-box {
+            background-color: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .warning-box {
+            background-color: #fffbeb;
+            border: 1px solid #fef3c7;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .error-box {
+            background-color: #fee2e2;
+            border: 1px solid #fecaca;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .success-box {
+            background-color: #ecfdf5;
+            border: 1px solid #d1fae5;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .chart-container {
+            height: 300px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="diagnostic-container">
+        <h1 class="text-2xl font-bold mb-4">DataScout 圖表診斷</h1>
+        
+        <div class="card">
+            <h2 class="text-xl font-semibold mb-3">圖表庫診斷</h2>
+            <div id="chart-info" class="info-box">
+                <p>載入中...</p>
+            </div>
+            
+            <div class="flex mb-4">
+                <button id="run-diagnosis" class="test-button">執行診斷</button>
+                <button id="fix-issues" class="test-button" style="background-color: #059669;">自動修復問題</button>
+            </div>
+            
+            <div id="diagnostic-results"></div>
+        </div>
+        
+        <div class="card">
+            <h2 class="text-xl font-semibold mb-3">時間軸測試</h2>
+            <p class="mb-4">此測試將創建一個使用時間軸的折線圖，用於驗證時間軸設置和日期適配器是否正常工作。</p>
+            
+            <button id="test-time-axis" class="test-button">測試時間軸</button>
+            
+            <div id="time-test-container" data-chart class="chart-container mt-4"></div>
+        </div>
+        
+        <div class="card">
+            <h2 class="text-xl font-semibold mb-3">一般圖表測試</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <h3 class="font-semibold mb-2">折線圖</h3>
+                    <div id="line-chart-container" data-chart class="chart-container"></div>
+                    <button class="test-button test-chart" data-type="line">測試折線圖</button>
+                </div>
+                <div>
+                    <h3 class="font-semibold mb-2">長條圖</h3>
+                    <div id="bar-chart-container" data-chart class="chart-container"></div>
+                    <button class="test-button test-chart" data-type="bar">測試長條圖</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 引用腳本 -->
+    <script src="{{ request.state.static_url('js/jquery-3.6.0.min.js') }}"></script>
+    <script src="{{ request.state.static_url('js/chart.min.js') }}"></script>
+    <script src="{{ request.state.static_url('js/chart-globals.js') }}"></script>
+    <script src="{{ request.state.static_url('js/chart-extensions.js') }}"></script>
+    <script src="{{ request.state.static_url('js/chart-extensions-init.js') }}"></script>
+    <script src="{{ request.state.static_url('js/chart-fix.js') }}"></script>
+    <script src="{{ request.state.static_url('js/chart-debug.js') }}"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 顯示圖表庫資訊
+            updateChartInfo();
+            
+            // 診斷按鈕
+            document.getElementById('run-diagnosis').addEventListener('click', runDiagnosis);
+            
+            // 修復按鈕
+            document.getElementById('fix-issues').addEventListener('click', fixIssues);
+            
+            // 時間軸測試
+            document.getElementById('test-time-axis').addEventListener('click', testTimeAxis);
+            
+            // 一般圖表測試
+            const chartTestButtons = document.querySelectorAll('.test-chart');
+            chartTestButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const chartType = this.dataset.type;
+                    testChart(chartType);
+                });
+            });
+        });
+        
+        function updateChartInfo() {
+            const infoElement = document.getElementById('chart-info');
+            
+            if (typeof Chart === 'undefined') {
+                infoElement.innerHTML = `
+                    <p class="font-semibold text-red-600">❌ Chart.js 未載入</p>
+                    <p>請檢查腳本引用是否正確。</p>
+                `;
+                infoElement.className = 'error-box';
+                return;
+            }
+            
+            const info = window.ChartDebugger.showInfo();
+            
+            infoElement.innerHTML = `
+                <p class="font-semibold">Chart.js 狀態:</p>
+                <ul>
+                    <li>版本: ${info.version || 'unknown'}</li>
+                    <li>適配器系統: ${info.adapters ? '✅ 已載入' : '❌ 未載入'}</li>
+                    <li>日期適配器: ${info.dateAdapter ? '✅ 已載入' : '❌ 未載入'}</li>
+                    <li>已註冊控制器: ${info.controllers.join(', ') || '無'}</li>
+                    <li>擴展初始化: ${info.initialized ? '✅ 已完成' : '❌ 未完成'}</li>
+                </ul>
+            `;
+            
+            if (info.adapters && info.dateAdapter && info.initialized) {
+                infoElement.className = 'success-box';
+            } else if (!info.adapters || !info.dateAdapter) {
+                infoElement.className = 'error-box';
+            } else {
+                infoElement.className = 'warning-box';
+            }
+        }
+        
+        function runDiagnosis() {
+            if (typeof window.ChartDebugger === 'undefined') {
+                alert('診斷工具未載入');
+                return;
+            }
+            
+            const diagnosisResult = window.ChartDebugger.diagnose();
+            const resultsElement = document.getElementById('diagnostic-results');
+            
+            if (diagnosisResult.status === 'success') {
+                resultsElement.innerHTML = `
+                    <div class="success-box">
+                        <p class="font-semibold">✅ 診斷結果: 一切正常</p>
+                        <p>Chart.js 版本: ${diagnosisResult.version}</p>
+                        <p>所有必要組件都已正確載入。</p>
+                    </div>
+                `;
+            } else {
+                let issuesHtml = '<ul>';
+                diagnosisResult.issues.forEach(issue => {
+                    const icon = issue.severity === 'error' ? '❌' : (issue.severity === 'warning' ? '⚠️' : 'ℹ️');
+                    issuesHtml += `<li>${icon} <strong>${issue.component}:</strong> ${issue.message} (修復方法: ${issue.fix})</li>`;
+                });
+                issuesHtml += '</ul>';
+                
+                resultsElement.innerHTML = `
+                    <div class="${diagnosisResult.status === 'failure' ? 'error-box' : 'warning-box'}">
+                        <p class="font-semibold">${diagnosisResult.status === 'failure' ? '❌' : '⚠️'} 診斷結果: 發現問題</p>
+                        <p>Chart.js 版本: ${diagnosisResult.version}</p>
+                        ${issuesHtml}
+                        <p class="mt-2">點擊 "自動修復問題" 按鈕嘗試解決這些問題。</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function fixIssues() {
+            if (typeof window.ChartDebugger === 'undefined') {
+                alert('診斷工具未載入');
+                return;
+            }
+            
+            const fixed = window.ChartDebugger.fix();
+            
+            if (fixed) {
+                alert('已嘗試修復問題，請重新運行診斷檢查結果。');
+                updateChartInfo();
+                runDiagnosis();
+            } else {
+                alert('無法修復問題，請檢查控制台獲取更多信息。');
+            }
+        }
+        
+        function testTimeAxis() {
+            if (typeof window.ChartDebugger === 'undefined') {
+                alert('診斷工具未載入');
+                return;
+            }
+            
+            window.ChartDebugger.testTimeAxis('time-test-container');
+        }
+        
+        function testChart(chartType) {
+            const containerId = chartType + '-chart-container';
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            // 清除現有圖表
+            container.innerHTML = '';
+            const canvas = document.createElement('canvas');
+            canvas.id = chartType + '-chart';
+            container.appendChild(canvas);
+            
+            // 創建測試數據
+            const data = {
+                labels: ['一月', '二月', '三月', '四月', '五月', '六月'],
+                datasets: [{
+                    label: '測試數據',
+                    data: [12, 19, 3, 5, 2, 3],
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgb(54, 162, 235)',
+                    borderWidth: 1
+                }]
+            };
+            
+            // 創建圖表
+            try {
+                new Chart(canvas, {
+                    type: chartType,
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: chartType + ' 圖表測試'
+                            }
+                        }
+                    }
+                });
+                
+                // 顯示成功消息
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'success-box mt-2';
+                statusDiv.innerHTML = '✅ 圖表渲染成功';
+                container.appendChild(statusDiv);
+            } catch (error) {
+                // 顯示錯誤消息
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-box mt-2';
+                errorDiv.innerHTML = `❌ 圖表渲染失敗: ${error.message}`;
+                container.appendChild(errorDiv);
+            }
+        }
+    </script>
+</body>
+</html>

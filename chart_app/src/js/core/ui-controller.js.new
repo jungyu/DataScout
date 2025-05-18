@@ -87,128 +87,9 @@ export function setupUIEventListeners() {
 }
 
 /**
- * 更新舊版範例檔案列表 (保留向下相容性)
- * @param {Array<string>} exampleFiles - 範例檔案陣列
- * @private
+ * 更新舊版範例檔案列表 (舊版實作，保留用於相容)
  */
-function updateLegacyExampleFileList(exampleFiles = []) {
-    console.log('更新範例檔案列表', exampleFiles);
-    const exampleFileList = document.getElementById('exampleFileList');
-    if (!exampleFileList) return;
-    
-    // 清空現有列表
-    exampleFileList.innerHTML = '';
-    
-    try {
-        // 當前選中的圖表類型
-        const appState = getAppState();
-        const currentChartType = appState.currentChartType || 'line';
-        
-        // 如果沒有範例檔案
-        if (!exampleFiles || exampleFiles.length === 0) {
-            const noFilesMsg = document.createElement('p');
-            noFilesMsg.textContent = '沒有可用的範例檔案';
-            noFilesMsg.className = 'text-sm text-gray-500 p-2 text-center';
-            exampleFileList.appendChild(noFilesMsg);
-            return;
-        }
-        
-        // 手動分類文件
-        const categorized = {};
-        exampleFiles.forEach(file => {
-            // 嘗試從檔名推斷圖表類型
-            let chartType = 'other';
-            const matches = file.match(/example_(\w+)_/);
-            if (matches && matches[1]) {
-                chartType = matches[1];
-            }
-            
-            if (!categorized[chartType]) {
-                categorized[chartType] = [];
-            }
-            categorized[chartType].push(file);
-        });
-        
-        // 為每個分類創建一個分組
-        Object.keys(categorized).sort().forEach(category => {
-            // 先顯示當前選中的圖表類型
-            if (category !== currentChartType) return;
-            
-            const files = categorized[category];
-            
-            // 創建分類標題
-            const categoryTitle = document.createElement('div');
-            categoryTitle.className = 'p-2 font-semibold text-sm bg-base-200 rounded-t-md mt-2';
-            categoryTitle.textContent = `${category.charAt(0).toUpperCase() + category.slice(1)} 圖表範例`;
-            exampleFileList.appendChild(categoryTitle);
-            
-            // 創建文件列表
-            const fileList = document.createElement('ul');
-            fileList.className = 'menu p-0 bg-base-100 rounded-b-md shadow-sm mb-4';
-            
-            files.forEach(file => {
-                const fileItem = document.createElement('li');
-                const fileLink = document.createElement('a');
-                fileLink.textContent = file.replace('example_', '').replace('.json', '').replace(/_/g, ' ');
-                fileLink.href = '#';
-                fileLink.className = 'text-sm py-1';
-                fileLink.onclick = (e) => {
-                    e.preventDefault();
-                    loadExampleFile(file);
-                };
-                fileItem.appendChild(fileLink);
-                fileList.appendChild(fileItem);
-            });
-            
-            exampleFileList.appendChild(fileList);
-        });
-        
-        // 顯示其他分類
-        Object.keys(categorized).sort().forEach(category => {
-            if (category === currentChartType) return; // 跳過已顯示的當前分類
-            
-            const files = categorized[category];
-            
-            // 創建分類標題
-            const categoryTitle = document.createElement('div');
-            categoryTitle.className = 'p-2 font-semibold text-sm bg-base-200 rounded-t-md mt-2';
-            categoryTitle.textContent = `${category.charAt(0).toUpperCase() + category.slice(1)} 圖表範例`;
-            exampleFileList.appendChild(categoryTitle);
-            
-            // 創建文件列表
-            const fileList = document.createElement('ul');
-            fileList.className = 'menu p-0 bg-base-100 rounded-b-md shadow-sm mb-4';
-            
-            files.forEach(file => {
-                const fileItem = document.createElement('li');
-                const fileLink = document.createElement('a');
-                fileLink.textContent = file.replace('example_', '').replace('.json', '').replace(/_/g, ' ');
-                fileLink.href = '#';
-                fileLink.className = 'text-sm py-1';
-                fileLink.onclick = (e) => {
-                    e.preventDefault();
-                    loadExampleFile(file);
-                };
-                fileItem.appendChild(fileLink);
-                fileList.appendChild(fileItem);
-            });
-            
-            exampleFileList.appendChild(fileList);
-        });
-        
-    } catch (error) {
-        console.error('更新範例檔案列表錯誤:', error);
-        const errorMsg = document.createElement('p');
-        errorMsg.textContent = '載入範例檔案列表時發生錯誤';
-        errorMsg.className = 'text-sm text-red-500 p-2 text-center';
-        exampleFileList.appendChild(errorMsg);
-    }
-}
-
-/**
- * 更新舊版範例檔案列表顯示 (舊版實作 #2，保留用於相容)
- */
-export function updateLegacyExampleFileDisplay() {
+function updateLegacyExampleFileList() {
     const appState = getAppState();
     const chartType = appState.currentChartType;
     const exampleFilesContainer = document.getElementById('exampleFilesContainer');
@@ -247,7 +128,6 @@ export function updateLegacyExampleFileDisplay() {
         } else if (file.endsWith('.xlsx') || file.endsWith('.xls')) {
             fileType = 'excel';
         }
-        
         link.dataset.type = fileType;
         
         // 添加點擊事件
@@ -398,8 +278,8 @@ function loadExampleFile(filename) {
             chartTypeSelect.value = chartType;
         }
         
-        // 直接載入指定的範例檔案
-        module.loadExampleFile(filename, chartType)
+        // 載入範例資料
+        module.loadExampleDataForChartType(chartType)
             .then(success => {
                 if (!success) {
                     showError('無法載入範例資料');

@@ -5,6 +5,11 @@
 
 import './core/app-initializer.js';
 import { checkAllDependencies } from './utils/dependency-checker.js';
+import { initThemeHandler } from './utils/theme-handler.js';
+import { fetchAvailableExamples } from './data-handling/examples/index.js';
+import { updateExampleFileList as updateUIExampleFileList } from './core/ui-controller.js';
+import { showChartMessage, showError, showSuccess, showLoading, fetchAllDataFiles } from './utils/utils.js';
+import { getAppState, setStateValue } from './core/state-manager.js';
 
 // 將主要功能導出供全局使用
 export { initPage } from './core/app-initializer.js';
@@ -22,11 +27,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 視窗調整大小時，重新調整圖表
 window.addEventListener('resize', () => {
-    const { getAppState } = require('./core/state-manager.js');
-    const appState = getAppState();
-    
-    if (appState.myChart) {
-        appState.myChart.resize();
+    try {
+        // 使用導入的模組
+        import('./core/state-manager.js').then(stateModule => {
+            const appState = stateModule.getAppState();
+            
+            if (appState && appState.myChart) {
+                appState.myChart.resize();
+            }
+        }).catch(error => {
+            console.error('載入狀態管理模組時發生錯誤:', error);
+        });
+    } catch (error) {
+        console.error('調整圖表大小時發生錯誤:', error);
     }
 });
 
@@ -54,6 +67,8 @@ async function initPage() {
     
     // 獲取所有可用的資料檔案
     const files = await fetchAllDataFiles();
+    // 獲取應用程式狀態並更新
+    const appState = getAppState();
     appState.availableDataFiles = files;
     
     // 獲取 UI 元素
@@ -69,12 +84,13 @@ async function initPage() {
     if (chartTypeSelect) {
         chartTypeSelect.addEventListener('change', async () => {
             const selectedChartType = chartTypeSelect.value;
+            const appState = getAppState();
             appState.currentChartType = selectedChartType;
             console.log(`圖表類型已變更為: ${selectedChartType}`);
             
             // 如果是使用範例資料，則根據圖表類型自動載入對應範例
             if (dataSourceExample && dataSourceExample.classList.contains('tab-active')) {
-                await loadExampleDataForChartType(selectedChartType, appState);
+                await loadExampleDataForChartType(selectedChartType);
                 // 更新範例檔案列表
                 updateExampleFileList();
             }
@@ -93,8 +109,10 @@ async function initPage() {
             exampleFilesContainer.classList.remove('hidden');
             uploadSection.classList.add('hidden');
             
+            // 獲取應用程式狀態
+            const appState = getAppState();
             // 載入範例資料
-            loadExampleDataForChartType(appState.currentChartType, appState);
+            loadExampleDataForChartType(appState.currentChartType);
             // 更新範例檔案列表
             updateExampleFileList();
         });
@@ -109,7 +127,8 @@ async function initPage() {
             exampleFilesContainer.classList.add('hidden');
             uploadSection.classList.remove('hidden');
             
-            // 更新當前數據類型
+            // 獲取應用程式狀態並更新當前數據類型
+            const appState = getAppState();
             appState.currentDataType = dataTypeSelect ? dataTypeSelect.value : 'csv';
         });
     }
@@ -118,6 +137,8 @@ async function initPage() {
     if (chartThemeSelect) {
         chartThemeSelect.addEventListener('change', () => {
             const selectedTheme = chartThemeSelect.value;
+            // 獲取應用程式狀態
+            const appState = getAppState();
             appState.currentChartTheme = selectedTheme;
             console.log(`主題已變更為: ${selectedTheme}`);
             
@@ -132,6 +153,8 @@ async function initPage() {
     // 監聽資料類型變更
     if (dataTypeSelect) {
         dataTypeSelect.addEventListener('change', () => {
+            // 獲取應用程式狀態
+            const appState = getAppState();
             appState.currentDataType = dataTypeSelect.value;
             console.log(`資料類型已變更為: ${appState.currentDataType}`);
         });
@@ -148,9 +171,11 @@ async function initPage() {
     
     // 載入範例檔案系統
     try {
+        // 獲取應用程式狀態
+        const appState = getAppState();
         // 檢查是否應該重新載入資料檔案（如果之前沒有資料或資料不完整）
         if (!appState.availableDataFiles || !appState.availableDataFiles.json || appState.availableDataFiles.json.length === 0) {
-            await refreshAvailableFiles(appState);
+            await refreshAvailableFiles();
         }
         
         // 更新範例檔案列表
@@ -320,6 +345,12 @@ function ensureValidChartData(data, chartType) {
                         // 安全地解析時間值
                         let timeValue;
                         try {
+                            // 加入防護檢查，確保 point 存在
+                            if (!point) {
+                                console.warn('發現無效數據點，將被跳過');
+                                return null;
+                            }
+                            
                             const rawTime = point.t || point.time || point.x || point.date;
                             
                             if (rawTime instanceof Date) {
@@ -622,83 +653,19 @@ function updateDataSummary() {
  * @returns {Promise<void>}
  */
 async function updateExampleFileList() {
-    const exampleFileList = document.getElementById('exampleFileList');
-    if (!exampleFileList) return;
-    
-    // 清空現有列表
-    exampleFileList.innerHTML = '';
-    
     try {
-        // 當前選中的圖表類型
-        const currentChartType = appState.currentChartType || 'radar';
-        
-        // 準備一個加載訊息
-        const loadingMsg = document.createElement('p');
-        loadingMsg.textContent = '載入範例檔案中...';
-        loadingMsg.className = 'text-sm text-gray-500 p-2 text-center';
-        exampleFileList.appendChild(loadingMsg);
-        
         // 使用新的 API 獲取範例檔案
         const exampleData = await fetchAvailableExamples();
         
-        // 清空加載訊息
-        exampleFileList.innerHTML = '';
-        
-        // 檢查並預設 categorized 屬性
-        if (!exampleData || typeof exampleData !== 'object') {
-            throw new Error('範例資料格式無效');
+        // 使用從 ui-controller.js 導入的函數
+        if (exampleData && exampleData.examples) {
+            updateUIExampleFileList(exampleData.examples);
+        } else {
+            updateUIExampleFileList([]);
         }
-        
-        const categorizedFiles = exampleData.categorized || {};
-        
-        // 如果沒有任何範例檔案
-        if (Object.keys(categorizedFiles).length === 0) {
-            // 如果API沒有返回分類文件，嘗試使用原始資料
-            if (exampleData.examples && exampleData.examples.length > 0) {
-                // 如果 API 沒返回分類資料但有原始資料，手動分類
-                const manualCategorized = {};
-                exampleData.examples.forEach(example => {
-                    const type = example.chart_type || 'unknown';
-                    if (!manualCategorized[type]) {
-                        manualCategorized[type] = [];
-                    }
-                    manualCategorized[type].push(example);
-                });
-                
-                // 使用手動分類的檔案
-                displayCategorizedExamples(manualCategorized, currentChartType, exampleFileList);
-                return;
-            }
-            
-            // 如果API返回的數據無效，嘗試舊方式
-            if (appState.availableDataFiles && appState.availableDataFiles.json) {
-                // 使用舊方式顯示
-                displayExampleFilesLegacy();
-                return;
-            }
-            
-            // 真的沒有檔案可顯示
-            const noFilesMsg = document.createElement('p');
-            noFilesMsg.textContent = '沒有可用的範例檔案';
-            noFilesMsg.className = 'text-sm text-gray-500 p-2 text-center';
-            exampleFileList.appendChild(noFilesMsg);
-            return;
-        }
-        
-        // 顯示分類後的檔案
-        displayCategorizedExamples(categorizedFiles, currentChartType, exampleFileList);
-        
     } catch (error) {
-        console.error('更新範例檔案列表錯誤:', error);
-        // 顯示錯誤訊息並嘗試退回到舊方式
-        try {
-            displayExampleFilesLegacy();
-        } catch (fallbackError) {
-            const errorMsg = document.createElement('p');
-            errorMsg.textContent = '載入範例檔案列表時發生錯誤';
-            errorMsg.className = 'text-sm text-red-500 p-2 text-center';
-            exampleFileList.appendChild(errorMsg);
-        }
+        console.error('獲取範例文件列表時發生錯誤:', error);
+        showError('載入範例檔案列表時發生錯誤');
     }
 }
 

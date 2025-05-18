@@ -17,7 +17,11 @@
     <!-- 核心腳本 -->
     <script src="{{ request.state.static_url('js/jquery-3.6.0.min.js') }}"></script>
     <script src="{{ request.state.static_url('js/chart.min.js') }}"></script>
+    <script src="{{ request.state.static_url('js/chart-globals.js') }}"></script>
     <script src="{{ request.state.static_url('js/chart-extensions.js') }}"></script>
+    <script src="{{ request.state.static_url('js/chart-extensions-init.js') }}"></script>
+    <script src="{{ request.state.static_url('js/chart-fix.js') }}"></script>
+    <script src="{{ request.state.static_url('js/chart-debug.js') }}"></script>
     
     <!-- 額外腳本 -->
     {% block extra_scripts %}{% endblock %}

@@ -137,10 +137,12 @@ export function createChart(data, chartType, theme, appState) {
                                 data.datasets.forEach(dataset => {
                                     if (dataset.data && Array.isArray(dataset.data)) {
                                         dataset.data.forEach(point => {
-                                            const pointTime = point.t || point.time || point.x || point.date;
-                                            if (typeof pointTime === 'string') {
-                                                // 直接轉換為 Date 對象
-                                                point.t = new Date(pointTime);
+                                            if (point) {
+                                                const pointTime = point.t || point.time || point.x || point.date;
+                                                if (typeof pointTime === 'string') {
+                                                    // 直接轉換為 Date 對象
+                                                    point.t = new Date(pointTime);
+                                                }
                                             }
                                         });
                                     }
@@ -395,6 +397,19 @@ export function createChart(data, chartType, theme, appState) {
                 elements: Object.keys(Chart.registry.elements).length,
                 plugins: Object.keys(Chart.registry.plugins).length
             });
+        }
+        
+        // 處理可能的數據問題
+        try {
+            // 檢查是否存在循環引用
+            JSON.stringify(data);
+        } catch (jsonError) {
+            console.warn('檢測到數據可能存在循環引用，嘗試修復:', jsonError);
+            
+            // 創建一個簡化的數據副本，移除可能導致循環引用的屬性
+            const safeData = cleanupCircularReferences(data);
+            console.log('已創建數據的安全副本，繼續處理');
+            data = safeData;
         }
         
         // 準備圖表配置
@@ -800,8 +815,8 @@ function prepareChartConfig(data, chartType, theme, appState) {
                 processedData.datasets.forEach(dataset => {
                     if (dataset.data && Array.isArray(dataset.data)) {
                         dataset.data.forEach(point => {
-                            // 確保每個點都有 t 屬性，並且是 Date 對象
-                            if (point.t && !(point.t instanceof Date)) {
+                            // 確保 point 存在且有 t 屬性，並且是 Date 對象
+                            if (point && point.t && !(point.t instanceof Date)) {
                                 try {
                                     point.t = new Date(point.t);
                                 } catch (e) {
@@ -927,8 +942,8 @@ function prepareChartConfig(data, chartType, theme, appState) {
                 ohlcData.datasets.forEach(dataset => {
                     if (dataset.data && Array.isArray(dataset.data)) {
                         dataset.data.forEach(point => {
-                            // 確保每個點都有 t 屬性，並且是 Date 對象
-                            if (point.t && !(point.t instanceof Date)) {
+                            // 確保 point 存在且有 t 屬性，並且是 Date 對象
+                            if (point && point.t && !(point.t instanceof Date)) {
                                 try {
                                     point.t = new Date(point.t);
                                 } catch (e) {
@@ -1295,6 +1310,7 @@ function prepareChartConfig(data, chartType, theme, appState) {
             // 判斷數據是否包含時間序列
             let useTimeAxis = false;
             let hasTimeData = false;
+            let detectedTimeUnit = 'day'; // 改名稱避免衝突
             
             try {
                 const processedLineData = processLineData(data);
@@ -1304,13 +1320,59 @@ function prepareChartConfig(data, chartType, theme, appState) {
                     processedLineData.datasets[0].data && processedLineData.datasets[0].data.length > 0) {
                     
                     const samplePoint = processedLineData.datasets[0].data[0];
-                    if (samplePoint && (samplePoint.x instanceof Date || typeof samplePoint.x === 'string' && !isNaN(new Date(samplePoint.x).getTime()))) {
+                    if (samplePoint && (
+                        samplePoint.x instanceof Date || 
+                        typeof samplePoint.x === 'string' && !isNaN(new Date(samplePoint.x).getTime())
+                    )) {
                         hasTimeData = true;
+                        console.log('檢測到時間序列數據');
+                        
+                        // 分析時間單位
+                        if (processedLineData.datasets[0].data.length >= 2) {
+                            const dates = processedLineData.datasets[0].data
+                                .filter(point => point && point.x)
+                                .map(point => new Date(point.x));
+                            
+                            if (dates.length >= 2) {
+                                // 計算平均時間差來確定適當單位
+                                let totalDiff = 0;
+                                for (let i = 1; i < dates.length; i++) {
+                                    totalDiff += dates[i] - dates[i-1];
+                                }
+                                const avgDiff = totalDiff / (dates.length - 1);
+                                
+                                // 根據平均差異決定時間單位
+                                if (avgDiff < 1000 * 60 * 60) { // 小於1小時
+                                    detectedTimeUnit = 'minute';
+                                } else if (avgDiff < 1000 * 60 * 60 * 24) { // 小於1天
+                                    detectedTimeUnit = 'hour';
+                                } else if (avgDiff < 1000 * 60 * 60 * 24 * 31) { // 小於1個月
+                                    detectedTimeUnit = 'day';
+                                } else if (avgDiff < 1000 * 60 * 60 * 24 * 365) { // 小於1年
+                                    detectedTimeUnit = 'month';
+                                } else {
+                                    detectedTimeUnit = 'year';
+                                }
+                                console.log('自動檢測時間軸單位:', detectedTimeUnit);
+                            }
+                        }
+                    }
+                }
+                
+                // 確保 Chart.adapters._date 存在
+                if (Chart.adapters === undefined || Chart.adapters._date === undefined) {
+                    console.warn('日期適配器不存在，嘗試初始化');
+                    
+                    // 嘗試初始化擴展
+                    if (typeof window.initChartExtensions === 'function') {
+                        window.initChartExtensions();
                     }
                 }
                 
                 // 檢查日期適配器是否可用
-                useTimeAxis = hasTimeData && typeof luxon !== 'undefined' && typeof Chart.adapters._date !== 'undefined';
+                useTimeAxis = hasTimeData && typeof Chart.adapters !== 'undefined' && 
+                              typeof Chart.adapters._date !== 'undefined' &&
+                              typeof Chart.adapters._date.parse === 'function';
                 
                 return {
                     type: 'line',
@@ -1332,9 +1394,17 @@ function prepareChartConfig(data, chartType, theme, appState) {
                             x: useTimeAxis ? {
                                 type: 'time',
                                 time: {
-                                    unit: 'day',
+                                    unit: detectedTimeUnit,
                                     displayFormats: {
-                                        day: 'yyyy-MM-dd'
+                                        millisecond: 'HH:mm:ss.SSS',
+                                        second: 'HH:mm:ss',
+                                        minute: 'HH:mm',
+                                        hour: 'HH:00',
+                                        day: 'yyyy-MM-dd',
+                                        week: 'yyyy-MM-dd',
+                                        month: 'yyyy-MM',
+                                        quarter: 'yyyy-[Q]Q',
+                                        year: 'yyyy'
                                     }
                                 },
                                 title: {
@@ -1599,13 +1669,37 @@ function processLineData(data) {
     };
 
     try {
+        // 確保 data 是有效的對象
+        if (!data || typeof data !== 'object') {
+            console.warn('無效的折線圖數據，使用預設數據');
+            throw new Error('無效的數據對象');
+        }
+        
+        // 檢查數據集來源
         const sourceData = data.datasets?.[0]?.data || data.data || [];
+
+        // 安全地轉換和過濾數據
         processedData.datasets[0].data = sourceData
-            .filter(item => item && (item.y || item.value))
-            .map(item => ({
-                x: new Date(item.x || item.time || Date.now()),
-                y: Number(item.y || item.value)
-            }))
+            .filter(item => item !== null && item !== undefined)
+            .filter(item => item && (item.y !== undefined || item.value !== undefined || typeof item === 'number'))
+            .map(item => {
+                if (typeof item === 'number') {
+                    return { y: item }; // 如果是純數字，轉換為對象格式
+                }
+                
+                try {
+                    const xValue = item.x || item.time || item.t || item.date || Date.now();
+                    // 嘗試轉換日期，但避免循環引用
+                    const xDate = xValue instanceof Date ? new Date(xValue.getTime()) : new Date(xValue);
+                    return {
+                        x: xDate,
+                        y: Number(item.y || item.value || 0)
+                    };
+                } catch (e) {
+                    console.warn('折線圖數據點轉換錯誤:', e);
+                    return { x: new Date(), y: 0 };
+                }
+            })
             .filter(item => !isNaN(item.y));
 
         if (processedData.datasets[0].data.length === 0) {
@@ -1934,6 +2028,12 @@ function processPieData(data) {
     };
 
     try {
+        // 確保 data 是有效的對象
+        if (!data || typeof data !== 'object') {
+            console.warn('無效的圓餅/極座標圖數據，使用預設數據');
+            throw new Error('無效的數據對象');
+        }
+
         // 處理標籤
         if (data.labels && Array.isArray(data.labels)) {
             processedData.labels = data.labels;
@@ -1942,7 +2042,19 @@ function processPieData(data) {
         // 處理數據集
         const sourceDatasets = data.datasets || [];
         if (sourceDatasets.length > 0) {
-            processedData.datasets = sourceDatasets;
+            // 深複製以避免循環引用問題
+            try {
+                processedData.datasets = JSON.parse(JSON.stringify(sourceDatasets));
+            } catch (e) {
+                console.warn('處理數據集時發生錯誤，可能存在循環引用:', e);
+                // 手動複製必要數據
+                processedData.datasets = sourceDatasets.map(dataset => ({
+                    label: dataset.label || '數值',
+                    data: Array.isArray(dataset.data) ? [...dataset.data] : [],
+                    backgroundColor: dataset.backgroundColor,
+                    borderColor: dataset.borderColor
+                }));
+            }
         } else if (Array.isArray(data.data)) {
             processedData.datasets[0].data = data.data;
             
@@ -1964,7 +2076,7 @@ function processPieData(data) {
                 { length: processedData.datasets[0].data.length }, 
                 (_, i) => `項目 ${i + 1}`
             );
-        }
+               }
         
         // 確保背景顏色陣列足夠
         const dataLength = processedData.datasets[0].data.length;
@@ -2264,4 +2376,64 @@ export function captureChart(format = 'image/png', appState) {
         console.error('匯出圖表錯誤:', error);
         showError('匯出圖表失敗');
     }
+}
+
+/**
+ * 清理可能的循環引用
+ * @param {Object} obj - 要清理的數據對象
+ * @returns {Object} - 清理後的數據對象
+ */
+function cleanupCircularReferences(obj) {
+    // 已經處理過的對象，避免重複處理
+    const visited = new WeakSet();
+    
+    // 遞歸處理對象
+    const cleanup = (value, path = '') => {
+        // 基本類型直接返回
+        if (value === null || value === undefined || typeof value !== 'object') {
+            return value;
+        }
+        
+        // 檢查是否已處理過此對象（循環引用）
+        if (visited.has(value)) {
+            console.warn(`檢測到循環引用，路徑: ${path}`);
+            return null; // 返回 null 替代循環引用
+        }
+        
+        // 標記為已處理
+        visited.add(value);
+        
+        // 處理數組
+        if (Array.isArray(value)) {
+            return value.map((item, i) => cleanup(item, `${path}[${i}]`));
+        }
+        
+        // 處理日期對象
+        if (value instanceof Date) {
+            return new Date(value.getTime());
+        }
+        
+        // 處理對象
+        const result = {};
+        for (const key in value) {
+            if (Object.hasOwnProperty.call(value, key)) {
+                // 跳過特殊字段，這些字段可能包含循環引用
+                if (['_chart', '_dataset', '_meta', '_model', 'chart', 'parent'].includes(key)) {
+                    continue;
+                }
+                
+                // 處理可能的 valueOf 循環引用問題
+                if (key === 'valueOf' && typeof value[key] === 'function') {
+                    continue;
+                }
+                
+                result[key] = cleanup(value[key], `${path}.${key}`);
+            }
+        }
+        
+        return result;
+    };
+    
+    // 開始清理
+    return cleanup(obj);
 }

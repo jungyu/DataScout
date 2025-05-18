@@ -45,13 +45,51 @@ export async function fetchAvailableExamples(chartType = null) {
         if (response.ok) {
             return await response.json();
         } else {
-            console.error('獲取範例檔案列表失敗');
-            return { examples: [], categorized: {}, total: 0 };
+            console.error('獲取範例檔案列表失敗，狀態碼:', response.status);
+            // 如果 API 失敗，使用預設的範例檔案列表
+            return useDefaultExampleFiles();
         }
     } catch (error) {
         console.error('獲取範例檔案列表時發生錯誤:', error);
-        return { examples: [], categorized: {}, total: 0 };
+        // 如果發生錯誤，使用預設的範例檔案列表
+        return useDefaultExampleFiles();
     }
+}
+
+/**
+ * 獲取默認的範例檔案列表
+ * 當 API 請求失敗時使用
+ * @returns {Object} - 範例檔案列表
+ */
+function useDefaultExampleFiles() {
+    // 返回一些默認的預設範例檔案名稱
+    const examples = [
+        "example_line_chart.json",
+        "example_bar_chart.json",
+        "example_pie_chart.json",
+        "example_doughnut_chart.json",
+        "example_radar_investment_risk.json",
+        "example_scatter_chart.json",
+        "example_bubble_chart.json",
+        "example_mixed_chart.json",
+        "example_candlestick_chart.json"
+    ];
+    
+    // 創建一個分類後的默認範例資料結構
+    const categorized = {
+        "line": ["example_line_chart.json"],
+        "bar": ["example_bar_chart.json"],
+        "pie": ["example_pie_chart.json"],
+        "doughnut": ["example_doughnut_chart.json"],
+        "radar": ["example_radar_investment_risk.json"],
+        "scatter": ["example_scatter_chart.json"],
+        "bubble": ["example_bubble_chart.json"],
+        "mixed": ["example_mixed_chart.json"],
+        "candlestick": ["example_candlestick_chart.json"]
+    };
+    
+    console.log('使用預設範例檔案列表:', examples.length, '個文件');
+    return { examples, categorized, total: examples.length };
 }
 
 /**
@@ -116,12 +154,55 @@ export async function loadExampleDataForChartType(chartType) {
         appState.currentDataFile = exampleFile;
         
         // 載入範例資料
-        const data = await fetchFileData(`/api/examples/${exampleFile}`);
+        const data = await fetchFileData(`static/examples/${exampleFile}`, 'json');
         if (data) {
+            // 獲取當前主題
+            const theme = appState.currentChartTheme || 'light';
+            
             // 創建圖表
-            createChart(data, chartType);
-            syncChartThemeWithPageTheme();
+            createChart(data, chartType, theme, appState);
+            syncChartThemeWithPageTheme(appState);
             showSuccess(`已載入 ${chartType} 圖表範例資料`);
+            return true;
+        } else {
+            showError('無法載入範例資料');
+            return false;
+        }
+    } catch (error) {
+        console.error('載入範例資料時發生錯誤:', error);
+        showError(`載入範例資料失敗: ${error.message}`);
+        return false;
+    } finally {
+        showLoading(false);
+    }
+}
+
+/**
+ * 載入指定的範例檔案
+ * @param {string} filename - 範例檔案名稱
+ * @param {string} chartType - 圖表類型
+ * @returns {Promise<boolean>} - 是否成功載入
+ */
+export async function loadExampleFile(filename, chartType) {
+    showLoading(true);
+    
+    try {
+        const appState = getAppState();
+        
+        // 設置應用狀態
+        appState.currentChartType = chartType;
+        appState.currentDataFile = filename;
+        
+        // 載入範例資料
+        const data = await fetchFileData(`static/examples/${filename}`, 'json');
+        if (data) {
+            // 獲取當前主題
+            const theme = appState.currentChartTheme || 'light';
+            
+            // 創建圖表
+            createChart(data, chartType, theme, appState);
+            syncChartThemeWithPageTheme(appState);
+            showSuccess(`已載入範例資料: ${filename}`);
             return true;
         } else {
             showError('無法載入範例資料');

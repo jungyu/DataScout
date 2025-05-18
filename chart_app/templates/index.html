@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     
     <!-- Chart.js 日期適配器 (npm打包版本) -->
-    <script src="{{ url_for('static', path='/js/dist/chart-adapter.bundle.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/dist/chart-date-adapter.bundle.js') }}"></script>
     
     <!-- Chart.js 全局配置 - 提供更穩定的圖表渲染 -->
     <script src="{{ url_for('static', path='/js/chart-globals.js') }}"></script>
@@ -146,6 +146,8 @@
                     <li><a href="/">首頁</a></li>
                     <li><a href="/docs">API 文件</a></li>
                     <li><a href="/docs/chart-format">圖表格式說明</a></li>
+                    <li><a href="/chart-diagnostics">圖表診斷</a></li>
+                    <li><a href="/file-diagnostics">檔案診斷</a></li>
                 </ul>
             </div>
             <a class="btn btn-ghost normal-case text-xl font-bold text-primary-content">DataScout 視覺化平台</a>
@@ -425,6 +427,22 @@
                     </div>
                 </div>
             </div>
+        </div>
+        
+        <!-- 診斷工具按鈕區 -->
+        <div class="flex justify-center mt-6 gap-4">
+            <a href="/chart-diagnostics" class="btn btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                圖表診斷工具
+            </a>
+            <a href="/file-diagnostics" class="btn btn-secondary">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                檔案診斷工具
+            </a>
         </div>
         
         <!-- 訊息提示區塊 -->

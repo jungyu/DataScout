@@ -1,27 +1,101 @@
 /**
- * 圖表除錯腳本
- * 用於診斷圖表渲染問題
+ * Chart.js 除錯工具
+ * 用於診斷和修復 Chart.js 圖表問題，特別是時間軸相關問題
  */
-(function() {
-    console.log('圖表除錯腳本已載入');
 
-    // 確保在文檔載入完成後執行
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('檢查圖表渲染環境...');
+(function() {
+    'use strict';
+    
+    console.log('載入 Chart.js 除錯工具');
+    
+    // 創建 ChartDebugger 全局對象
+    window.ChartDebugger = {
+        // 顯示基本的圖表庫信息
+        showInfo: function() {
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js 未載入');
+                return {
+                    loaded: false,
+                    message: 'Chart.js 未載入'
+                };
+            }
+            
+            // 收集基本信息
+            const info = {
+                loaded: true,
+                version: Chart.version,
+                adapters: !!Chart.adapters,
+                dateAdapter: Chart.adapters && !!Chart.adapters._date,
+                controllers: Chart.controllers ? Object.keys(Chart.controllers) : (
+                    Chart.registry && Chart.registry.controllers ? Object.keys(Chart.registry.controllers) : []
+                ),
+                initialized: !!window._initChartExtensionsLoaded
+            };
+            
+            console.log('Chart.js 資訊:', info);
+            return info;
+        },
         
-        // 獲取調試信息元素
-        const debugInfo = document.getElementById('debug-info');
-        if (debugInfo) {
-            debugInfo.innerText = '圖表除錯: 開始檢查...';
-        }
-        
-        // 檢查 Chart.js 是否存在
-        const isChartJsLoaded = typeof Chart !== 'undefined';
-        console.log('Chart.js 是否已載入:', isChartJsLoaded);
-        
-        if (debugInfo) {
-            debugInfo.innerText += ` | Chart.js 載入狀態: ${isChartJsLoaded ? '成功' : '失敗'}`;
-        }
+        // 檢查圖表是否正常運作
+        diagnose: function() {
+            const issues = [];
+            
+            // 檢查 Chart.js 是否已載入
+            if (typeof Chart === 'undefined') {
+                issues.push({
+                    severity: 'error',
+                    component: 'core',
+                    message: 'Chart.js 未載入',
+                    fix: 'script 標籤中加載 Chart.js'
+                });
+                return {
+                    status: 'failure',
+                    issues
+                };
+            }
+            
+            // 檢查圖表版本
+            const version = Chart.version || 'unknown';
+            if (version.startsWith('2.') && parseInt(version.split('.')[1], 10) < 9) {
+                issues.push({
+                    severity: 'warning',
+                    component: 'version',
+                    message: `Chart.js 版本 ${version} 較舊`,
+                    fix: '升級到最新的 Chart.js'
+                });
+            }
+            
+            // 檢查 adapters 系統
+            if (!Chart.adapters) {
+                issues.push({
+                    severity: 'error',
+                    component: 'adapters',
+                    message: 'Chart.adapters 不存在',
+                    fix: '載入 chart-globals.js 或執行 window.initChartExtensions()'
+                });
+            } else if (!Chart.adapters._date) {
+                issues.push({
+                    severity: 'error',
+                    component: 'dateAdapter',
+                    message: 'Chart.adapters._date 不存在',
+                    fix: '載入 chart-extensions-init.js 或執行 window.initChartExtensions()'
+                });
+            } else {
+                // 檢查日期適配器方法
+                const requiredMethods = ['parse', 'format', 'add', 'diff', 'startOf', 'endOf'];
+                const missingMethods = requiredMethods.filter(
+                    method => !Chart.adapters._date[method] || typeof Chart.adapters._date[method] !== 'function'
+                );
+                
+                if (missingMethods.length > 0) {
+                    issues.push({
+                        severity: 'error',
+                        component: 'dateAdapter',
+                        message: `Chart.adapters._date 缺少方法: ${missingMethods.join(', ')}`,
+                        fix: '載入 chart-extensions-init.js 或執行 window.initChartExtensions()'
+                    });
+                }
+            }
         
         // 如果 Chart.js 已載入，嘗試創建一個簡單的圖表
         if (isChartJsLoaded) {

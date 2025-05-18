@@ -619,6 +619,12 @@ async def file_diagnostics(request: Request):
     return templates.TemplateResponse("file_diagnostics.html", {"request": request, "title": "檔案系統診斷"})
 
 
+@app.get("/chart-diagnostics")
+async def chart_diagnostics(request: Request):
+    """圖表診斷工具頁面"""
+    return templates.TemplateResponse("chart_diagnostics.html", {"request": request, "title": "圖表診斷"})
+
+
 @app.get("/api/chart-data/")
 async def chart_data():
     """
