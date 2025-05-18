@@ -11,7 +11,11 @@
    - `core/`: 包含應用程式核心功能
    - `adapters/`: 包含與第三方庫和服務整合的轉接器
    - `data-handling/`: 包含資料處理相關功能
+     - `examples/`: 集中管理所有範例相關功能
    - `utils/`: 包含通用工具函數
+   - `plugins/`: 為未來的擴展預留
+   
+   已完成根目錄中冗餘空文件的清理，確保代碼結構更加整潔。
 
 2. 調整所有檔案中的模組引入路徑，使其與新的目錄結構對應
    - 將相對路徑改為相對於新目錄結構的路徑
@@ -32,13 +36,23 @@
 - `/Users/aaron/Projects/DataScout/chart_app/src/js/data-handling/data-exporter.js` - 修正重複的 import 語句
 - `/Users/aaron/Projects/DataScout/chart_app/src/js/data-handling/data-loader.js` - 修正重複的 import 語句
 - `/Users/aaron/Projects/DataScout/chart_app/src/js/data-handling/data-processor.js` - 修正重複的 import 語句
-- `/Users/aaron/Projects/DataScout/chart_app/src/js/data-handling/example-manager.js` - 修正重複的 import 語句
 - `/Users/aaron/Projects/DataScout/chart_app/src/js/core/chart-manager.js` - 修正重複的 import 語句和更正引用路徑
 - `/Users/aaron/Projects/DataScout/chart_app/src/js/core/app-initializer.js` - 更新動態 import 路徑
+- `/Users/aaron/Projects/DataScout/chart_app/src/js/data-handling/example-loader.js` - 修正重複的 import 語句
+
+重組了範例相關文件：
+
+- 創建了 `/Users/aaron/Projects/DataScout/chart_app/src/js/data-handling/examples/` 目錄
+- 移動並整合所有範例相關功能到 `/Users/aaron/Projects/DataScout/chart_app/src/js/data-handling/examples/index.js`
+- 更新了 webpack.config.js 中的入口點以反映新的目錄結構
 
 另外，還修正了以下文件的命名衝突問題：
 
-- `/Users/aaron/Projects/DataScout/chart_app/src/js/index.js` - 調整導出順序和選擇性導出，解決模組間的命名衝突
+- `/Users/aaron/Projects/DataScout/chart_app/src/js/index.js` - 調整導出順序和選擇性導出，並更新為使用新的範例模組路徑
+
+完成了冗餘文件的清理：
+
+- 刪除了 src/js 根目錄中的所有空文件，確保目錄結構整潔
 
 ## 測試結果
 
@@ -62,13 +76,17 @@
 
 ## 後續建議
 
-1. 建立完整的單元測試覆蓋，確保重構過程沒有引入任何功能缺陷。
+1. 完成清理 src/js 根目錄中的冗餘文件，確保所有文件都已正確遷移到子目錄。
 
-2. 考慮使用更現代的 ES 模組系統進行進一步優化。
+2. 建立完整的單元測試覆蓋，確保重構過程沒有引入任何功能缺陷。
 
-3. 考慮使用 TypeScript 增加型別安全性，改善開發體驗。
+3. 考慮使用更現代的 ES 模組系統進行進一步優化。
 
-4. 在未來新增功能時，確保導出符號不會與現有函數衝突，並考慮使用更具體的命名，以減少命名衝突的可能性。
+4. 考慮使用 TypeScript 增加型別安全性，改善開發體驗。
+
+5. 在未來新增功能時，確保導出符號不會與現有函數衝突，並考慮使用更具體的命名，以減少命名衝突的可能性。
+
+6. 探索 plugins 目錄的用途並確保它已完全整合到新的目錄結構中。
 
 ## 總結
 

@@ -14,7 +14,7 @@ module.exports = {
     'data-loader': './src/js/data-handling/data-loader.js',
     'data-processor': './src/js/data-handling/data-processor.js',
     'data-exporter': './src/js/data-handling/data-exporter.js',
-    'example-manager': './src/js/data-handling/example-manager.js',
+    'examples': './src/js/data-handling/examples/index.js',
     // Adapter modules
     'chart-date-adapter': './src/js/adapters/chart-date-adapter.js',
     'chart-renderer': './src/js/adapters/chart-renderer.js',

@@ -19,8 +19,12 @@ src/js/
 ├── adapters/       (Chart.js 適配器和渲染器)
 ├── core/           (核心應用功能)
 ├── data-handling/  (數據加載和處理)
+│   ├── examples/   (圖表範例相關功能)
+│   ├── data-loader.js
+│   ├── data-processor.js
+│   └── data-exporter.js
 ├── utils/          (工具函數)
-├── plugins/        (插件和擴展)
+├── plugins/        (預留給未來的插件和擴展)
 ├── index.js        (集中模組導出)
 ├── main.js         (應用程式入口點)
 └── README.md       (文檔)
@@ -89,9 +93,29 @@ vim webpack.config.js
 確認所有功能正常後，運行清理腳本：
 
 ```bash
-chmod +x scripts/cleanup_js_root.sh
-./scripts/cleanup_js_root.sh
+chmod +x scripts/clean_root_files.sh
+./scripts/clean_root_files.sh
 ```
+
+### 步驟 7: 重構範例相關檔案
+
+1. 創建範例子目錄：
+   ```bash
+   mkdir -p src/js/data-handling/examples
+   ```
+
+2. 移動範例相關檔案：
+   ```bash
+   mv src/js/data-handling/example-functions.js src/js/data-handling/examples/
+   mv src/js/data-handling/example-loader-functions.js src/js/data-handling/examples/
+   ```
+
+3. 創建統一的入口點：
+   ```bash
+   touch src/js/data-handling/examples/index.js
+   ```
+
+4. 更新 webpack 配置以反映新結構
 
 ## 重構後的維護指南
 

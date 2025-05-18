@@ -50,7 +50,11 @@ src/js/
 │   ├── data-exporter.js
 │   ├── data-loader.js
 │   ├── data-processor.js
-│   └── example-manager.js (及其他相關文件)
+│   ├── example-functions.js
+│   ├── example-loader-functions.js
+│   ├── example-loader.js
+│   └── example-manager.js
+├── plugins/          # 外掛模組
 ├── utils/            # 通用工具函數
 │   ├── chart-themes.js
 │   ├── dependency-checker.js
@@ -59,7 +63,8 @@ src/js/
 │   ├── theme-handler.js
 │   └── utils.js
 ├── index.js          # 統一匯出入口
-└── main.js           # 應用程式主入口
+├── main.js           # 應用程式主入口
+└── [其他舊版檔案尚未完全移除] # 根目錄仍有部分冗餘檔案
 ```
 
 ### 效益

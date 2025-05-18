@@ -20,9 +20,9 @@ export * from './core/chart-manager.js';
 // 重新導出資料處理相關模組
 export * from './data-handling/data-loader.js';
 export * from './data-handling/data-processor.js';
-// 由於命名衝突，選擇性導入 example-manager.js 中需要的函數
-// export * from './data-handling/example-manager.js';
 export * from './data-handling/data-exporter.js';
+// 導出重組後的範例模組
+export * from './data-handling/examples/index.js';
 
 // 重新導出轉接器模組
 export * from './adapters/chart-type-adapters.js';
