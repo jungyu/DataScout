@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 # 導入API路由模組
 from app.apis.chart_router import chart_router
+from app.apis.apexcharts_router import apexcharts_router
 
 # 配置日誌
 logging.basicConfig(
@@ -55,6 +56,7 @@ templates = Jinja2Templates(directory="templates")
 
 # 註冊路由
 app.include_router(chart_router, prefix="/api", tags=["chart"])
+app.include_router(apexcharts_router, prefix="/api/apexcharts", tags=["apexcharts"])
 
 # 根路由 - 渲染儀表板
 @app.get("/", response_class=HTMLResponse)
@@ -70,6 +72,14 @@ async def chart_examples(request: Request):
     return templates.TemplateResponse(
         "chart_examples.html",
         {"request": request, "title": f"{settings.PROJECT_NAME} - 圖表範例"}
+    )
+
+# ApexCharts 圖表範例頁面
+@app.get("/apexcharts", response_class=HTMLResponse)
+async def apexcharts_examples(request: Request):
+    return templates.TemplateResponse(
+        "apexcharts_examples.html",
+        {"request": request, "title": f"{settings.PROJECT_NAME} - ApexCharts"}
     )
 
 # 健康檢查端點
