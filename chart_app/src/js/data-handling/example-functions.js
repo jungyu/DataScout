@@ -1,10 +1,21 @@
+import { showError, showSuccess, showLoading } from '../utils/utils.js';
+import { fetchExampleData, fetchAvailableExamples } from './example-loader.js';
+import { createChart } from '../core/chart-manager.js';
+import { syncChartThemeWithPageTheme } from '../utils/theme-handler.js';
+import { updateExampleFileList } from '../core/ui-controller.js';
+import { getAppState } from '../core/state-manager.js';
+import { guessChartTypeFromFilename } from '../utils/chart-type-guesser.js';
+
 /**
  * 載入範例檔案
  * @param {string} filename - 檔案名稱
  */
-async function loadExampleFile(filename) {
+export async function loadExampleFile(filename) {
     try {
         showLoading(true);
+        
+        // 獲取應用程式狀態
+        const appState = getAppState();
         
         // 獲取檔案資料
         const data = await fetchExampleData(filename);
@@ -51,6 +62,68 @@ async function loadExampleFile(filename) {
     } catch (error) {
         console.error('載入範例檔案錯誤：', error);
         showError('載入範例檔案時發生錯誤');
+    } finally {
+        showLoading(false);
+    }
+}
+
+/**
+ * 根據圖表類型載入範例資料
+ * @param {string} chartType - 圖表類型
+ * @param {Object} appState - 應用程式狀態
+ * @returns {Promise<boolean>} - 是否成功載入
+ */
+export async function loadExampleDataForChartType(chartType, appState) {
+    try {
+        showLoading(true);
+        console.log(`開始載入 ${chartType} 類型的範例資料`);
+        
+        // 獲取該類型的所有範例
+        const examples = await fetchAvailableExamples(chartType);
+        
+        if (!examples || !examples.examples || examples.examples.length === 0) {
+            console.warn(`沒有找到 ${chartType} 類型的範例`);
+            showError(`沒有找到 ${chartType} 類型的範例`);
+            return false;
+        }
+        
+        // 選擇第一個範例
+        const firstExample = examples.examples[0];
+        console.log(`選擇範例: ${firstExample.filename}`);
+        
+        // 載入範例資料
+        const data = await fetchExampleData(firstExample.filename);
+        
+        if (!data) {
+            console.error('無法載入範例資料');
+            showError('無法載入範例資料');
+            return false;
+        }
+        
+        // 更新應用程式狀態
+        appState.currentChartType = chartType;
+        appState.currentDataFile = firstExample.filename;
+        appState.currentDataType = 'json';
+        
+        // 根據頁面主題同步圖表主題
+        const effectiveTheme = syncChartThemeWithPageTheme(appState);
+        
+        // 渲染圖表
+        const chart = createChart(data, chartType, effectiveTheme, appState);
+        
+        if (chart) {
+            console.log('範例圖表渲染成功');
+            showSuccess(`已載入 ${chartType} 範例`);
+            return true;
+        } else {
+            console.warn('範例圖表可能未成功渲染');
+            showError('範例圖表渲染失敗');
+            return false;
+        }
+    } catch (error) {
+        console.error('載入範例資料時發生錯誤:', error);
+        showError(`載入範例資料時發生錯誤: ${error.message}`);
+        return false;
     } finally {
         showLoading(false);
     }

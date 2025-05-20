@@ -18,6 +18,9 @@
 - [專案簡介](#-專案簡介)
 - [核心功能](#-核心功能)
 - [快速開始](#-快速開始)
+- [前後端開發](#-前後端開發)
+- [API 服務](#-api-服務)
+- [圖表渲染功能](#-圖表渲染功能)
 - [自動化方案選擇](#-自動化方案選擇)
 - [API 客戶端選擇](#-api-客戶端選擇)
 - [使用範例](#-使用範例)
@@ -268,7 +271,29 @@ export PROXY_USERNAME=user
 export PROXY_PASSWORD=pass
 ```
 
-### 4. 基本使用
+### 4. 啟動 API 服務
+
+```bash
+# 使用默認設定啟動 (本地 127.0.0.1:8000)
+./run_server.sh
+
+# 指定主機和端口
+./run_server.sh --host=0.0.0.0 --port=8888
+
+# 啟用調試模式
+./run_server.sh --debug
+
+# 指定配置文件
+./run_server.sh --config=config/my_config.json
+```
+
+### 5. 訪問 API 服務
+
+- API 文檔: `http://127.0.0.1:8000/docs`
+- ReDoc 文檔: `http://127.0.0.1:8000/redoc`
+- 圖表範例頁面: `http://127.0.0.1:8000/examples`
+
+### 6. 基本使用
 
 ```python
 from playwright_base import PlaywrightBase
@@ -297,127 +322,93 @@ async def main():
     await browser.save_data(data, "output.json")
 ```
 
-## 🤔 自動化方案選擇
+## 🔄 前後端開發
 
-### Playwright vs Selenium
+DataScout 提供了現代化的前後端分離架構，方便開發者分別進行前端和後端的開發與部署。詳細信息請參見[前後端開發完整指南](docs/frontend_backend_guide.md)。
 
-#### Playwright 優勢
-- 🆕 更現代的架構
-  - 專為現代網頁設計
-  - 支援最新的網頁技術
-  - 更好的非同步處理
-- 💪 更強大的自動化能力
-  - 內建等待機制
-  - 更好的網路控制
-  - 更精確的元素定位
-- 🛡️ 更好的反偵測
-  - 內建指紋偽造
-  - 更真實的瀏覽器環境
-  - 更好的 Cookie 管理
-- 🌐 跨瀏覽器支援
-  - 單一 API
-  - 更好的相容性
-  - 更少的程式碼差異
-- ⚡ 更快的執行速度
-  - 更輕量級的架構
-  - 更少的資源消耗
-  - 更好的並發處理
+### 1. 前端開發（DaisyUI + ApexCharts + Alpine.js）
 
-#### Selenium 優勢
-- 🏢 更成熟的生態系統
-  - 更多的第三方套件
-  - 更豐富的學習資源
-  - 更大的社群支援
-- 🌍 更廣泛的瀏覽器支援
-  - 支援更多版本
-  - 更好的向後相容性
-  - 更多的瀏覽器選項
-- 🎓 更簡單的入門門檻
-  - 更直觀的 API
-  - 更少的配置需求
-  - 更簡單的學習曲線
-- 💪 更好的穩定性
-  - 經過長期驗證
-  - 更少的版本問題
-  - 更好的錯誤處理
+前端使用 Alpine.js 作為輕量級框架，結合 DaisyUI 和 ApexCharts 提供美觀的使用者介面和資料視覺化功能。
 
-### 選擇建議
+```bash
+# 進入前端目錄
+cd web_frontend
 
-1. **使用 Playwright 的情況**
-   - 📱 需要處理現代網頁應用
-   - 🛡️ 需要更好的反偵測能力
-   - ⚡ 需要更快的執行速度
-   - 🌐 需要跨瀏覽器支援
-   - 🔄 需要更好的非同步處理
-   - 🎯 需要更精確的元素定位
+# 啟動開發伺服器（監視 JS 和 CSS 變更）
+./scripts/start_dev.sh
 
-2. **使用 Selenium 的情況**
-   - 🏢 需要支援舊版瀏覽器
-   - 🛠️ 需要使用特定的第三方套件
-   - 👥 需要更好的社群支援
-   - 🎓 需要更簡單的入門門檻
-   - 🔄 需要更好的同步處理
-   - 💪 需要更好的穩定性
-
-## 🔌 API 客戶端選擇
-
-### HTTPX vs Requests
-
-#### HTTPX 優勢
-- 🔄 同步和異步支援
-  - 支援同步操作
-  - 支援異步操作
-  - 混合使用模式
-- 🌐 HTTP/2 支援
-  - 原生 HTTP/2
-  - 連接複用
-  - 更低的延遲
-- 🆕 更現代的特性
-  - WebSocket 支援
-  - HTTP/2 Server Push
-  - HTTP/3 (QUIC) 支援
-- 📝 更好的型別提示
-  - 完整的型別註解
-  - 更好的 IDE 支援
-  - 更容易進行靜態型別檢查
-- ⚙️ 更靈活的配置
-  - 細緻的超時控制
-  - 更好的代理支援
-  - 更靈活的 SSL/TLS 配置
-
-### 使用範例
-
-```python
-# 同步請求
-from api_client import APIClient
-
-def sync_example():
-    client = APIClient()
-    response = client.get("https://api.example.com/data")
-    return response.json()
-
-# 異步請求
-async def async_example():
-    client = APIClient()
-    async with client as ac:
-        response = await ac.get("https://api.example.com/data")
-        return await response.json()
-
-# HTTP/2 請求
-async def http2_example():
-    client = APIClient(http2=True)
-    async with client as ac:
-        response = await ac.get("https://api.example.com/data")
-        return await response.json()
-
-# WebSocket 連接
-async def websocket_example():
-    client = APIClient()
-    async with client.websocket_connect("wss://api.example.com/ws") as websocket:
-        await websocket.send("Hello!")
-        response = await websocket.receive()
-        return response
+# 或使用 npm 命令
+npm run start
 ```
+
+啟動後，可透過 `http://localhost:8080` 訪問前端應用。
+
+### 2. 後端開發（FastAPI）
+
+後端使用 FastAPI 提供高效能的 API 服務，支援非同步處理和自動生成 API 文檔。
+
+```bash
+# 進入後端目錄
+cd web_service
+
+# 啟動開發伺服器
+./scripts/start_dev.sh
+```
+
+啟動後，可透過以下網址訪問：
+
+- API 服務：`http://localhost:8000`
+- API 文檔：`http://localhost:8000/docs`
+- ReDoc 文檔：`http://localhost:8000/redoc`
+
+### 3. 整合開發流程
+
+若要同時進行前後端開發，建議使用以下流程：
+
+#### 使用 VS Code 統一開發環境
+
+如果你使用 VS Code，我們提供了預配置的任務和調試設置：
+
+1. 按 `F1` (或 `Cmd+Shift+P` 在 macOS)，輸入 "Tasks: Run Task"
+2. 選擇 `構建前端資源並複製到後端`
+3. 選擇 `啟動前端開發服務`
+4. 選擇 `啟動後端開發服務`
+
+這些任務讓您可以輕鬆地構建和運行前後端應用。
+
+#### 手動啟動開發環境
+
+1. 首先啟動前端開發伺服器
+
+```bash
+cd web_frontend
+./scripts/start_dev.sh
+```
+
+2. 在另一個終端視窗啟動後端伺服器
+
+```bash
+cd web_service
+./scripts/start_dev.sh
+```
+
+3. 當需要構建前端並整合到後端時，可使用構建腳本
+
+```bash
+./scripts/build_frontend.sh --output ./web_service/static
+```
+
+### 4. 常見問題排解
+
+- **前端構建失敗**：確認已安裝所有 Node.js 依賴 `cd web_frontend && npm install`
+- **後端啟動失敗**：確認已安裝所有 Python 依賴 `cd web_service && pip install -r requirements.txt`
+- **靜態文件無法加載**：
+  - 檢查 `web_service/static` 目錄是否包含前端構建的文件
+  - 執行 `./scripts/build_frontend.sh --output ./web_service/static` 重新構建前端資源
+- **API 無法訪問**：確認後端服務正在運行，且運行在正確的主機和端口上
+- **DaisyUI 樣式不正確**：
+  - 檢查 `web_service/static/css/output.css` 是否存在
+  - 確認瀏覽器載入後沒有 CSS 錯誤
 
 ## 📚 使用範例
 

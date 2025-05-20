@@ -10,6 +10,10 @@ import { fetchAvailableExamples } from './data-handling/examples/index.js';
 import { updateExampleFileList as updateUIExampleFileList } from './core/ui-controller.js';
 import { showChartMessage, showError, showSuccess, showLoading, fetchAllDataFiles } from './utils/utils.js';
 import { getAppState, setStateValue } from './core/state-manager.js';
+import { loadExampleDataForChartType, loadExampleFile } from './data-handling/example-functions.js';
+
+// 獲取應用程式狀態
+const appState = getAppState();
 
 // 將主要功能導出供全局使用
 export { initPage } from './core/app-initializer.js';
@@ -68,7 +72,6 @@ async function initPage() {
     // 獲取所有可用的資料檔案
     const files = await fetchAllDataFiles();
     // 獲取應用程式狀態並更新
-    const appState = getAppState();
     appState.availableDataFiles = files;
     
     // 獲取 UI 元素
@@ -84,7 +87,6 @@ async function initPage() {
     if (chartTypeSelect) {
         chartTypeSelect.addEventListener('change', async () => {
             const selectedChartType = chartTypeSelect.value;
-            const appState = getAppState();
             appState.currentChartType = selectedChartType;
             console.log(`圖表類型已變更為: ${selectedChartType}`);
             
@@ -110,7 +112,6 @@ async function initPage() {
             uploadSection.classList.add('hidden');
             
             // 獲取應用程式狀態
-            const appState = getAppState();
             // 載入範例資料
             loadExampleDataForChartType(appState.currentChartType);
             // 更新範例檔案列表
@@ -128,7 +129,6 @@ async function initPage() {
             uploadSection.classList.remove('hidden');
             
             // 獲取應用程式狀態並更新當前數據類型
-            const appState = getAppState();
             appState.currentDataType = dataTypeSelect ? dataTypeSelect.value : 'csv';
         });
     }
@@ -138,7 +138,6 @@ async function initPage() {
         chartThemeSelect.addEventListener('change', () => {
             const selectedTheme = chartThemeSelect.value;
             // 獲取應用程式狀態
-            const appState = getAppState();
             appState.currentChartTheme = selectedTheme;
             console.log(`主題已變更為: ${selectedTheme}`);
             
@@ -154,7 +153,6 @@ async function initPage() {
     if (dataTypeSelect) {
         dataTypeSelect.addEventListener('change', () => {
             // 獲取應用程式狀態
-            const appState = getAppState();
             appState.currentDataType = dataTypeSelect.value;
             console.log(`資料類型已變更為: ${appState.currentDataType}`);
         });
@@ -171,8 +169,6 @@ async function initPage() {
     
     // 載入範例檔案系統
     try {
-        // 獲取應用程式狀態
-        const appState = getAppState();
         // 檢查是否應該重新載入資料檔案（如果之前沒有資料或資料不完整）
         if (!appState.availableDataFiles || !appState.availableDataFiles.json || appState.availableDataFiles.json.length === 0) {
             await refreshAvailableFiles();
@@ -217,98 +213,6 @@ async function initPage() {
     }
     
     console.log('圖表應用程式初始化完成');
-}
-
-/**
- * 載入範例檔案
- * @param {string} filename - 檔案名稱
- */
-async function loadExampleFile(filename) {
-    try {
-        showLoading(true);
-        
-        // 獲取檔案資料（先嘗試新API，失敗則嘗試舊API）
-        let data;
-        
-        try {
-            data = await fetchExampleData(filename);
-            console.log('成功使用新API獲取範例資料:', filename);
-        } catch (error) {
-            console.warn('使用新API獲取範例失敗，嘗試舊API:', error);
-            data = await fetchFileData(filename, 'json');
-        }
-        
-        if (data) {
-            // 獲取目前主題和圖表類型
-            const chartTypeElement = document.getElementById('chartType');
-            const chartThemeElement = document.getElementById('chartTheme');
-            
-            // 檢測檔案類型以自動選擇適合的圖表類型
-            let chartType = chartTypeElement ? chartTypeElement.value : appState.currentChartType;
-            
-            // 使用輔助函數根據檔案名稱判斷最適合的圖表類型
-            const detectedType = guessChartTypeFromFilename(filename);
-            if (detectedType) {
-                chartType = detectedType;
-            }
-            
-            // 更新圖表類型選擇器（如果圖表類型有變）
-            if (chartTypeElement && chartType !== chartTypeElement.value) {
-                chartTypeElement.value = chartType;
-                appState.currentChartType = chartType;
-                console.log(`圖表類型已根據檔案名稱自動更新為: ${chartType}`);
-            }
-            
-            const chartTheme = chartThemeElement ? chartThemeElement.value : appState.currentChartTheme;
-            
-            // 根據頁面主題同步圖表主題
-            const effectiveTheme = syncChartThemeWithPageTheme(appState);
-            
-            console.log('建立新圖表:', {
-                chartType,
-                effectiveTheme,
-                dataLength: data.datasets ? data.datasets.length : data.data?.datasets?.length || '未知'
-            });
-            
-            // 檢查資料結構，修正不符合標準的資料格式
-            const chartData = ensureValidChartData(data, chartType);
-            
-            // 渲染圖表
-            try {
-                // 隱藏提示訊息，準備顯示圖表
-                hideChartMessage();
-                
-                const chartResult = createChart(chartData, chartType, effectiveTheme, appState);
-                if (!chartResult) {
-                    console.error('圖表創建失敗，無返回值');
-                    showError('圖表渲染失敗');
-                    // 如果圖表渲染失敗，顯示提示訊息
-                    showChartMessage();
-                }
-            } catch (chartError) {
-                console.error('圖表渲染錯誤：', chartError);
-                showError(`圖表渲染錯誤: ${chartError.message}`);
-                // 如果圖表渲染錯誤，顯示提示訊息
-                showChartMessage();
-            }
-            
-            // 儲存目前檔案和類型
-            appState.currentDataFile = filename;
-            appState.currentDataType = 'json';
-            
-            // 更新範例檔案列表中的選中狀態
-            updateExampleFileList();
-            
-            showSuccess(`已載入範例: ${filename}`);
-        } else {
-            showError('無法載入範例檔案');
-        }
-    } catch (error) {
-        console.error('載入範例檔案錯誤：', error);
-        showError('載入範例檔案時發生錯誤');
-    } finally {
-        showLoading(false);
-    }
 }
 
 /**

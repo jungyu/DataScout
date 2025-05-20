@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataScout 圖表示例</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="{{ url_for('static', path='/css/output.css') }}" rel="stylesheet">
+</head>
+<body class="bg-base-200 min-h-screen">
+  <!-- 頁面容器 -->
+  <div x-data="{ sidebarOpen: true }" class="flex h-screen">
+    <!-- 側邊欄 -->
+    <aside 
+      class="bg-base-100 w-64 flex-shrink-0 border-r border-base-300 transition-all duration-300" 
+      :class="sidebarOpen ? 'translate-x-0' : '-translate-x-64'"
+    >
+      <!-- 標題 -->
+      <div class="p-4 flex items-center gap-3 border-b border-base-300">
+        <img src="{{ url_for('static', path='/favicon.ico') }}" alt="DataScout Logo" class="w-8 h-8">
+        <h1 class="text-lg font-semibold">DataScout</h1>
+      </div>
+      
+      <!-- 選單 -->
+      <nav class="p-2">
+        <ul class="menu menu-md">
+          <li class="menu-title">導覽</li>
+          <li><a href="/"><i class="w-5">📊</i> 儀表板</a></li>
+          <li><a class="active" href="/chart-examples"><i class="w-5">📈</i> 圖表範例</a></li>
+          <li><a href="#"><i class="w-5">📤</i> 資料上傳</a></li>
+          <li><a href="#"><i class="w-5">🔧</i> 診斷工具</a></li>
+          
+          <li class="menu-title mt-4">設定</li>
+          <li><a href="#"><i class="w-5">⚙️</i> 系統設定</a></li>
+          <li><a href="#"><i class="w-5">📝</i> 使用說明</a></li>
+        </ul>
+      </nav>
+    </aside>
+    
+    <!-- 主要內容區 -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- 頂部導覽列 -->
+      <header class="bg-base-100 border-b border-base-300">
+        <div class="flex justify-between items-center p-4">
+          <div class="flex items-center space-x-4">
+            <!-- 側邊欄切換按鈕 -->
+            <button class="btn btn-sm btn-circle" @click="sidebarOpen = !sidebarOpen">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+              </svg>
+            </button>
+            
+            <h2 class="text-xl font-semibold">圖表範例</h2>
+          </div>
+          
+          <div class="flex items-center space-x-4">
+            <!-- 主題切換 -->
+            <label class="swap swap-rotate btn btn-sm btn-ghost">
+              <!-- 這個 checkbox 控制 icon 顯示哪一個，同時控制 Alpine.js 中的 darkMode 狀態 -->
+              <input type="checkbox" x-model="$store.app.darkMode" @change="$store.app.toggleDarkMode()" />
+              
+              <!-- 月亮圖標 -->
+              <svg class="swap-on h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73A8.15,8.15,0,0,1,9.08,5.49a8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z"/></svg>
+              
+              <!-- 太陽圖標 -->
+              <svg class="swap-off h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>
+            </label>
+            
+            <div class="dropdown dropdown-end">
+              <div tabindex="0" class="avatar btn btn-ghost btn-circle">
+                <div class="w-10 rounded-full">
+                  <img src="https://ui-avatars.com/api/?name=User&background=random" />
+                </div>
+              </div>
+              <ul tabindex="0" class="menu dropdown-content z-[1] p-2 shadow bg-base-100 rounded-box w-52 mt-4">
+                <li><a>個人資料</a></li>
+                <li><a>設定</a></li>
+                <li><a>登出</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </header>
+      
+      <!-- 捲動內容區 -->
+      <main class="flex-1 overflow-y-auto p-4 md:p-6">
+        <div class="max-w-7xl mx-auto">
+          <!-- 頁面內容 -->
+          <div class="space-y-8">
+            
+            <!-- 範例選擇器 -->
+            <div class="tabs tabs-boxed">
+              <a class="tab tab-active">基本圖表</a>
+              <a class="tab">進階圖表</a>
+              <a class="tab">儀表板元件</a>
+              <a class="tab">資料視覺化</a>
+            </div>
+            
+            <!-- 範例說明 -->
+            <div class="alert alert-info">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <span>這些圖表範例展示了如何結合 ApexCharts、Alpine.js 和 DaisyUI 創建互動式圖表。每個範例都附帶完整的程式碼。</span>
+            </div>
+            
+            <!-- 圖表範例 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              <!-- 線圖範例 -->
+              <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                  <h3 class="card-title">基本線圖</h3>
+                  <div 
+                    x-data="advancedChart"
+                    x-init="chartOptions = {
+                      series: [{
+                        name: '網站訪問量',
+                        data: [31, 40, 28, 51, 42, 109, 100]
+                      }, {
+                        name: '銷售額',
+                        data: [11, 32, 45, 32, 34, 52, 41]
+                      }],
+                      chart: {
+                        height: 350,
+                        type: 'line',
+                        toolbar: {
+                          show: true
+                        }
+                      },
+                      colors: ['#4ade80', '#6366f1'],
+                      dataLabels: {
+                        enabled: false,
+                      },
+                      stroke: {
+                        curve: 'smooth',
+                        width: 3
+                      },
+                      grid: {
+                        row: {
+                          colors: ['transparent', 'transparent'],
+                          opacity: 0.5
+                        },
+                      },
+                      xaxis: {
+                        categories: ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'],
+                      },
+                      markers: {
+                        size: 4
+                      }
+                    }"
+                  >
+                    <div x-ref="chartContainer" class="h-72 w-full"></div>
+                    <div class="flex justify-end gap-2 mt-4">
+                      <button class="btn btn-sm btn-outline" @click="exportChart('png', '線圖範例')">
+                        匯出 PNG
+                      </button>
+                      <button class="btn btn-sm btn-outline" @click="exportChart('svg', '線圖範例')">
+                        匯出 SVG
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 柱狀圖範例 -->
+              <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                  <h3 class="card-title">基本柱狀圖</h3>
+                  <div 
+                    x-data="advancedChart"
+                    x-init="chartOptions = {
+                      series: [{
+                        name: '收入',
+                        data: [44, 55, 57, 56, 61, 58, 63]
+                      }, {
+                        name: '支出',
+                        data: [35, 41, 36, 26, 45, 48, 52]
+                      }],
+                      chart: {
+                        type: 'bar',
+                        height: 350,
+                        toolbar: {
+                          show: true
+                        }
+                      },
+                      colors: ['#06b6d4', '#f97316'],
+                      plotOptions: {
+                        bar: {
+                          horizontal: false,
+                          columnWidth: '55%',
+                          borderRadius: 4
+                        },
+                      },
+                      dataLabels: {
+                        enabled: false
+                      },
+                      stroke: {
+                        show: true,
+                        width: 2,
+                        colors: ['transparent']
+                      },
+                      xaxis: {
+                        categories: ['週一', '週二', '週三', '週四', '週五', '週六', '週日'],
+                      },
+                      fill: {
+                        opacity: 1
+                      },
+                      tooltip: {
+                        y: {
+                          formatter: function (val) {
+                            return '$ ' + val + ' 萬'
+                          }
+                        }
+                      }
+                    }"
+                  >
+                    <div x-ref="chartContainer" class="h-72 w-full"></div>
+                    <div class="flex justify-end gap-2 mt-4">
+                      <button class="btn btn-sm btn-outline" @click="exportChart('png', '柱狀圖範例')">
+                        匯出 PNG
+                      </button>
+                      <button class="btn btn-sm btn-outline" @click="exportChart('svg', '柱狀圖範例')">
+                        匯出 SVG
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 餅圖範例 -->
+              <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                  <h3 class="card-title">基本餅圖</h3>
+                  <div 
+                    x-data="advancedChart"
+                    x-init="chartOptions = {
+                      series: [44, 55, 13, 33, 22],
+                      chart: {
+                        type: 'pie',
+                        height: 350,
+                        toolbar: {
+                          show: true
+                        }
+                      },
+                      labels: ['台北', '新北', '台中', '高雄', '台南'],
+                      colors: ['#6366f1', '#4ade80', '#f97316', '#06b6d4', '#d946ef'],
+                      responsive: [{
+                        breakpoint: 480,
+                        options: {
+                          chart: {
+                            width: 200
+                          },
+                          legend: {
+                            position: 'bottom'
+                          }
+                        }
+                      }],
+                      dataLabels: {
+                        enabled: true,
+                        formatter: function (val, opt) {
+                          return opt.w.config.labels[opt.seriesIndex] + ': ' + val.toFixed(1) + '%'
+                        }
+                      },
+                      legend: {
+                        position: 'bottom'
+                      }
+                    }"
+                  >
+                    <div x-ref="chartContainer" class="h-72 w-full"></div>
+                    <div class="flex justify-end gap-2 mt-4">
+                      <button class="btn btn-sm btn-outline" @click="exportChart('png', '餅圖範例')">
+                        匯出 PNG
+                      </button>
+                      <button class="btn btn-sm btn-outline" @click="exportChart('svg', '餅圖範例')">
+                        匯出 SVG
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 區域圖範例 -->
+              <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                  <h3 class="card-title">基本區域圖</h3>
+                  <div 
+                    x-data="advancedChart"
+                    x-init="chartOptions = {
+                      series: [{
+                        name: '網站流量',
+                        data: [31, 40, 28, 51, 42, 109, 100, 120, 80, 90, 110, 85]
+                      }],
+                      chart: {
+                        height: 350,
+                        type: 'area',
+                        toolbar: {
+                          show: true
+                        }
+                      },
+                      colors: ['#6366f1'],
+                      dataLabels: {
+                        enabled: false
+                      },
+                      stroke: {
+                        curve: 'smooth',
+                        width: 2
+                      },
+                      fill: {
+                        type: 'gradient',
+                        gradient: {
+                          shadeIntensity: 1,
+                          opacityFrom: 0.7,
+                          opacityTo: 0.3,
+                          stops: [0, 90, 100]
+                        }
+                      },
+                      xaxis: {
+                        categories: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+                      },
+                      tooltip: {
+                        y: {
+                          formatter: function(value) {
+                            return value + ' 萬訪問量';
+                          }
+                        }
+                      }
+                    }"
+                  >
+                    <div x-ref="chartContainer" class="h-72 w-full"></div>
+                    <div class="flex justify-end gap-2 mt-4">
+                      <button class="btn btn-sm btn-outline" @click="exportChart('png', '區域圖範例')">
+                        匯出 PNG
+                      </button>
+                      <button class="btn btn-sm btn-outline" @click="exportChart('svg', '區域圖範例')">
+                        匯出 SVG
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+            
+            <!-- 統計卡片範例 -->
+            <div class="card bg-base-100 shadow-xl p-6">
+              <h3 class="text-xl font-bold mb-4">統計卡片範例</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                
+                <!-- 統計卡片 1 -->
+                <div x-data="statCard" class="stats shadow">
+                  <div class="stat">
+                    <div class="stat-figure text-primary">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                    </div>
+                    <div class="stat-title">總收入</div>
+                    <div class="stat-value text-primary" x-text="formatValue(1243500, 'currency')"></div>
+                    <div class="stat-desc">
+                      <span :class="getTrendClass(14)" x-text="getTrendIcon(14) + ' 14% 相比上月'"></span>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 統計卡片 2 -->
+                <div x-data="statCard" class="stats shadow">
+                  <div class="stat">
+                    <div class="stat-figure text-secondary">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                    <div class="stat-title">新用戶</div>
+                    <div class="stat-value text-secondary" x-text="formatValue(2500, 'number')"></div>
+                    <div class="stat-desc">
+                      <span :class="getTrendClass(21)" x-text="getTrendIcon(21) + ' 21% 相比上月'"></span>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 統計卡片 3 -->
+                <div x-data="statCard" class="stats shadow">
+                  <div class="stat">
+                    <div class="stat-figure text-accent">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    </div>
+                    <div class="stat-title">轉換率</div>
+                    <div class="stat-value text-accent" x-text="formatValue(4.2, 'percent')"></div>
+                    <div class="stat-desc">
+                      <span :class="getTrendClass(-8)" x-text="getTrendIcon(-8) + ' 8% 相比上月'"></span>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 統計卡片 4 -->
+                <div x-data="statCard" class="stats shadow">
+                  <div class="stat">
+                    <div class="stat-figure text-info">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                    </div>
+                    <div class="stat-title">訂單數</div>
+                    <div class="stat-value text-info" x-text="formatValue(1800, 'number')"></div>
+                    <div class="stat-desc">
+                      <span :class="getTrendClass(0)" x-text="getTrendIcon(0) + ' 相比上月無變化'"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 資料加載器範例 -->
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h3 class="card-title">資料加載器範例</h3>
+                <div 
+                  x-data="{ ...dataLoader(), chartData: null }"
+                  x-init="load(
+                    async () => {
+                      // 模擬 API 請求延遲
+                      await new Promise(resolve => setTimeout(resolve, 1500));
+                      return {
+                        series: [{
+                          name: '收入',
+                          data: [31000, 40000, 35000, 50000, 49000, 60000, 70000, 91000, 125000]
+                        }],
+                        categories: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月']
+                      };
+                    },
+                    (data) => {
+                      chartData = data;
+                      return data;
+                    }
+                  )"
+                >
+                  <!-- 加載中狀態 -->
+                  <div x-show="loading" class="py-16 flex flex-col items-center justify-center">
+                    <span class="loading loading-spinner loading-lg text-primary"></span>
+                    <p class="mt-4 text-sm text-center">正在載入資料，請稍候...</p>
+                  </div>
+                  
+                  <!-- 錯誤狀態 -->
+                  <div x-show="error && !loading" class="py-16 flex flex-col items-center justify-center">
+                    <div class="alert alert-error">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <span x-text="error.message || '資料載入失敗'"></span>
+                    </div>
+                    <button @click="reload()" class="btn btn-primary mt-4">重試</button>
+                  </div>
+                  
+                  <!-- 資料顯示狀態 -->
+                  <div x-show="!loading && !error && data">
+                    <!-- 圖表 -->
+                    <div 
+                      x-data="advancedChart"
+                      x-init="
+                        $watch('$parent.chartData', value => {
+                          if (!value) return;
+                          
+                          chartOptions = {
+                            series: value.series,
+                            chart: {
+                              type: 'bar',
+                              height: 350,
+                              toolbar: {
+                                show: true
+                              }
+                            },
+                            colors: ['#06b6d4'],
+                            plotOptions: {
+                              bar: {
+                                horizontal: false,
+                                columnWidth: '55%',
+                                borderRadius: 8
+                              }
+                            },
+                            dataLabels: {
+                              enabled: false
+                            },
+                            xaxis: {
+                              categories: value.categories
+                            },
+                            tooltip: {
+                              y: {
+                                formatter: function(val) {
+                                  return '$ ' + val.toLocaleString();
+                                }
+                              }
+                            }
+                          };
+                          
+                          // 如果圖表還沒創建，創建它
+                          if (!chart) {
+                            createChart();
+                          } else {
+                            // 否則更新數據
+                            updateOptions(chartOptions, true);
+                          }
+                        })
+                      "
+                    >
+                      <div x-ref="chartContainer" class="h-72 w-full"></div>
+                      
+                      <!-- 上次更新時間 -->
+                      <div class="flex justify-between items-center mt-4">
+                        <p class="text-sm text-base-content/70" x-text="'上次更新: ' + getLastUpdatedText()"></p>
+                        <button class="btn btn-sm" @click="$parent.reload()">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          重新加載
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      
+      <!-- 頁腳 -->
+      <footer class="bg-base-100 border-t border-base-300 p-4 text-center text-sm">
+        <p>&copy; 2025 DataScout. 版權所有。</p>
+      </footer>
+    </div>
+  </div>
+  
+  <!-- 引入 JavaScript 檔案 -->
+  <script src="{{ url_for('static', path='/js/dist/bundle.js') }}"></script>
+</body>
+</html>

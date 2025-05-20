@@ -41,14 +41,14 @@ export * from './data-handling/data-loader.js';
 export * from './data-handling/data-processor.js';
 export * from './data-handling/data-exporter.js';
 
-// 選擇性導出範例模組，避免命名衝突
+// 選擇性導出範例模組 - 使用明確命名避免混淆
 import { 
     fetchAvailableExamples, 
-    loadExampleDataForChartType 
+    loadExampleDataForChartType as loadExampleFromExampleModule 
 } from './data-handling/examples/index.js';
 export { 
     fetchAvailableExamples, 
-    loadExampleDataForChartType 
+    loadExampleFromExampleModule   // 重命名為更明確的名稱
 };
 
 // 重新導出轉接器模組
@@ -58,7 +58,7 @@ export * from './adapters/chart-date-adapter.js';
 export * from './adapters/chart-fix.js';
 export * from './adapters/candlestick-helper.js';
 
-// 導入 chart-helpers.js 中的所有函數，避免命名衝突
+// 導入 chart-helpers.js 中的所有函數 - 使用明確命名避免混淆
 import { 
     CHART_TYPE_TO_EXAMPLE_FILE, 
     findExampleDataFileForChartType,
@@ -66,7 +66,7 @@ import {
     getExampleFilesFromApi, 
     initChartTypeSelector, 
     initDataSourceToggle, 
-    loadExampleDataForChartType as loadExampleDataFromHelper
+    loadExampleDataForChartType as loadExampleFromHelperModule
 } from './adapters/chart-helpers.js';
 export { 
     CHART_TYPE_TO_EXAMPLE_FILE as CHART_HELPER_EXAMPLE_FILE_MAP, 
@@ -75,7 +75,7 @@ export {
     getExampleFilesFromApi, 
     initChartTypeSelector, 
     initDataSourceToggle, 
-    loadExampleDataFromHelper
+    loadExampleFromHelperModule    // 同樣重命名為更明確的名稱
 };
 
 // 導出主入口
