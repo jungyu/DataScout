@@ -36,7 +36,7 @@ if [ -d "../web_frontend" ]; then
   read -p "是否構建前端資源? (y/n): " build_frontend
   if [ "$build_frontend" = "y" ] || [ "$build_frontend" = "Y" ]; then
     echo -e "${YELLOW}正在構建前端資源...${NC}"
-    ../scripts/build_frontend.sh --output ./static
+    ../web_frontend/scripts/build_frontend.sh --output ./static
   fi
 fi
 

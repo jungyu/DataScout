@@ -9,7 +9,7 @@ ApexCharts 相關 API 路由。
 import os
 import json
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union
 from fastapi import APIRouter, HTTPException
 
 # 初始化路由器
@@ -85,18 +85,21 @@ async def get_example_data(example_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"獲取範例數據失敗: {str(e)}")
 
 @apexcharts_router.get("/types")
-async def get_chart_types() -> Dict[str, List[str]]:
+async def get_chart_types() -> Dict[str, Union[int, List[str]]]:
     """
     獲取所有支援的 ApexCharts 圖表類型
     """
     chart_types = [
-        "line", "area", "bar", "column", "scatter", "pie", "donut", "radar", 
-        "polararea", "candlestick", "boxplot", "bubble", "heatmap", "treemap",
-        "funnel", "mixed", "timeline", "grouped_bar", "stacked_bar", "percentage_stack",
-        "timeseries_line", "timeseries_area", "realtime"
+        "line", "area", "bar", "barHorizontal", "scatter", "pie", "donut", "radar", 
+        "polarArea", "candlestick", "boxPlot", "bubble", "heatmap", "treemap",
+        "rangeBar", "rangeArea", "radialBar", "funnel", 
+        "timeSeries", "timeSeriesArea", "syncCharts", "stepline", "mixedTime",
+        "groupedBar", "stackedBar", "percentStackedBar", "mixedChart", 
+        "candlestickVolume", "heatmapLine", "multiYAxis", "technicalChart",
+        "realtimeLine", "realtimeDashboard", "dynamicPie", "streamingLine"
     ]
     
     return {
-        "count": len(chart_types),
+        "count": len(chart_types),  # 這裡返回的是一個整數
         "types": chart_types
     }

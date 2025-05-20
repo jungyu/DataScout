@@ -10,6 +10,8 @@
   <link href="{{ url_for('static', path='/css/output.css') }}" rel="stylesheet">
   <!-- ApexCharts -->
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <!-- 自訂樣式 -->
   <style>
     /* 側邊欄樣式 */
@@ -47,6 +49,65 @@
       margin-bottom: 1rem;
     }
     
+    /* 側邊欄類別樣式 */
+    .menu-title {
+      font-weight: 500;
+      border-left: 3px solid #3b82f6;
+      padding-left: 0.75rem;
+      min-height: auto;
+      color: #f3f4f6;
+      transition: all 0.2s ease;
+    }
+    
+    .menu-title:hover {
+      background-color: #2d3748;
+    }
+    
+    /* 折疊內容樣式調整 */
+    [x-show] {
+      background-color: #1f2937;
+      border-top: 1px solid #374151;
+      padding-top: 0.5rem !important;
+    }
+    
+    /* Alpine.js 過渡效果 */
+    .transition {
+      transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+      transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+      transition-duration: 150ms;
+    }
+    
+    .duration-200 {
+      transition-duration: 200ms;
+    }
+    
+    .ease-out {
+      transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+    }
+    
+    .transform {
+      --tw-translate-x: 0;
+      --tw-translate-y: 0;
+      --tw-rotate: 0;
+      --tw-skew-x: 0;
+      --tw-skew-y: 0;
+      --tw-scale-x: 1;
+      --tw-scale-y: 1;
+      transform: translateX(var(--tw-translate-x)) translateY(var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
+    }
+    
+    .menu-item {
+      padding-left: 1.5rem;
+      font-size: 0.9rem;
+    }
+    
+    /* 選項選中狀態調整 */
+    .menu-item.active {
+      background-color: #3b82f6;
+      color: white;
+      font-weight: 500;
+    }
+    
     /* 資料卡片樣式 */
     .data-card {
       border: 1px solid #e5e7eb;
@@ -64,16 +125,23 @@
 </head>
 <body class="bg-base-100 min-h-screen">
   <!-- 主要容器 -->
-  <div class="flex h-screen">
+  <div x-data="{ sidebarOpen: true }" class="flex h-screen">
+    <!-- 移動設備側邊欄切換按鈕 -->
+    <div class="lg:hidden fixed bottom-4 right-4 z-30">
+      <button @click="sidebarOpen = !sidebarOpen" class="btn btn-circle btn-primary">
+        <span x-text="sidebarOpen ? '✕' : '☰'" class="text-lg"></span>
+      </button>
+    </div>
+    
     <!-- 側邊欄 -->
-    <aside class="sidebar w-64 flex-shrink-0">
+    <aside :class="{'hidden': !sidebarOpen, 'w-64 flex-shrink-0': true, 'fixed z-20 h-full lg:static': true}" class="sidebar">
       <!-- Logo -->
       <div class="sidebar-header">
         <h1 class="text-xl font-bold">DataScout</h1>
       </div>
       
       <!-- 側邊選單 -->
-      <nav class="p-4">
+      <nav class="p-4 overflow-y-auto h-[calc(100vh-64px)]">
         <div class="form-control mb-4">
           <label class="cursor-pointer label justify-start gap-2">
             <input type="checkbox" checked class="toggle toggle-primary toggle-sm" />
@@ -81,24 +149,125 @@
           </label>
         </div>
         
-        <div>
-          <p class="menu-title">圖表類型</p>
-          <ul>
-            <li><div class="menu-item active chart-type-item" data-type="candlestick">蠟燭圖 (Candlestick)</div></li>
-            <li><div class="menu-item chart-type-item" data-type="line">折線圖 (Line)</div></li>
-            <li><div class="menu-item chart-type-item" data-type="bar">柱狀圖 (Bar)</div></li>
-            <li><div class="menu-item chart-type-item" data-type="area">面積圖 (Area)</div></li>
-            <li><div class="menu-item chart-type-item" data-type="pie">圓餅圖 (Pie)</div></li>
-            <li><div class="menu-item chart-type-item" data-type="radar">雷達圖 (Radar)</div></li>
-            <li><div class="menu-item chart-type-item" data-type="bubble">氣泡圖 (Bubble)</div></li>
-            <li><div class="menu-item chart-type-item" data-type="heatmap">熱力圖 (Heatmap)</div></li>
-          </ul>
+        <!-- 基本圖表類型 -->
+        <div x-data="{ open: true }" class="mb-2 bg-base-300 rounded-md">
+          <div @click="open = !open" class="menu-title py-2 px-4 flex justify-between items-center cursor-pointer">
+            <span>基本圖表類型</span>
+            <span x-text="open ? '▼' : '►'" class="text-xs"></span>
+          </div>
+          <div x-show="open" 
+               x-transition:enter="transition ease-out duration-200" 
+               x-transition:enter-start="opacity-0 transform -translate-y-2" 
+               x-transition:enter-end="opacity-100 transform translate-y-0"
+               class="px-0 py-0">
+            <ul class="menu menu-compact">
+              <li><div class="menu-item chart-type-item" data-type="line">折線圖 (Line Chart)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="area">區域圖 (Area Chart)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="bar">柱狀圖 (Column Chart)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="barHorizontal">條形圖 (Bar Chart)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="pie">圓餅圖 (Pie Chart)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="donut">環形圖 (Donut Chart)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="radar">雷達圖 (Radar Chart)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="scatter">散點圖 (Scatter Chart)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="heatmap">熱圖 (Heat Map)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="treemap">樹狀圖 (Treemap)</div></li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- 進階圖表類型 -->
+        <div x-data="{ open: true }" class="mb-2 bg-base-300 rounded-md">
+          <div @click="open = !open" class="menu-title py-2 px-4 flex justify-between items-center cursor-pointer">
+            <span>進階圖表類型</span>
+            <span x-text="open ? '▼' : '►'" class="text-xs"></span>
+          </div>
+          <div x-show="open" 
+               x-transition:enter="transition ease-out duration-200" 
+               x-transition:enter-start="opacity-0 transform -translate-y-2" 
+               x-transition:enter-end="opacity-100 transform translate-y-0"
+               class="px-0 py-0">
+            <ul class="menu menu-compact">
+              <li><div class="menu-item active chart-type-item" data-type="candlestick">蠟燭圖 (Candlestick)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="boxPlot">箱形圖 (Box Plot)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="rangeBar">範圍條形圖 (Range Bar)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="bubble">氣泡圖 (Bubble Chart)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="rangeArea">範圍區域圖 (Range Area)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="polarArea">極座標圖 (Polar Area)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="radialBar">徑向條/圓形量規</div></li>
+              <li><div class="menu-item chart-type-item" data-type="funnel">漏斗圖 (Funnel Chart)</div></li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- 時間序列與監控圖表 -->
+        <div x-data="{ open: false }" class="mb-2 bg-base-300 rounded-md">
+          <div @click="open = !open" class="menu-title py-2 px-4 flex justify-between items-center cursor-pointer">
+            <span>時間序列與監控圖表</span>
+            <span x-text="open ? '▼' : '►'" class="text-xs"></span>
+          </div>
+          <div x-show="open" 
+               x-transition:enter="transition ease-out duration-200" 
+               x-transition:enter-start="opacity-0 transform -translate-y-2" 
+               x-transition:enter-end="opacity-100 transform translate-y-0"
+               class="px-0 py-0">
+            <ul class="menu menu-compact">
+              <li><div class="menu-item chart-type-item" data-type="timeSeries">時間序列線圖</div></li>
+              <li><div class="menu-item chart-type-item" data-type="timeSeriesArea">時間序列區域圖</div></li>
+              <li><div class="menu-item chart-type-item" data-type="syncCharts">同步圖表</div></li>
+              <li><div class="menu-item chart-type-item" data-type="stepline">階梯圖 (Stepline)</div></li>
+              <li><div class="menu-item chart-type-item" data-type="mixedTime">混合時間圖表</div></li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- 比較與分析圖表 -->
+        <div x-data="{ open: false }" class="mb-2 bg-base-300 rounded-md">
+          <div @click="open = !open" class="menu-title py-2 px-4 flex justify-between items-center cursor-pointer">
+            <span>比較與分析圖表</span>
+            <span x-text="open ? '▼' : '►'" class="text-xs"></span>
+          </div>
+          <div x-show="open" 
+               x-transition:enter="transition ease-out duration-200" 
+               x-transition:enter-start="opacity-0 transform -translate-y-2" 
+               x-transition:enter-end="opacity-100 transform translate-y-0"
+               class="px-0 py-0">
+            <ul class="menu menu-compact">
+              <li><div class="menu-item chart-type-item" data-type="groupedBar">分組柱狀圖</div></li>
+              <li><div class="menu-item chart-type-item" data-type="stackedBar">堆疊柱狀圖</div></li>
+              <li><div class="menu-item chart-type-item" data-type="percentStackedBar">百分比堆疊柱狀圖</div></li>
+              <li><div class="menu-item chart-type-item" data-type="mixedChart">混合圖表</div></li>
+              <li><div class="menu-item chart-type-item" data-type="candlestickVolume">股票K線+成交量</div></li>
+              <li><div class="menu-item chart-type-item" data-type="heatmapLine">熱力圖+折線圖</div></li>
+              <li><div class="menu-item chart-type-item" data-type="multiYAxis">多重Y軸混合圖表</div></li>
+              <li><div class="menu-item chart-type-item" data-type="technicalChart">價格走勢與技術指標</div></li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- 動態更新圖表 -->
+        <div x-data="{ open: false }" class="mb-2 bg-base-300 rounded-md">
+          <div @click="open = !open" class="menu-title py-2 px-4 flex justify-between items-center cursor-pointer">
+            <span>動態更新圖表</span>
+            <span x-text="open ? '▼' : '►'" class="text-xs"></span>
+          </div>
+          <div x-show="open" 
+               x-transition:enter="transition ease-out duration-200" 
+               x-transition:enter-start="opacity-0 transform -translate-y-2" 
+               x-transition:enter-end="opacity-100 transform translate-y-0"
+               class="px-0 py-0">
+            <ul class="menu menu-compact">
+              <li><div class="menu-item chart-type-item" data-type="realtimeLine">實時折線圖</div></li>
+              <li><div class="menu-item chart-type-item" data-type="realtimeDashboard">實時儀表板</div></li>
+              <li><div class="menu-item chart-type-item" data-type="dynamicPie">動態餅圖</div></li>
+              <li><div class="menu-item chart-type-item" data-type="streamingLine">串流資料折線圖</div></li>
+            </ul>
+          </div>
         </div>
       </nav>
     </aside>
     
     <!-- 主要內容區 -->
-    <div class="flex-1 flex flex-col">
+    <div :class="{'lg:ml-0': !sidebarOpen, 'flex-1': true}" class="flex flex-col">
       <!-- 頂部導覽列 -->
       <header class="bg-base-100 border-b border-base-300 flex items-center justify-between p-4">
         <div class="flex items-center space-x-4">
@@ -214,5 +383,32 @@
   </div>
   <!-- 載入 ApexCharts 管理模組 -->
   <script src="{{ url_for('static', path='/js/apexcharts-manager.js') }}"></script>
+  
+  <!-- Alpine.js 互動腳本 -->
+  <script>
+    // 當圖表類型項目被點擊時，打開包含該項目的折疊區域
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.chart-type-item').forEach(item => {
+        item.addEventListener('click', function() {
+          // 找到此項目的父折疊區域
+          const parentSection = this.closest('[x-data]');
+          if (parentSection && parentSection.__x) {
+            // 設置 open 為 true（打開折疊）
+            parentSection.__x.$data.open = true;
+          }
+          
+          // 在移動設備上點擊後自動收起側邊欄
+          const windowWidth = window.innerWidth;
+          if (windowWidth < 1024) { // lg 斷點通常為 1024px
+            // 尋找根容器並存取 Alpine.js 數據
+            const rootContainer = document.querySelector('[x-data*="sidebarOpen"]');
+            if (rootContainer && rootContainer.__x) {
+              rootContainer.__x.$data.sidebarOpen = false;
+            }
+          }
+        });
+      });
+    });
+  </script>
 </body>
 </html>

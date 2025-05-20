@@ -19,8 +19,23 @@ class ApexChartsManager {
     await this.loadExamples();
     await this.loadChartTypes();
     this.setupEventListeners();
+    this.setupSidebarBehavior();
     this.renderExamplesList();
     this.loadDefaultChart();
+  }
+  
+  /**
+   * 設置側邊欄行為
+   * - 添加響應式布局支持
+   * - 處理側邊欄與圖表類型選擇
+   */
+  setupSidebarBehavior() {
+    // 當用戶選擇一個圖表類型時的處理邏輯
+    document.querySelectorAll('.chart-type-item').forEach(item => {
+      item.addEventListener('click', () => {
+        // 選擇圖表時的邏輯在 selectChartType 方法中實現
+      });
+    });
   }
 
   /**
@@ -44,9 +59,42 @@ class ApexChartsManager {
       const response = await fetch('/api/apexcharts/types');
       const data = await response.json();
       this.chartTypes = data.types || [];
+      
+      // 如果API沒有返回圖表類型或返回的數組為空，使用默認圖表類型列表
+      if (!this.chartTypes.length) {
+        this.chartTypes = this.getDefaultChartTypes();
+      }
     } catch (error) {
       console.error('載入圖表類型失敗:', error);
+      // API 請求失敗時使用默認圖表類型列表
+      this.chartTypes = this.getDefaultChartTypes();
     }
+  }
+  
+  /**
+   * 獲取默認圖表類型列表
+   * @returns {string[]} 圖表類型數組
+   */
+  getDefaultChartTypes() {
+    return [
+      // 基本圖表類型
+      'line', 'area', 'bar', 'barHorizontal', 'scatter', 
+      'pie', 'donut', 'radar', 'heatmap', 'treemap',
+      
+      // 進階圖表類型
+      'candlestick', 'boxPlot', 'rangeBar', 'bubble', 
+      'rangeArea', 'polarArea', 'radialBar', 'funnel',
+      
+      // 時間序列與監控圖表
+      'timeSeries', 'timeSeriesArea', 'syncCharts', 'stepline', 'mixedTime',
+      
+      // 比較與分析圖表
+      'groupedBar', 'stackedBar', 'percentStackedBar', 'mixedChart',
+      'candlestickVolume', 'heatmapLine', 'multiYAxis', 'technicalChart',
+      
+      // 動態更新圖表
+      'realtimeLine', 'realtimeDashboard', 'dynamicPie', 'streamingLine'
+    ];
   }
 
   /**
@@ -123,6 +171,13 @@ class ApexChartsManager {
       const isActive = item.dataset.type === type;
       if (isActive) {
         item.classList.add('active');
+        
+        // 檢查該元素是否在 Alpine.js 管理的折疊區域中
+        const parentSection = item.closest('[x-data]');
+        if (parentSection && parentSection.__x) {
+          // 確保折疊區域展開
+          parentSection.__x.$data.open = true;
+        }
       } else {
         item.classList.remove('active');
       }
@@ -146,21 +201,54 @@ class ApexChartsManager {
    */
   getDisplayName(type) {
     const nameMap = {
+      // 基本圖表類型
       'line': '折線圖',
       'area': '區域圖',
-      'bar': '條形圖',
-      'column': '柱狀圖',
+      'bar': '柱狀圖',
+      'barHorizontal': '條形圖',
       'scatter': '散點圖',
       'pie': '圓餅圖',
       'donut': '環形圖',
       'radar': '雷達圖',
-      'polararea': '極座標圖',
-      'candlestick': '蠟燭圖',
-      'boxplot': '箱形圖',
-      'bubble': '氣泡圖',
-      'heatmap': '熱力圖',
+      'heatmap': '熱圖',
       'treemap': '樹狀圖',
+      
+      // 進階圖表類型
+      'candlestick': '蠟燭圖',
+      'boxPlot': '箱形圖',
+      'rangeBar': '範圍條形圖',
+      'bubble': '氣泡圖',
+      'rangeArea': '範圍區域圖',
+      'polarArea': '極座標圖',
+      'radialBar': '徑向條/圓形量規',
       'funnel': '漏斗圖',
+      
+      // 時間序列與監控圖表
+      'timeSeries': '時間序列線圖',
+      'timeSeriesArea': '時間序列區域圖',
+      'syncCharts': '同步圖表',
+      'stepline': '階梯圖',
+      'mixedTime': '混合時間圖表',
+      
+      // 比較與分析圖表
+      'groupedBar': '分組柱狀圖',
+      'stackedBar': '堆疊柱狀圖',
+      'percentStackedBar': '百分比堆疊柱狀圖',
+      'mixedChart': '混合圖表',
+      'candlestickVolume': '股票K線+成交量',
+      'heatmapLine': '熱力圖+折線圖',
+      'multiYAxis': '多重Y軸混合圖表',
+      'technicalChart': '價格走勢與技術指標',
+      
+      // 動態更新圖表
+      'realtimeLine': '實時折線圖',
+      'realtimeDashboard': '實時儀表板',
+      'dynamicPie': '動態餅圖',
+      'streamingLine': '串流資料折線圖',
+      
+      // 舊版/相容性 
+      'column': '柱狀圖',
+      'polararea': '極座標圖',
       'mixed': '混合圖',
       'timeline': '時間軸圖',
       'grouped_bar': '分組柱狀圖',
@@ -181,21 +269,54 @@ class ApexChartsManager {
    */
   getEnglishName(type) {
     const nameMap = {
+      // 基本圖表類型
       'line': 'Line Chart',
       'area': 'Area Chart',
-      'bar': 'Bar Chart',
-      'column': 'Column Chart',
+      'bar': 'Column Chart',
+      'barHorizontal': 'Bar Chart',
       'scatter': 'Scatter Chart',
       'pie': 'Pie Chart',
       'donut': 'Donut Chart',
       'radar': 'Radar Chart',
-      'polararea': 'Polar Area Chart',
-      'candlestick': 'Candlestick Chart',
-      'boxplot': 'Box Plot Chart',
-      'bubble': 'Bubble Chart',
       'heatmap': 'Heat Map',
       'treemap': 'Tree Map',
+      
+      // 進階圖表類型
+      'candlestick': 'Candlestick Chart',
+      'boxPlot': 'Box Plot Chart',
+      'rangeBar': 'Range Bar Chart',
+      'bubble': 'Bubble Chart',
+      'rangeArea': 'Range Area Chart',
+      'polarArea': 'Polar Area Chart',
+      'radialBar': 'RadialBar/Circular Gauge',
       'funnel': 'Funnel Chart',
+      
+      // 時間序列與監控圖表
+      'timeSeries': 'Time Series Line Chart',
+      'timeSeriesArea': 'Time Series Area Chart',
+      'syncCharts': 'Synchronized Charts',
+      'stepline': 'Stepline Chart',
+      'mixedTime': 'Mixed Time Chart',
+      
+      // 比較與分析圖表
+      'groupedBar': 'Grouped Bar Chart',
+      'stackedBar': 'Stacked Bar Chart',
+      'percentStackedBar': 'Percentage Stacked Bar Chart',
+      'mixedChart': 'Mixed Chart',
+      'candlestickVolume': 'Candlestick with Volume',
+      'heatmapLine': 'Heatmap with Line',
+      'multiYAxis': 'Multi Y-Axis Chart',
+      'technicalChart': 'Technical Analysis Chart',
+      
+      // 動態更新圖表
+      'realtimeLine': 'Realtime Line Chart',
+      'realtimeDashboard': 'Realtime Dashboard',
+      'dynamicPie': 'Dynamic Pie Chart',
+      'streamingLine': 'Streaming Data Chart',
+      
+      // 舊版/相容性
+      'column': 'Column Chart',
+      'polararea': 'Polar Area Chart',
       'mixed': 'Mixed Chart',
       'timeline': 'Timeline Chart',
       'grouped_bar': 'Grouped Bar Chart',
@@ -330,9 +451,62 @@ class ApexChartsManager {
       this.activeChart = null;
     }
     
+    // 應用可能的圖表類型特定增強
+    const enhancedOptions = this.enhanceChartOptions(options);
+    
     // 創建新的圖表
-    this.activeChart = new ApexCharts(chartContainer, options);
+    this.activeChart = new ApexCharts(chartContainer, enhancedOptions);
     this.activeChart.render();
+  }
+  
+  /**
+   * 根據圖表類型增強/調整選項
+   * @param {Object} options 原始選項
+   * @returns {Object} 增強後的選項
+   */
+  enhanceChartOptions(options) {
+    // 複製選項以避免修改原始對象
+    const enhancedOptions = JSON.parse(JSON.stringify(options));
+    const chartType = enhancedOptions.chart?.type || 'line';
+    
+    // 根據圖表類型應用特定增強
+    switch (chartType) {
+      case 'rangeBar':
+        // 確保範圍條形圖有正確的水平設置
+        if (!enhancedOptions.plotOptions) enhancedOptions.plotOptions = {};
+        if (!enhancedOptions.plotOptions.bar) enhancedOptions.plotOptions.bar = {};
+        enhancedOptions.plotOptions.bar.horizontal = true;
+        break;
+        
+      case 'rangeArea':
+        // 確保範圍區域圖有正確的填充設置
+        if (!enhancedOptions.fill) enhancedOptions.fill = {};
+        enhancedOptions.fill.type = 'solid';
+        break;
+        
+      case 'stepline':
+        // 確保階梯圖有正確的曲線類型
+        if (!enhancedOptions.stroke) enhancedOptions.stroke = {};
+        enhancedOptions.stroke.curve = 'stepline';
+        break;
+        
+      case 'syncCharts':
+        // 同步圖表需要特殊處理，目前我們僅顯示警告
+        console.warn('同步圖表需要多個圖表實例，請參考文檔實現。');
+        break;
+        
+      case 'mixedChart':
+      case 'mixedTime':
+        // 確保對於混合圖表，每個數據系列都有正確的類型
+        if (enhancedOptions.series && Array.isArray(enhancedOptions.series)) {
+          enhancedOptions.series.forEach(s => {
+            if (!s.type) s.type = 'line'; // 默認類型
+          });
+        }
+        break;
+    }
+    
+    return enhancedOptions;
   }
 
   /**

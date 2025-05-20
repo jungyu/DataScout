@@ -100,13 +100,15 @@ ApexCharts 支援以下主要圖表類型：
 - `donut`: 環形圖
 - `radar`: 雷達圖
 - `polarArea`: 極座標圖
-- `radialBar`: 放射狀長條圖
+- `radialBar`: 放射狀長條圖 (徑向條/圓形量規)
 - `scatter`: 散點圖
 - `bubble`: 氣泡圖
 - `heatmap`: 熱圖
 - `candlestick`: 蠟燭圖
 - `boxPlot`: 箱型圖
 - `treemap`: 樹狀圖
+- `rangeBar`: 範圍條形圖
+- `rangeArea`: 範圍區域圖
 
 ## 特殊格式
 
@@ -265,6 +267,223 @@ ApexCharts 支援以下主要圖表類型：
       }
     }
   ]
+}
+```
+
+### 範圍條形圖 (Range Bar Chart)
+
+範圍條形圖用於表示資料範圍（如時間範圍或數值範圍）：
+
+```json
+{
+  "chart": {
+    "type": "rangeBar",
+    "height": 350
+  },
+  "series": [
+    {
+      "name": "產品A",
+      "data": [
+        {
+          "x": "設計",
+          "y": [1, 5]
+        },
+        {
+          "x": "測試",
+          "y": [7, 10]
+        },
+        {
+          "x": "開發",
+          "y": [6, 8]
+        },
+        {
+          "x": "上線",
+          "y": [11, 16]
+        }
+      ]
+    },
+    {
+      "name": "產品B",
+      "data": [
+        {
+          "x": "設計",
+          "y": [2, 6]
+        },
+        {
+          "x": "測試",
+          "y": [8, 12]
+        },
+        {
+          "x": "開發",
+          "y": [7, 9]
+        },
+        {
+          "x": "上線",
+          "y": [12, 15]
+        }
+      ]
+    }
+  ],
+  "plotOptions": {
+    "bar": {
+      "horizontal": true
+    }
+  },
+  "xaxis": {
+    "type": "category"
+  },
+  "title": {
+    "text": "專案時程表"
+  }
+}
+```
+
+### 範圍區域圖 (Range Area Chart)
+
+範圍區域圖用於表示數值的上下限範圍：
+
+```json
+{
+  "chart": {
+    "type": "rangeArea",
+    "height": 350
+  },
+  "series": [
+    {
+      "name": "溫度範圍",
+      "data": [
+        {
+          "x": "一月",
+          "y": [5, 15]
+        },
+        {
+          "x": "二月",
+          "y": [7, 18]
+        },
+        {
+          "x": "三月",
+          "y": [10, 22]
+        },
+        {
+          "x": "四月",
+          "y": [12, 25]
+        },
+        {
+          "x": "五月",
+          "y": [15, 28]
+        },
+        {
+          "x": "六月",
+          "y": [18, 32]
+        }
+      ]
+    }
+  ],
+  "xaxis": {
+    "type": "category"
+  },
+  "title": {
+    "text": "月平均溫度範圍"
+  },
+  "fill": {
+    "opacity": 0.4
+  }
+}
+```
+
+### 徑向條/圓形量規 (RadialBar/Circular Gauge)
+
+徑向條圖常用於顯示進度或達成率：
+
+```json
+{
+  "chart": {
+    "type": "radialBar",
+    "height": 350
+  },
+  "series": [70],
+  "plotOptions": {
+    "radialBar": {
+      "startAngle": -135,
+      "endAngle": 135,
+      "hollow": {
+        "size": "70%"
+      },
+      "track": {
+        "background": "#e7e7e7",
+        "strokeWidth": "97%",
+        "margin": 5
+      },
+      "dataLabels": {
+        "name": {
+          "show": true,
+          "color": "#888",
+          "fontSize": "16px",
+          "offsetY": -10
+        },
+        "value": {
+          "show": true,
+          "color": "#111",
+          "fontSize": "36px",
+          "offsetY": 15
+        }
+      }
+    }
+  },
+  "fill": {
+    "colors": ["#FF4560"]
+  },
+  "labels": ["CPU 使用率"]
+}
+```
+
+### 同步圖表 (Synchronized Charts)
+
+同步圖表不是單一圖表類型，而是多個圖表同步顯示（需要前端代碼實現）：
+
+```json
+// 這是第一個圖表的配置，需要指定一個共同的 group
+{
+  "chart": {
+    "id": "chart1",
+    "group": "charts",
+    "type": "line",
+    "height": 250
+  },
+  "series": [
+    {
+      "name": "股價",
+      "data": [30, 40, 35, 50, 49, 60, 70]
+    }
+  ],
+  "xaxis": {
+    "categories": ["一月", "二月", "三月", "四月", "五月", "六月", "七月"]
+  },
+  "title": {
+    "text": "股價走勢"
+  }
+}
+
+// 這是第二個圖表的配置，需要指定相同的 group
+{
+  "chart": {
+    "id": "chart2",
+    "group": "charts",
+    "type": "bar",
+    "height": 150
+  },
+  "series": [
+    {
+      "name": "成交量",
+      "data": [10, 25, 15, 30, 18, 35, 20]
+    }
+  ],
+  "xaxis": {
+    "categories": ["一月", "二月", "三月", "四月", "五月", "六月", "七月"]
+  },
+  "title": {
+    "text": "成交量"
+  }
 }
 ```
 
