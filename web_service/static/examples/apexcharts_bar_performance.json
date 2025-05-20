@@ -1,0 +1,34 @@
+{
+  "series": [
+    {
+      "name": "基本績效",
+      "data": [400, 430, 448, 470, 540, 580, 690]
+    }
+  ],
+  "chart": {
+    "type": "bar",
+    "height": 380
+  },
+  "title": {
+    "text": "產品績效比較"
+  },
+  "xaxis": {
+    "categories": ["產品A", "產品B", "產品C", "產品D", "產品E", "產品F", "產品G"]
+  },
+  "plotOptions": {
+    "bar": {
+      "horizontal": true,
+      "barHeight": "70%",
+      "distributed": true
+    }
+  },
+  "colors": ["#33b2df", "#546E7A", "#d4526e", "#13d8aa", "#A5978B", "#4ecdc4", "#c7f464"],
+  "dataLabels": {
+    "enabled": true,
+    "textAnchor": "start",
+    "style": {
+      "colors": ["#fff"]
+    },
+    "offsetX": 0
+  }
+}
