@@ -1,9 +1,59 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 """
-DataScout Telegram Bot 配置檔案
+配置模組
+
+此模組提供了配置管理功能。
 """
 
 import os
 from typing import Dict, Any, Optional
+from dataclasses import dataclass
+from dotenv import load_dotenv
+
+@dataclass
+class Config:
+    """配置類"""
+    
+    token: str
+    admin_ids: list[int] = None
+    debug: bool = False
+    
+    def __post_init__(self):
+        """初始化後處理"""
+        if self.admin_ids is None:
+            self.admin_ids = []
+    
+    @classmethod
+    def from_env(cls) -> 'Config':
+        """從環境變數創建配置
+        
+        Returns:
+            Config: 配置對象
+        """
+        # 載入環境變數
+        load_dotenv()
+        
+        # 獲取配置
+        token = os.getenv('TELEGRAM_BOT_TOKEN')
+        if not token:
+            raise ValueError("未設置 TELEGRAM_BOT_TOKEN 環境變數")
+        
+        # 解析管理員 ID
+        admin_ids = []
+        admin_ids_str = os.getenv('TELEGRAM_ADMIN_IDS', '')
+        if admin_ids_str:
+            admin_ids = [int(id.strip()) for id in admin_ids_str.split(',')]
+        
+        # 獲取調試模式
+        debug = os.getenv('TELEGRAM_BOT_DEBUG', '').lower() == 'true'
+        
+        return cls(
+            token=token,
+            admin_ids=admin_ids,
+            debug=debug
+        )
 
 # Bot 設定
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")

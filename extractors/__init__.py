@@ -2,52 +2,41 @@
 # -*- coding: utf-8 -*-
 
 """
-提取器模組
+數據提取器
 
-提供數據提取功能，包括：
-1. 基礎提取器
-2. 提取器管理器
-3. 錯誤處理
-4. 日誌記錄
+提供多種數據提取方案，支持網頁、文件等多種數據源。
+主要功能：
+- 多種數據源支持
+- 異步操作支持
+- 錯誤處理和重試機制
+- 日誌記錄
+- 配置管理
 """
 
-from .core.error import (
+from extractors.core.extractor import BaseExtractor
+from extractors.core.config import ExtractorConfig
+from extractors.core.exceptions import (
     ExtractorError,
-    ExtractorNotFoundError,
-    ExtractorConfigError,
-    ExtractorValidationError,
-    ExtractorExecutionError,
-    ExtractorTimeoutError,
-    ExtractorStateError,
-    handle_extractor_error
+    ValidationError,
+    ConfigurationError
 )
-from .core.base import BaseExtractor
-from .core.manager import BaseExtractorManager
-from .handlers.web import WebExtractor
-from .handlers.content import ContentExtractor
-from .handlers.form import FormExtractor
+from extractors.utils.logger import setup_logger
+from extractors.utils.config import load_config
 
-__version__ = '1.0.0'
-__author__ = 'Aaron Yu (https://github.com/jungyu), Claude AI, Cursor AI'
-__license__ = 'MIT'
+__version__ = "0.1.0"
+__author__ = "DataScout Team"
 
 __all__ = [
-    # 錯誤類別
-    'ExtractorError',
-    'ExtractorNotFoundError',
-    'ExtractorConfigError',
-    'ExtractorValidationError',
-    'ExtractorExecutionError',
-    'ExtractorTimeoutError',
-    'ExtractorStateError',
-    'handle_extractor_error',
+    # 核心類
+    "BaseExtractor",
+    "ExtractorConfig",
     
-    # 基礎類別
-    'BaseExtractor',
-    'BaseExtractorManager',
+    # 異常類
+    "ExtractorError",
+    "ValidationError",
+    "ConfigurationError",
     
-    # 具體提取器
-    'WebExtractor',
-    'ContentExtractor',
-    'FormExtractor'
+    # 工具函數
+    "setup_logger",
+    "load_config"
 ] 

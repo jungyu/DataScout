@@ -10,6 +10,7 @@ playwright_base/
 ├── __init__.py           # 框架入口點，匯出核心類別與函數
 ├── README.md             # 使用文檔與範例說明
 ├── setup.py              # 安裝配置與依賴管理
+├── requirements.txt      # 依賴套件列表
 │
 ├── core/                 # 核心功能模組
 │   ├── base.py           # PlaywrightBase 基礎爬蟲類，提供瀏覽器自動化功能
@@ -25,13 +26,20 @@ playwright_base/
 │   └── user_agent_manager.py  # User-Agent 管理，自動生成與切換用戶代理
 │
 ├── auth/                 # 認證模組，處理網站登入與權限
+│   ├── __init__.py
+│   ├── login_manager.py  # 登入管理，處理各種登入方式
+│   └── session_manager.py # 會話管理，維護登入狀態
 │
 ├── config/               # 配置管理
+│   ├── __init__.py
 │   └── settings.py       # 全局配置設置，管理瀏覽器、網絡、存儲等參數
 │
 ├── services/             # 外部服務整合模組
+│   ├── __init__.py
+│   └── api_client.py     # API 客戶端，整合外部服務
 │
 ├── storage/              # 存儲模組
+│   ├── __init__.py
 │   └── storage_manager.py # 管理瀏覽器狀態、Cookies 與 localStorage
 │
 ├── utils/                # 工具類
@@ -41,8 +49,12 @@ playwright_base/
 │   └── logger.py         # 日誌管理工具，支持多級記錄與輸出格式化
 │
 ├── examples/             # 示例代碼與使用案例
+│   ├── __init__.py
+│   └── basic_usage.py    # 基礎使用範例
 │
 └── scripts/              # 實用腳本與自動化工具
+    ├── __init__.py
+    └── setup_browser.py  # 瀏覽器環境設置腳本
 ```
 
 ## 核心功能介紹

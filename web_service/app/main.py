@@ -8,7 +8,7 @@ FastAPI 主應用程式。
 
 import logging
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -58,13 +58,10 @@ templates = Jinja2Templates(directory="templates")
 app.include_router(chart_router, prefix="/api", tags=["chart"])
 app.include_router(apexcharts_router, prefix="/api/apexcharts", tags=["apexcharts"])
 
-# 根路由 - 渲染儀表板
+# 根路由 - serve 靜態首頁
 @app.get("/", response_class=HTMLResponse)
-async def root(request: Request):
-    return templates.TemplateResponse(
-        "dashboard.html",
-        {"request": request, "title": settings.PROJECT_NAME}
-    )
+async def root():
+    return FileResponse("static/index.html")
 
 # 圖表範例頁面
 @app.get("/chart-examples", response_class=HTMLResponse)

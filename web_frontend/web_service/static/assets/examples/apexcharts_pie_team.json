@@ -1,0 +1,25 @@
+{
+  "series": [44, 55, 13, 43, 22],
+  "chart": {
+    "type": "pie",
+    "height": 380
+  },
+  "title": {
+    "text": "團隊貢獻佔比"
+  },
+  "labels": ["團隊A", "團隊B", "團隊C", "團隊D", "團隊E"],
+  "colors": ["#008FFB", "#00E396", "#FEB019", "#FF4560", "#775DD0"],
+  "responsive": [
+    {
+      "breakpoint": 480,
+      "options": {
+        "chart": {
+          "width": 300
+        },
+        "legend": {
+          "position": "bottom"
+        }
+      }
+    }
+  ]
+}

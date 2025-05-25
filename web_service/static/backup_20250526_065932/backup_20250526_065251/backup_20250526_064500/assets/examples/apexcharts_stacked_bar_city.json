@@ -1,0 +1,64 @@
+{
+  "series": [
+    {
+      "name": "台北市",
+      "data": [44, 55, 41, 67, 22, 43]
+    },
+    {
+      "name": "新北市",
+      "data": [13, 23, 20, 8, 13, 27]
+    },
+    {
+      "name": "桃園市",
+      "data": [11, 17, 15, 15, 21, 14]
+    },
+    {
+      "name": "台中市",
+      "data": [21, 7, 25, 13, 22, 8]
+    }
+  ],
+  "chart": {
+    "type": "bar",
+    "height": 350,
+    "stacked": true,
+    "toolbar": {
+      "show": true
+    },
+    "zoom": {
+      "enabled": true
+    }
+  },
+  "colors": ["#FF4560", "#008FFB", "#FEB019", "#00E396"],
+  "responsive": [
+    {
+      "breakpoint": 480,
+      "options": {
+        "legend": {
+          "position": "bottom",
+          "offsetX": -10,
+          "offsetY": 0
+        }
+      }
+    }
+  ],
+  "plotOptions": {
+    "bar": {
+      "horizontal": false,
+      "borderRadius": 5
+    }
+  },
+  "xaxis": {
+    "categories": ["一月", "二月", "三月", "四月", "五月", "六月"]
+  },
+  "legend": {
+    "position": "right",
+    "offsetY": 40
+  },
+  "fill": {
+    "opacity": 1
+  },
+  "title": {
+    "text": "各都市月度銷售統計",
+    "align": "left"
+  }
+}

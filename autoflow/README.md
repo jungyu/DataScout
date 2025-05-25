@@ -1,8 +1,106 @@
-# AutoFlow 工作流自動化平台
+# AutoFlow 工作流自動化框架
 
 ## 專案概述
 
-AutoFlow 是一個類似 make.com 和 n8n 的工作流自動化平台，用於整合各種服務和 API。本專案提供了一個完整的解決方案，用於創建和管理自動化工作流程。
+AutoFlow 是一個強大的工作流自動化框架，提供了一個完整的解決方案，用於創建和管理自動化工作流程。它支持異步操作、錯誤處理、日誌記錄等功能，使工作流程的開發和管理變得簡單而高效。
+
+## 安裝
+
+```bash
+# 開發模式安裝
+pip install -e .
+
+# 或直接安裝
+pip install autoflow
+```
+
+## 使用方式
+
+### 作為包使用
+
+```python
+from autoflow import Flow, Config
+
+# 創建配置
+config = Config(
+    name="my_flow",
+    description="示例工作流程"
+)
+
+# 創建工作流程
+class MyFlow(Flow):
+    async def handle_message(self, message):
+        # 處理消息
+        pass
+
+# 使用工作流程
+flow = MyFlow(config)
+await flow.start()
+```
+
+### 命令行使用
+
+```bash
+# 運行工作流程
+autoflow run path/to/flow.py
+
+# 停止工作流程
+autoflow stop path/to/flow.py
+
+# 查看狀態
+autoflow status path/to/flow.py
+```
+
+## 目錄結構
+
+```
+autoflow/
+├── core/           # 核心組件
+├── flows/          # 工作流程
+├── services/       # 服務
+└── utils/          # 工具函數
+```
+
+## 主要功能
+
+1. 工作流程管理
+   - 工作流程定義
+   - 狀態管理
+   - 錯誤處理
+   - 重試機制
+
+2. 異步支持
+   - 異步操作
+   - 事件處理
+   - 消息處理
+
+3. 工具支持
+   - 日誌記錄
+   - 配置管理
+   - 工具函數
+
+## 注意事項
+
+1. 確保在虛擬環境中安裝
+2. 檢查依賴版本兼容性
+3. 注意異步操作的正確使用
+4. 合理配置錯誤處理和重試策略
+
+## 依賴套件
+
+### 核心依賴
+- aiohttp: 異步 HTTP 客戶端
+- pydantic: 數據驗證
+- loguru: 日誌管理
+- python-telegram-bot: Telegram 機器人支持
+- supabase: 數據庫支持
+- playwright: 瀏覽器自動化
+
+### 開發依賴
+- pytest: 測試框架
+- black: 代碼格式化
+- isort: 導入排序
+- mypy: 類型檢查
 
 ## 環境設置
 
@@ -40,16 +138,6 @@ TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 # Supabase 配置
 SUPABASE_URL=your_supabase_url_here
 SUPABASE_KEY=your_supabase_key_here
-```
-
-## 目錄結構
-
-```
-autoflow/
-├── core/           # 核心組件
-├── flows/          # 工作流程定義
-├── services/       # 服務整合
-└── utils/          # 工具函數
 ```
 
 ## 範例：股票行情查詢機器人
@@ -98,39 +186,6 @@ sequenceDiagram
 - **Web Frontend**：圖表生成
 - **Web Service API**：數據處理和圖表生成服務
 
-## 使用方式
-
-### 執行股票機器人
-
-```bash
-# 確保在虛擬環境中
-python flows/stock_bot_flow.py
-```
-
-### 開發新工作流程
-
-1. 在 `flows/` 目錄下創建新的工作流程文件
-2. 繼承 `Flow` 基類
-3. 實現必要的方法
-4. 在 `services/` 中添加所需的服務
-
-## 注意事項
-
-1. 確保在執行前已啟動虛擬環境
-2. 檢查環境變數是否正確設置
-3. 確保所有依賴都已正確安裝
-
-## 依賴套件說明
-
-- `python-dotenv`: 環境變數管理
-- `supabase`: Supabase 資料庫客戶端
-- `yfinance`: Yahoo Finance API 客戶端
-- `pandas`: 數據處理
-- `python-telegram-bot`: Telegram Bot API 客戶端
-- `aiohttp`: 非同步 HTTP 客戶端
-- `asyncio`: 非同步 IO 支援
-- `httpx`: 現代 HTTP 客戶端
-
 ## 開發指南
 
-詳細的開發文檔請參考 `docs/` 目錄。 
+詳細的開發文檔請參考 `

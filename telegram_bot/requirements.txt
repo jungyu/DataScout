@@ -1,7 +1,7 @@
 # DataScout Telegram Bot 依賴
 
 # Telegram Bot API
-python-telegram-bot>=20.7
+python-telegram-bot==20.6
 
 # 系統監控
 psutil>=5.9.0
@@ -10,10 +10,14 @@ psutil>=5.9.0
 pandas>=2.1.0
 
 # 日誌和配置
-python-dotenv>=1.0.0
+python-dotenv==1.0.1
 
 # 圖像處理
 Pillow>=10.0.0
 
 # Gemini API
 google-generativeai>=0.3.0
+
+# 新增依賴
+aiohttp==3.9.3
+asyncio==3.4.3

@@ -1,0 +1,55 @@
+{
+  "series": [
+    {
+      "name": "2023年",
+      "data": [68, 72, 81, 74, 63, 75, 69]
+    },
+    {
+      "name": "2024年",
+      "data": [74, 79, 85, 81, 68, 80, 77]
+    }
+  ],
+  "chart": {
+    "height": 350,
+    "type": "radar",
+    "dropShadow": {
+      "enabled": true,
+      "blur": 1,
+      "left": 1,
+      "top": 1
+    }
+  },
+  "title": {
+    "text": "企業績效評估",
+    "align": "left"
+  },
+  "xaxis": {
+    "categories": ["創新能力", "營運效率", "客戶滿意度", "員工流失率", "成本控制", "市場佔有率", "品牌影響力"]
+  },
+  "fill": {
+    "opacity": 0.7
+  },
+  "stroke": {
+    "width": 2
+  },
+  "markers": {
+    "size": 4,
+    "hover": {
+      "size": 7
+    }
+  },
+  "legend": {
+    "position": "bottom"
+  },
+  "tooltip": {
+    "y": {
+      "formatter": "function(val) { return val + '%'; }"
+    }
+  },
+  "colors": ["#008FFB", "#FF4560"],
+  "grid": {
+    "padding": {
+      "top": 20
+    }
+  }
+}

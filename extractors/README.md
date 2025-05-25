@@ -1,71 +1,81 @@
-# DataScout Extractors
+# 數據提取器
 
-這是一個通用的數據提取器集合，用於從各種數據源中提取和處理數據。
+一個強大的數據提取工具包，支持多種數據源和提取方式。
 
 ## 功能特點
 
-- 支持多種數據源的提取（網頁、API、文件等）
-- 可擴展的提取器架構
-- 內建數據清理和轉換功能
-- 支持自定義提取規則
+- 多種數據源支持（網頁、文件等）
+- 異步操作支持
+- 錯誤處理和重試機制
+- 完整的日誌記錄
+- 靈活的配置管理
+- 命令行界面
 
 ## 安裝
 
 ```bash
-pip install data_scout_extractors
+pip install extractors
 ```
 
-## 使用方法
+## 快速開始
 
-### 基本用法
+### 命令行使用
+
+```bash
+# 從 URL 提取數據
+extract https://example.com --type web
+
+# 從文件提取數據
+extract-file data.txt --type file
+```
+
+### 作為包使用
 
 ```python
-from data_scout_extractors import BaseExtractor
+from extractors import BaseExtractor, ExtractorConfig
+from extractors.utils.logger import setup_logger
 
-# 創建提取器實例
-extractor = BaseExtractor()
+# 設置日誌
+setup_logger()
 
-# 提取數據
-data = extractor.extract(source_data)
+# 創建配置
+config = ExtractorConfig(
+    url="https://example.com",
+    extractor_type="web"
+)
+
+# 創建提取器
+extractor = BaseExtractor(config)
+
+# 執行提取
+result = await extractor.extract()
 ```
 
-### 使用特定提取器
+## 開發
 
-```python
-from data_scout_extractors.handlers import HTMLHandler, JSONHandler
+### 安裝開發依賴
 
-# HTML 提取
-html_extractor = HTMLHandler()
-html_data = html_extractor.extract(html_content)
-
-# JSON 提取
-json_extractor = JSONHandler()
-json_data = json_extractor.extract(json_content)
+```bash
+pip install -e ".[dev]"
 ```
 
-## 目錄結構
+### 運行測試
 
-```
-extractors/
-├── core/           # 核心提取功能
-├── handlers/       # 特定數據類型的處理器
-└── tests/          # 測試文件
+```bash
+pytest
 ```
 
-## 開發指南
+### 代碼格式化
 
-1. 克隆倉庫
-2. 安裝依賴：`pip install -r requirements.txt`
-3. 運行測試：`python -m pytest tests/`
+```bash
+black .
+isort .
+```
 
-## 貢獻指南
+## 文檔
 
-1. Fork 倉庫
-2. 創建特性分支
-3. 提交更改
-4. 推送到分支
-5. 創建 Pull Request
+詳細文檔請參見 [文檔目錄](docs/)。
 
-## 授權
+## 許可證
 
 MIT License 

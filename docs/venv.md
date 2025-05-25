@@ -1,4 +1,4 @@
-# Python 虛擬環境下的套件安裝管理
+# Python 虛擬環境管理指南
 
 建立時間: 2025年5月25日 下午11:24
 
@@ -6,8 +6,16 @@
 1. [基本操作](#基本操作)
 2. [套件管理](#套件管理)
 3. [常見問題處理](#常見問題處理)
+4. [注意事項](#注意事項)
 
 ## 基本操作
+
+### 建立虛擬環境
+```bash
+# 在專案目錄外建立虛擬環境
+cd /Users/aaron/Projects/DataScout
+python -m venv venv
+```
 
 ### 啟動虛擬環境
 ```bash
@@ -23,22 +31,14 @@ source venv/bin/activate
 deactivate
 ```
 
-### 創建新的虛擬環境
-```bash
-# 創建虛擬環境
-python -m venv venv
-
-# 啟動虛擬環境
-source venv/bin/activate  # macOS/Linux
-# 或
-.\venv\Scripts\activate  # Windows
-```
-
 ## 套件管理
 
 ### 安裝專案依賴
 ```bash
-# 安裝專案依賴
+# 進入專案目錄
+cd telegram_bot  # 或其他專案目錄
+
+# 安裝依賴
 pip install -e .
 ```
 
@@ -111,7 +111,6 @@ cat requirements.txt | cut -d'=' -f1 | xargs pip uninstall -y
 ```
 
 ### 3. 完全重置虛擬環境
-
 ```bash
 # 1. 退出虛擬環境
 deactivate
@@ -140,3 +139,168 @@ pip install -e .
 3. 如果遇到依賴問題，可能需要使用 `--no-deps` 參數
 4. 建議在操作前先備份重要的套件列表
 5. 在 macOS 上使用命令時，注意避免使用 `awk` 命令，改用 `cut` 或 Python 腳本
+
+讓我為您說明如何安裝 `playwright_base` 的依賴：
+
+1. **首先確認虛擬環境已啟動**：
+```bash
+# 確認是否在虛擬環境中
+which python
+# 應該顯示：/Users/aaron/Projects/DataScout/venv/bin/python
+```
+
+2. **安裝 playwright_base 的依賴**：
+```bash
+# 進入 playwright_base 目錄
+cd /Users/aaron/Projects/DataScout/playwright_base
+
+# 安裝依賴
+pip install -e .
+```
+
+3. **如果 playwright_base 有自己的 requirements.txt**：
+```bash
+# 直接安裝 requirements.txt 中的依賴
+pip install -r requirements.txt
+```
+
+4. **安裝 Playwright 瀏覽器**：
+```bash
+# 安裝 Playwright 的瀏覽器
+playwright install
+```
+
+5. **驗證安裝**：
+```bash
+# 檢查已安裝的套件
+pip list | grep playwright
+```
+
+6. **注意事項**：
+   - 確保您在正確的虛擬環境中
+   - 如果遇到權限問題，可能需要使用 `sudo` 或調整權限
+   - 如果安裝過程中出現錯誤，可以嘗試：
+     ```bash
+     # 更新 pip
+     pip install --upgrade pip
+     
+     # 清除 pip 快取
+     pip cache purge
+     
+     # 重新安裝
+     pip install -e .
+     ```
+
+7. **檢查依賴是否正確安裝**：
+```bash
+# 檢查 Python 是否可以導入 playwright
+python -c "from playwright.sync_api import sync_playwright; print('Playwright 安裝成功')"
+```
+
+如果您需要查看 `playwright_base` 的具體依賴，我可以幫您檢查 `setup.py` 或 `requirements.txt` 的內容。
+
+讓我為您說明如何安裝 `persistence` 的依賴：
+
+1. **首先確認虛擬環境已啟動**：
+```bash
+# 確認是否在虛擬環境中
+which python
+# 應該顯示：/Users/aaron/Projects/DataScout/venv/bin/python
+```
+
+2. **安裝 persistence 的依賴**：
+```bash
+# 進入 persistence 目錄
+cd /Users/aaron/Projects/DataScout/persistence
+
+# 安裝依賴
+pip install -e .
+```
+
+3. **如果 persistence 有自己的 requirements.txt**：
+```bash
+# 直接安裝 requirements.txt 中的依賴
+pip install -r requirements.txt
+```
+
+4. **驗證安裝**：
+```bash
+# 檢查已安裝的套件
+pip list | grep persistence
+```
+
+5. **注意事項**：
+   - 確保您在正確的虛擬環境中
+   - 如果遇到權限問題，可能需要使用 `sudo` 或調整權限
+   - 如果安裝過程中出現錯誤，可以嘗試：
+     ```bash
+     # 更新 pip
+     pip install --upgrade pip
+     
+     # 清除 pip 快取
+     pip cache purge
+     
+     # 重新安裝
+     pip install -e .
+     ```
+
+6. **檢查依賴是否正確安裝**：
+```bash
+# 檢查 Python 是否可以導入 persistence
+python -c "import persistence; print('Persistence 安裝成功')"
+```
+
+如果您需要查看 `persistence` 的具體依賴，我可以幫您檢查 `setup.py` 或 `requirements.txt` 的內容。
+
+讓我為您說明如何安裝 `autoflow` 的依賴：
+
+1. **首先確認虛擬環境已啟動**：
+```bash
+# 確認是否在虛擬環境中
+which python
+# 應該顯示：/Users/aaron/Projects/DataScout/venv/bin/python
+```
+
+2. **安裝 autoflow 的依賴**：
+```bash
+# 進入 autoflow 目錄
+cd /Users/aaron/Projects/DataScout/autoflow
+
+# 安裝依賴
+pip install -e .
+```
+
+3. **如果 autoflow 有自己的 requirements.txt**：
+```bash
+# 直接安裝 requirements.txt 中的依賴
+pip install -r requirements.txt
+```
+
+4. **驗證安裝**：
+```bash
+# 檢查已安裝的套件
+pip list | grep autoflow
+```
+
+5. **注意事項**：
+   - 確保您在正確的虛擬環境中
+   - 如果遇到權限問題，可能需要使用 `sudo` 或調整權限
+   - 如果安裝過程中出現錯誤，可以嘗試：
+     ```bash
+     # 更新 pip
+     pip install --upgrade pip
+     
+     # 清除 pip 快取
+     pip cache purge
+     
+     # 重新安裝
+     pip install -e .
+     ```
+
+6. **檢查依賴是否正確安裝**：
+```bash
+# 檢查 Python 是否可以導入 autoflow
+python -c "import autoflow; print('Autoflow 安裝成功')"
+```
+
+如果您需要查看 `autoflow` 的具體依賴，我可以幫您檢查 `setup.py` 或 `requirements.txt` 的內容。

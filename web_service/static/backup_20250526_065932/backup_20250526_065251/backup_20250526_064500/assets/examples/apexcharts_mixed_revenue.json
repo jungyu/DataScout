@@ -1,0 +1,49 @@
+{
+  "series": [
+    {
+      "name": "收入",
+      "type": "column",
+      "data": [1.4, 2, 2.5, 1.5, 2.5, 2.8, 3.8, 4.6]
+    },
+    {
+      "name": "利潤率",
+      "type": "line",
+      "data": [20, 29, 37, 36, 44, 45, 50, 58]
+    }
+  ],
+  "chart": {
+    "height": 350,
+    "type": "line"
+  },
+  "title": {
+    "text": "公司季度營收和利潤率"
+  },
+  "stroke": {
+    "width": [0, 4]
+  },
+  "xaxis": {
+    "categories": ["2023 Q1", "2023 Q2", "2023 Q3", "2023 Q4", "2024 Q1", "2024 Q2", "2024 Q3", "2024 Q4"]
+  },
+  "yaxis": [
+    {
+      "title": {
+        "text": "收入(百萬元)"
+      }
+    },
+    {
+      "opposite": true,
+      "title": {
+        "text": "利潤率(%)"
+      }
+    }
+  ],
+  "colors": ["#008FFB", "#00E396"],
+  "tooltip": {
+    "enabled": true,
+    "shared": true,
+    "intersect": false,
+    "y": {
+      "formatter": "function(y, seriesIndex) { if (typeof y !== 'undefined') { return y + (seriesIndex === 0 ? ' 百萬元' : '%'); } return y; }"
+    }
+  }
+}

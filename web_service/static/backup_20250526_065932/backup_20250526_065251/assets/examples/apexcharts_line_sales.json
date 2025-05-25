@@ -1,0 +1,30 @@
+{
+  "series": [
+    {
+      "name": "銷售額",
+      "data": [30, 40, 35, 50, 49, 60]
+    },
+    {
+      "name": "訪客數",
+      "data": [15, 25, 30, 25, 35, 45]
+    }
+  ],
+  "chart": {
+    "type": "line",
+    "height": 350
+  },
+  "title": {
+    "text": "月度銷售和訪客趨勢"
+  },
+  "xaxis": {
+    "categories": ["一月", "二月", "三月", "四月", "五月", "六月"]
+  },
+  "stroke": {
+    "curve": "smooth",
+    "width": 2
+  },
+  "markers": {
+    "size": 4
+  },
+  "colors": ["#008FFB", "#00E396"]
+}

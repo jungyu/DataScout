@@ -1,25 +1,45 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from setuptools import setup, find_packages
 
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
 setup(
-    name="data_scout_extractors",
+    name="extractors",
     version="0.1.0",
-    packages=find_packages(),
-    install_requires=[
-        "beautifulsoup4>=4.9.3",
-        "lxml>=4.9.0",
-        "pandas>=1.3.0",
-        "numpy>=1.21.0",
-    ],
     author="DataScout Team",
-    author_email="your.email@example.com",
-    description="A collection of data extractors for various data sources",
-    long_description=open("README.md").read(),
+    author_email="team@datascout.ai",
+    description="數據提取器包",
+    long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/data_scout",
+    url="https://github.com/datascout/extractors",
+    packages=find_packages(),
     classifiers=[
-        "Programming Language :: Python :: 3",
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
+    install_requires=[
+        "aiohttp>=3.8.0",
+        "pydantic>=2.0.0",
+        "loguru>=0.7.0",
+        "playwright>=1.40.0",
+        "beautifulsoup4>=4.12.0",
+        "lxml>=4.9.0",
+        "click>=8.1.0",
+    ],
+    entry_points={
+        "console_scripts": [
+            "extract=extractors.cli:main",
+        ],
+    },
 ) 

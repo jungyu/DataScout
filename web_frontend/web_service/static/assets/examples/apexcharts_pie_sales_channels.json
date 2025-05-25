@@ -1,0 +1,47 @@
+{
+  "series": [35, 25, 20, 12, 8],
+  "chart": {
+    "type": "pie",
+    "height": 350
+  },
+  "labels": ["線上銷售", "門市零售", "經銷商", "代理商", "其他"],
+  "title": {
+    "text": "銷售渠道分析",
+    "align": "left"
+  },
+  "colors": ["#2E93fA", "#66DA26", "#FF9800", "#E91E63", "#546E7A"],
+  "legend": {
+    "position": "right"
+  },
+  "responsive": [
+    {
+      "breakpoint": 480,
+      "options": {
+        "chart": {
+          "width": 300
+        },
+        "legend": {
+          "position": "bottom"
+        }
+      }
+    }
+  ],
+  "dataLabels": {
+    "enabled": true,
+    "formatter": null,
+    "value": {
+      "show": true,
+      "fontSize": "16px",
+      "fontFamily": "Helvetica, Arial, sans-serif",
+      "fontWeight": 400
+    }
+  },
+  "tooltip": {
+    "y": {
+      "formatter": "function(val) { return val + '%'; }"
+    }
+  },
+  "stroke": {
+    "width": 2
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "series": [
+    {
+      "name": "台灣",
+      "data": [80, 90, 70, 100, 85, 75]
+    },
+    {
+      "name": "日本",
+      "data": [90, 80, 65, 70, 95, 80]
+    },
+    {
+      "name": "韓國",
+      "data": [70, 75, 80, 85, 75, 90]
+    }
+  ],
+  "chart": {
+    "height": 350,
+    "type": "radar"
+  },
+  "title": {
+    "text": "科技產業競爭力分析",
+    "align": "left"
+  },
+  "xaxis": {
+    "categories": ["半導體", "電子元件", "面板", "手機", "電腦", "網路設備"]
+  },
+  "yaxis": {
+    "show": false
+  },
+  "fill": {
+    "opacity": 0.5
+  },
+  "stroke": {
+    "width": 2
+  },
+  "markers": {
+    "size": 3
+  },
+  "legend": {
+    "position": "top"
+  },
+  "tooltip": {
+    "y": {
+      "formatter": "function(val) { return val + '/100'; }"
+    }
+  },
+  "colors": ["#FF4560", "#00E396", "#FEB019"]
+}
