@@ -1,82 +1,140 @@
-# Captcha Manager
+# Captcha Manager 模組
 
-一個靈活的驗證碼管理系統，用於網頁自動化。
+## 專案概述
 
-## 功能特點
+Captcha Manager 模組提供了驗證碼識別和處理的功能，支援多種驗證碼類型，包括圖片驗證碼、滑動驗證碼等。本模組整合了多種驗證碼識別技術，提供統一的接口來處理驗證碼。
 
-- 支持多種驗證碼類型（reCAPTCHA、hCaptcha、圖片驗證碼等）
-- 支持 Selenium 和 Playwright
-- 可擴展的架構
-- 簡單易用的 API
+## 環境設置
 
-## 安裝
+### 1. 創建虛擬環境
 
 ```bash
-pip install captcha_manager
+# 進入 captcha_manager 目錄
+cd captcha_manager
+
+# 創建虛擬環境
+python -m venv venv
+
+# 啟動虛擬環境
+# Windows
+venv\Scripts\activate
+# macOS/Linux
+source venv/bin/activate
 ```
 
-## 使用方法
+### 2. 安裝依賴
 
-### 基本用法
+```bash
+# 安裝依賴套件
+pip install -r requirements.txt
+
+# 安裝 Tesseract OCR（用於文字識別）
+# macOS
+brew install tesseract
+# Ubuntu
+sudo apt-get install tesseract-ocr
+```
+
+### 3. 環境變數設置
+
+在專案根目錄創建 `.env` 文件，添加以下配置：
+
+```env
+# Captcha 配置
+TESSERACT_PATH=/usr/local/bin/tesseract
+CAPTCHA_TIMEOUT=30
+CAPTCHA_RETRY=3
+
+# API 配置（可選）
+API_KEY=your_api_key
+API_URL=your_api_url
+```
+
+## 目錄結構
+
+```
+captcha_manager/
+├── core/           # 核心組件
+├── solvers/        # 驗證碼解析器
+├── models/         # 模型文件
+├── utils/          # 工具函數
+└── tests/          # 測試用例
+```
+
+## 使用方式
+
+### 基本使用
 
 ```python
-from selenium import webdriver
-from captcha_manager import CaptchaManagerFactory, CaptchaConfig
+from captcha_manager import CaptchaSolver
 
-# 創建 WebDriver 實例
-driver = webdriver.Chrome()
+# 創建驗證碼解析器
+solver = CaptchaSolver()
 
-# 配置驗證碼管理器
-config = CaptchaConfig(
-    api_key="your_api_key",
-    service="2captcha",
-    timeout=120,
-    retry_count=3
+# 處理圖片驗證碼
+result = solver.solve_image_captcha(
+    image_path='captcha.png',
+    captcha_type='text'
 )
 
-# 創建驗證碼管理器實例
-manager = CaptchaManagerFactory.create_manager(driver, config)
-
-# 解決 reCAPTCHA
-result = manager.solve_recaptcha(
-    site_key="your_site_key",
-    url="https://example.com"
+# 處理滑動驗證碼
+result = solver.solve_slider_captcha(
+    background_image='bg.png',
+    slider_image='slider.png'
 )
 ```
 
-### 在專案中使用
-
-在您的專案中，您可以使用相對導入來引用 `captcha_manager` 包：
+### 測試用例
 
 ```python
-from ..captcha_manager import CaptchaManagerFactory, CaptchaConfig
+import pytest
+from captcha_manager import CaptchaSolver
+
+def test_image_captcha():
+    solver = CaptchaSolver()
+    result = solver.solve_image_captcha('test_captcha.png')
+    assert result is not None
 ```
 
-### 配置選項
+## 主要功能
 
-```python
-config = CaptchaConfig(
-    api_key="your_api_key",      # 驗證碼服務的 API 金鑰
-    service="2captcha",          # 驗證碼服務提供商
-    timeout=120,                 # 超時時間（秒）
-    retry_count=3               # 重試次數
-)
+1. 圖片驗證碼
+   - 文字識別
+   - 圖片預處理
+   - 噪點去除
+   - 字符分割
 
-manager = CaptchaManagerFactory.create_manager(driver, config)
-```
+2. 滑動驗證碼
+   - 缺口定位
+   - 軌跡生成
+   - 滑動模擬
+   - 結果驗證
 
-## 支持的驗證碼類型
+3. 點選驗證碼
+   - 目標識別
+   - 點擊模擬
+   - 結果驗證
 
-1. reCAPTCHA
-2. hCaptcha
-3. 圖片驗證碼
-4. 滑塊驗證碼
-5. 文本驗證碼
+4. 語音驗證碼
+   - 語音識別
+   - 文字轉換
+   - 結果驗證
 
-## 貢獻
+## 注意事項
 
-歡迎提交 Pull Request 或創建 Issue。
+1. 確保在執行前已啟動虛擬環境
+2. 檢查環境變數是否正確設置
+3. 確保所有依賴都已正確安裝
+4. 注意驗證碼識別的使用限制
 
-## 許可證
+## 依賴套件說明
 
-MIT License 
+- `opencv-python`: 圖像處理
+- `numpy`: 數值計算
+- `pillow`: 圖像處理
+- `pytesseract`: OCR 文字識別
+- `python-dotenv`: 環境變數管理
+- `aiohttp`: 非同步 HTTP 客戶端
+- `httpx`: 現代 HTTP 客戶端
+- `pytest`: 測試框架
+- `pytest-asyncio`: 非同步測試支援 

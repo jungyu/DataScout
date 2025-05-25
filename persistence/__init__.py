@@ -43,6 +43,7 @@ from persistence.core.base import StorageHandler
 from persistence.handlers.local_handler import LocalStorageHandler
 from persistence.handlers.mongodb_handler import MongoDBHandler
 from persistence.handlers.notion_handler import NotionHandler
+from persistence.handlers.supabase_handler import SupabaseHandler, SupabaseConfig
 from persistence.core.exceptions import (
     PersistenceError,
     StorageError,
@@ -64,6 +65,8 @@ __all__ = [
     'LocalStorageHandler',
     'MongoDBHandler',
     'NotionHandler',
+    'SupabaseHandler',
+    'SupabaseConfig',
     
     # 異常類
     'PersistenceError',

@@ -89,17 +89,35 @@ async def get_chart_types() -> Dict[str, Union[int, List[str]]]:
     """
     獲取所有支援的 ApexCharts 圖表類型
     """
-    chart_types = [
-        "line", "area", "bar", "barHorizontal", "scatter", "pie", "donut", "radar", 
-        "polarArea", "candlestick", "boxPlot", "bubble", "heatmap", "treemap",
-        "rangeBar", "rangeArea", "radialBar", "funnel", 
-        "timeSeries", "timeSeriesArea", "syncCharts", "stepline", "mixedTime",
-        "groupedBar", "stackedBar", "percentStackedBar", "mixedChart", 
-        "candlestickVolume", "heatmapLine", "multiYAxis", "technicalChart",
-        "realtimeLine", "realtimeDashboard", "dynamicPie", "streamingLine"
-    ]
+    # 按類別組織圖表類型
+    chart_types_by_category = {
+        "基本圖表類型": [
+            "line", "area", "bar", "barHorizontal", "scatter", "pie", 
+            "donut", "radar", "heatmap", "treemap"
+        ],
+        "進階圖表類型": [
+            "candlestick", "boxPlot", "bubble", "polarArea", "rangeBar", 
+            "rangeArea", "radialBar", "funnel"
+        ],
+        "時間序列與監控圖表": [
+            "timeSeries", "timeSeriesArea", "syncCharts", "stepline", "mixedTime"
+        ],
+        "比較與分析圖表": [
+            "groupedBar", "stackedBar", "percentStackedBar", "mixedChart", 
+            "candlestickVolume", "heatmapLine", "multiYAxis", "technicalChart"
+        ],
+        "動態更新圖表": [
+            "realtimeLine", "realtimeDashboard", "dynamicPie", "streamingLine"
+        ]
+    }
+    
+    # 獲取所有圖表類型的平坦列表
+    all_chart_types = []
+    for category_types in chart_types_by_category.values():
+        all_chart_types.extend(category_types)
     
     return {
-        "count": len(chart_types),  # 這裡返回的是一個整數
-        "types": chart_types
+        "count": len(all_chart_types),
+        "types": all_chart_types,
+        "categories": chart_types_by_category
     }

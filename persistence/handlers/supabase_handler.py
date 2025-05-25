@@ -9,6 +9,7 @@ Supabase存儲處理器
 
 import time
 import json
+import asyncio
 from typing import Dict, Any, List, Optional, Union
 from supabase import create_client, Client
 from ..core.base import StorageHandler
@@ -54,27 +55,15 @@ class SupabaseHandler(StorageHandler):
             raise ConnectionError(f"連接Supabase失敗: {str(e)}")
     
     def _create_table(self) -> None:
-        """創建存儲表"""
+        """檢查存儲表是否存在，不自動建表，若不存在則提示需手動建立"""
         try:
             # 檢查表是否存在
             response = self.client.table(self.config.table_name).select("*").limit(1).execute()
-            
-            # 如果表不存在，創建表
-            if response.data is None:
-                # 使用SQL創建表
-                sql = f"""
-                CREATE TABLE IF NOT EXISTS {self.config.schema}.{self.config.table_name} (
-                    {self.config.id_field} TEXT PRIMARY KEY,
-                    {self.config.data_field} JSONB,
-                    {self.config.created_at_field} TIMESTAMP WITH TIME ZONE,
-                    {self.config.updated_at_field} TIMESTAMP WITH TIME ZONE
-                );
-                """
-                self.client.rpc('exec_sql', {'sql': sql}).execute()
-                
-                self.logger.info(f"已創建Supabase表: {self.config.table_name}")
+            # 若能查詢到，代表表存在
         except Exception as e:
-            raise StorageError(f"創建Supabase表失敗: {str(e)}")
+            raise StorageError(
+                f"Supabase 資料表 `{self.config.table_name}` 不存在，請先在 Supabase SQL Editor 建立該表。原始錯誤: {str(e)}"
+            )
     
     def save(self, data: Any, path: str) -> None:
         """
@@ -286,4 +275,93 @@ class SupabaseHandler(StorageHandler):
     def __del__(self):
         """清理資源"""
         # Supabase客戶端不需要顯式關閉
-        pass 
+        pass
+
+    async def create(self, table: str, data: dict) -> dict:
+        """在指定表新增一筆資料"""
+        try:
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.client.table(table).insert(data).execute()
+            )
+            if not response.data or len(response.data) == 0:
+                raise StorageError(f"新增資料失敗: {data}")
+            return response.data[0]
+        except Exception as e:
+            raise StorageError(f"Supabase create 失敗: {str(e)}")
+
+    async def read(self, table: str, query: dict) -> list:
+        """查詢指定表的資料"""
+        try:
+            loop = asyncio.get_event_loop()
+            def _query():
+                q = self.client.table(table).select('*')
+                for k, v in query.items():
+                    q = q.eq(k, v)
+                return q.execute()
+            response = await loop.run_in_executor(None, _query)
+            return response.data or []
+        except Exception as e:
+            raise StorageError(f"Supabase read 失敗: {str(e)}")
+
+    async def update(self, table: str, query: dict, data: dict) -> dict:
+        """更新指定表的資料"""
+        try:
+            loop = asyncio.get_event_loop()
+            def _update():
+                q = self.client.table(table).update(data)
+                for k, v in query.items():
+                    q = q.eq(k, v)
+                return q.execute()
+            response = await loop.run_in_executor(None, _update)
+            if not response.data or len(response.data) == 0:
+                raise NotFoundError(f"更新資料失敗: {query}")
+            return response.data[0]
+        except Exception as e:
+            raise StorageError(f"Supabase update 失敗: {str(e)}")
+
+    async def delete(self, table: str, query: dict) -> bool:
+        """刪除指定表的資料"""
+        try:
+            loop = asyncio.get_event_loop()
+            def _delete():
+                q = self.client.table(table).delete()
+                for k, v in query.items():
+                    q = q.eq(k, v)
+                return q.execute()
+            response = await loop.run_in_executor(None, _delete)
+            return bool(response.data and len(response.data) > 0)
+        except Exception as e:
+            raise StorageError(f"Supabase delete 失敗: {str(e)}")
+
+    async def save_image(self, table: str, image_data: bytes, metadata: dict) -> dict:
+        """儲存圖片資料"""
+        import base64
+        try:
+            loop = asyncio.get_event_loop()
+            data = metadata.copy()
+            data['image_data'] = base64.b64encode(image_data).decode('utf-8')
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.client.table(table).insert(data).execute()
+            )
+            if not response.data or len(response.data) == 0:
+                raise StorageError("圖片儲存失敗")
+            return response.data[0]
+        except Exception as e:
+            raise StorageError(f"Supabase save_image 失敗: {str(e)}")
+
+    async def get_images(self, table: str, query: dict) -> list:
+        """查詢圖片資料"""
+        try:
+            loop = asyncio.get_event_loop()
+            def _query():
+                q = self.client.table(table).select('*')
+                for k, v in query.items():
+                    q = q.eq(k, v)
+                return q.execute()
+            response = await loop.run_in_executor(None, _query)
+            return response.data or []
+        except Exception as e:
+            raise StorageError(f"Supabase get_images 失敗: {str(e)}") 

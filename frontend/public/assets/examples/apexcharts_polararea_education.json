@@ -1,0 +1,57 @@
+{
+  "series": [68, 82, 71, 90, 75, 65, 77],
+  "chart": {
+    "type": "polarArea",
+    "height": 350
+  },
+  "labels": ["數學", "語文", "科學", "英語", "歷史", "地理", "藝術"],
+  "title": {
+    "text": "學校科目評分表現",
+    "align": "left"
+  },
+  "stroke": {
+    "colors": ["#fff"],
+    "width": 2
+  },
+  "fill": {
+    "opacity": 0.85
+  },
+  "colors": ["#FF4560", "#008FFB", "#00E396", "#FEB019", "#775DD0", "#546E7A", "#26a69a"],
+  "legend": {
+    "position": "right"
+  },
+  "tooltip": {
+    "y": {
+      "formatter": "function(val) { return val + ' 分'; }"
+    }
+  },
+  "yaxis": {
+    "show": false,
+    "max": 100
+  },
+  "plotOptions": {
+    "polarArea": {
+      "rings": {
+        "strokeWidth": 1,
+        "strokeColor": "#e8e8e8"
+      },
+      "spokes": {
+        "strokeWidth": 1,
+        "connectorColors": "#e8e8e8"
+      }
+    }
+  },
+  "responsive": [
+    {
+      "breakpoint": 480,
+      "options": {
+        "chart": {
+          "width": 300
+        },
+        "legend": {
+          "position": "bottom"
+        }
+      }
+    }
+  ]
+}

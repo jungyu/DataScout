@@ -1,171 +1,141 @@
-# DataScout Core
+# Selenium Base 模組
 
-DataScout Core 是一個用於網路爬蟲任務管理的核心模組，提供任務調度、監控、報告和配置管理等功能。
+## 專案概述
 
-## 功能特點
+Selenium Base 模組提供了基於 Selenium 的自動化測試和爬蟲基礎框架。本模組封裝了常用的自動化操作，提供了統一的接口來處理瀏覽器自動化任務。
 
-1. 任務管理
-   - 任務創建和配置
-   - 任務調度和執行
-   - 任務依賴管理
-   - 任務重試機制
+## 環境設置
 
-2. 資源監控
-   - CPU 使用率監控
-   - 內存使用率監控
-   - 磁盤使用率監控
-   - 進程監控
-
-3. 報告生成
-   - 多格式報告支持（JSON、CSV、Excel、HTML）
-   - 報告分析和統計
-   - 報告導出功能
-
-4. 配置管理
-   - 配置驗證
-   - 配置版本控制
-   - 配置模板管理
-   - 配置導入導出
-
-## 專案結構
-
-```
-datascout_core/
-├── __init__.py
-├── core/
-│   ├── __init__.py
-│   ├── scheduler.py      # 任務調度器
-│   ├── monitor.py        # 資源監控
-│   ├── report.py         # 報告生成
-│   ├── config.py         # 配置管理
-│   └── schemas/          # 配置schema
-│       └── config_schema.json
-├── utils/
-│   ├── __init__.py
-│   ├── logger.py         # 日誌工具
-│   └── helpers.py        # 輔助函數
-└── tests/
-    ├── __init__.py
-    ├── test_scheduler.py
-    ├── test_monitor.py
-    ├── test_report.py
-    └── test_config.py
-```
-
-## 安裝方式
+### 1. 創建虛擬環境
 
 ```bash
-pip install datascout-core
+# 進入 selenium_base 目錄
+cd selenium_base
+
+# 創建虛擬環境
+python -m venv venv
+
+# 啟動虛擬環境
+# Windows
+venv\Scripts\activate
+# macOS/Linux
+source venv/bin/activate
+```
+
+### 2. 安裝依賴
+
+```bash
+# 安裝依賴套件
+pip install -r requirements.txt
+
+# 安裝 WebDriver
+python -m webdriver_manager install
+```
+
+### 3. 環境變數設置
+
+在專案根目錄創建 `.env` 文件，添加以下配置：
+
+```env
+# Selenium 配置
+HEADLESS=true
+IMPLICIT_WAIT=10
+PAGE_LOAD_TIMEOUT=30
+
+# 代理配置（可選）
+PROXY_SERVER=
+PROXY_USERNAME=
+PROXY_PASSWORD=
+```
+
+## 目錄結構
+
+```
+selenium_base/
+├── core/           # 核心組件
+├── pages/          # 頁面對象
+├── tests/          # 測試用例
+├── utils/          # 工具函數
+└── examples/       # 使用範例
 ```
 
 ## 使用方式
 
-1. 基本使用
+### 基本使用
+
 ```python
-from selenium_base import Scheduler, Task
+from selenium_base import WebDriverManager
 
-# 創建任務
-task = Task(
-    task_id="task1",
-    name="示例任務",
-    function="example_function",
-    parameters={"param1": "value1"}
-)
+# 創建 WebDriver 管理器
+driver = WebDriverManager()
 
-# 創建調度器
-scheduler = Scheduler()
-
-# 添加任務
-scheduler.add_task(task)
-
-# 啟動調度器
-scheduler.start()
+# 啟動瀏覽器
+with driver.launch() as browser:
+    # 訪問網頁
+    browser.get('https://example.com')
+    
+    # 執行操作
+    element = browser.find_element('#button')
+    element.click()
+    
+    # 獲取數據
+    data = browser.find_element('#content').text
 ```
 
-2. 配置管理
+### 測試用例
+
 ```python
-from selenium_base import ConfigManager
+import pytest
+from selenium_base import WebDriverManager
 
-# 創建配置管理器
-config_manager = ConfigManager()
-
-# 加載配置
-config = config_manager.load_config("task_config")
-
-# 保存配置
-config_manager.save_config("task_config", config)
+def test_example():
+    driver = WebDriverManager()
+    with driver.launch() as browser:
+        browser.get('https://example.com')
+        assert browser.title == 'Example Domain'
 ```
 
-3. 報告生成
-```python
-from selenium_base import ReportFactory
+## 主要功能
 
-# 創建報告
-report = ReportFactory.create_report("json")
+1. 瀏覽器管理
+   - 多瀏覽器支援
+   - WebDriver 管理
+   - 頁面管理
 
-# 添加數據
-report.add_data("key", "value")
+2. 自動化操作
+   - 元素定位
+   - 事件處理
+   - 表單操作
+   - 文件上傳
 
-# 保存報告
-report.save("report.json")
-```
+3. 數據提取
+   - 文本提取
+   - 圖片下載
+   - 表格數據
+   - JSON 解析
 
-## 配置說明
+4. 測試功能
+   - 單元測試
+   - 集成測試
+   - 端到端測試
+   - 性能測試
 
-配置文件使用 JSON 格式，主要包含以下部分：
+## 注意事項
 
-1. 任務配置
-   - 任務ID和名稱
-   - 執行函數和參數
-   - 優先級和依賴關係
-   - 重試策略
+1. 確保在執行前已啟動虛擬環境
+2. 檢查環境變數是否正確設置
+3. 確保所有依賴都已正確安裝
+4. 注意網站的使用條款和爬蟲規範
 
-2. 資源限制
-   - CPU 使用限制
-   - 內存使用限制
-   - 磁盤使用限制
+## 依賴套件說明
 
-3. 報告設置
-   - 報告格式
-   - 保存路徑
-   - 包含內容
-
-4. 日誌設置
-   - 日誌級別
-   - 日誌格式
-   - 文件設置
-
-## 開發指南
-
-1. 環境設置
-```bash
-# 克隆專案
-git clone https://github.com/yourusername/datascout-core.git
-
-# 安裝依賴
-pip install -r requirements.txt
-
-# 安裝開發依賴
-pip install -r requirements-dev.txt
-```
-
-2. 運行測試
-```bash
-pytest tests/
-```
-
-3. 代碼風格
-- 遵循 PEP 8 規範
-- 使用 Type Hints
-- 編寫完整的文檔字符串
-
-## 貢獻指南
-
-1. Fork 專案
-2. 創建功能分支
-3. 提交更改
-4. 發起 Pull Request
-
-## 授權協議
-
-MIT License 
+- `selenium`: 瀏覽器自動化框架
+- `webdriver-manager`: WebDriver 管理工具
+- `pytest`: 測試框架
+- `pytest-asyncio`: 非同步測試支援
+- `pytest-selenium`: Selenium 測試插件
+- `python-dotenv`: 環境變數管理
+- `pandas`: 數據處理
+- `numpy`: 數值計算
+- `aiohttp`: 非同步 HTTP 客戶端
+- `httpx`: 現代 HTTP 客戶端 

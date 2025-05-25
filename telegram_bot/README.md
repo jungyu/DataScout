@@ -1,6 +1,56 @@
 # DataScout Telegram Bot
 
-DataScout Telegram Bot 是 DataScout 爬蟲框架的 Telegram 機器人介面，允許使用者通過 Telegram 平台便捷地操控爬蟲任務、追蹤狀態並獲取結果。
+DataScout Telegram Bot 是 DataScout 爬蟲框架的 Telegram 機器人介面，採用分層架構設計，允許使用者通過 Telegram 平台便捷地操控爬蟲任務、追蹤狀態並獲取結果。
+
+## 架構設計
+
+### 分層結構
+
+```mermaid
+graph TD
+    A[服務層] --> B[業務層]
+    B --> C[基礎層]
+    
+    subgraph 服務層
+        D[TelegramService]
+        E[AutoFlow 整合]
+    end
+    
+    subgraph 業務層
+        F[DataScoutBot]
+        G[命令處理器]
+        H[消息處理器]
+    end
+    
+    subgraph 基礎層
+        I[BaseTelegramHandler]
+        J[錯誤處理]
+        K[配置管理]
+    end
+```
+
+### 組件說明
+
+#### 1. 基礎層
+- **BaseTelegramHandler**：提供核心 Bot 功能
+  - Bot 初始化和配置
+  - 生命週期管理
+  - 錯誤處理
+  - 日誌記錄
+
+#### 2. 業務層
+- **DataScoutBot**：實現特定業務邏輯
+  - 命令註冊
+  - 消息處理
+  - 回調處理
+  - 圖片處理
+
+#### 3. 服務層
+- **TelegramService**：提供高級服務接口
+  - 服務初始化
+  - 消息發送
+  - 狀態管理
+  - AutoFlow 整合
 
 ## 功能特色
 
@@ -67,12 +117,43 @@ DataScout Telegram Bot 是 DataScout 爬蟲框架的 Telegram 機器人介面，
    python run_telegram_bot.py
    ```
 
-## 基本用法
+## 使用方式
 
-1. 開始使用機器人：在 Telegram 中輸入 `/start`
-2. 啟動爬蟲任務：`/crawl https://example.com headless=true`
-3. 查看任務狀態：`/status [任務ID]`
-4. 獲取爬蟲結果：`/result [任務ID]`
+### 1. 作為獨立 Bot
+
+```python
+from telegram_bot.bot import DataScoutBot
+
+bot = DataScoutBot(config={
+    "token": "your_token",
+    "proxy_url": "http://proxy.example.com:8080"
+})
+await bot.start()
+```
+
+### 2. 作為服務組件
+
+```python
+from autoflow.services.telegram import TelegramService
+
+service = TelegramService(config={
+    "token": "your_token",
+    "proxy_url": "http://proxy.example.com:8080"
+})
+await service.start()
+```
+
+### 3. 作為流程組件
+
+```python
+from autoflow.flows.telegram_flow import TelegramFlow
+
+flow = TelegramFlow(config={
+    "token": "your_token",
+    "proxy_url": "http://proxy.example.com:8080"
+})
+await flow.start()
+```
 
 ## 配置選項
 
@@ -84,21 +165,38 @@ DataScout Telegram Bot 是 DataScout 爬蟲框架的 Telegram 機器人介面，
 - `REQUIRE_AUTH`：是否啟用授權檢查
 - `GEMINI_API_KEY`：Google Gemini API 金鑰，用於圖像分析功能
 
-## 架構設計
+### 進階配置
 
-DataScout Telegram Bot 採用模組化設計，主要包含以下元件：
+```python
+config = {
+    "token": "your_token",
+    "proxy_url": "http://proxy.example.com:8080",  # 代理設置
+    "connect_timeout": 30,  # 連接超時
+    "read_timeout": 30,     # 讀取超時
+    "write_timeout": 30     # 寫入超時
+}
+```
 
-- **Bot 核心**：處理 Telegram API 互動
-- **指令處理器**：負責解析和處理用戶指令
-- **任務管理器**：管理爬蟲任務的狀態和執行
-- **中介軟體**：處理身份驗證和請求限制
-- **格式化工具**：格式化輸出結果和狀態訊息
+## 錯誤處理
+
+所有層級都實現了統一的錯誤處理機制：
+
+1. 基礎層錯誤：
+   - `BotError`：基礎錯誤類
+   - `BotInitializationError`：初始化錯誤
+   - `BotConfigError`：配置錯誤
+   - `BotRuntimeError`：運行時錯誤
+
+2. 業務層錯誤：
+   - `HandlerError`：處理器錯誤
+   - `MiddlewareError`：中間件錯誤
 
 ## 注意事項
 
 - 爬蟲活動應遵守目標網站的使用條款和相關法規
 - 避免頻繁請求以防止被封鎖
 - 妥善保管 Bot Token 和授權資訊，避免未授權訪問
+- 確保正確配置錯誤處理和日誌記錄
 
 ## 授權條款
 

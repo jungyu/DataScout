@@ -28,14 +28,66 @@ class ApexChartsManager {
    * 設置側邊欄行為
    * - 添加響應式布局支持
    * - 處理側邊欄與圖表類型選擇
+   * - 處理側邊欄折疊/展開功能
    */
   setupSidebarBehavior() {
     // 當用戶選擇一個圖表類型時的處理邏輯
     document.querySelectorAll('.chart-type-item').forEach(item => {
-      item.addEventListener('click', () => {
-        // 選擇圖表時的邏輯在 selectChartType 方法中實現
+      item.addEventListener('click', (event) => {
+        // 更新所有菜單項的狀態
+        document.querySelectorAll('.chart-type-item').forEach(i => {
+          i.classList.remove('active');
+        });
+        
+        // 設置當前項目為活動狀態
+        item.classList.add('active');
+        
+        // 獲取被點擊的圖表類型
+        const chartType = item.getAttribute('data-type');
+        // 調用選擇圖表類型方法
+        this.selectChartType(chartType);
+        
+        // 找到此項目的父折疊區域
+        const parentSection = item.closest('[x-data]');
+        if (parentSection && parentSection.__x) {
+          // 設置 open 為 true（打開折疊）
+          parentSection.__x.$data.open = true;
+        }
+        
+        // 防止事件冒泡
+        event.stopPropagation();
       });
     });
+    
+    // 處理狀態同步：當 URL 中有 chartType 參數時，自動打開相應的折疊區域
+    this.syncSidebarState();
+  }
+  
+  /**
+   * 根據當前選擇的圖表類型同步側邊欄的狀態
+   */
+  syncSidebarState() {
+    // 從 URL 參數中獲取圖表類型
+    const urlParams = new URLSearchParams(window.location.search);
+    const chartType = urlParams.get('type') || this.currentType;
+    
+    // 找到對應的菜單項
+    const targetItem = document.querySelector(`.chart-type-item[data-type="${chartType}"]`);
+    if (targetItem) {
+      // 更新所有菜單項的狀態
+      document.querySelectorAll('.chart-type-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      
+      // 設置目標項為活動狀態
+      targetItem.classList.add('active');
+      
+      // 打開包含該項的折疊區域
+      const parentSection = targetItem.closest('[x-data]');
+      if (parentSection && parentSection.__x) {
+        parentSection.__x.$data.open = true;
+      }
+    }
   }
 
   /**
@@ -334,14 +386,222 @@ class ApexChartsManager {
    * 載入預設圖表
    */
   loadDefaultChart() {
-    // 預設載入蠟燭圖
-    const candlestickExample = this.examples.find(ex => ex.type === 'candlestick');
-    if (candlestickExample) {
-      this.loadChartExample(candlestickExample.id);
+    // 從 URL 參數中獲取圖表類型
+    const urlParams = new URLSearchParams(window.location.search);
+    const chartType = urlParams.get('type') || 'candlestick';
+    
+    // 更新頁面標題
+    document.title = `DataScout - ApexCharts ${this.getDisplayName(chartType)}`;
+    
+    // 顯示加載動畫
+    this.showChartLoadingAnimation();
+    
+    // 選擇圖表類型
+    this.selectChartType(chartType);
+    
+    // 查找對應類型的範例
+    const matchingExample = this.examples.find(ex => ex.type === chartType);
+    if (matchingExample) {
+      // 延遲加載以展示動畫效果
+      setTimeout(() => {
+        this.loadChartExample(matchingExample.id);
+      }, 300);
     } else {
-      // 如果沒有蠟燭圖範例，使用預設數據
-      this.renderDefaultCandlestickChart();
+      // 如果找不到對應的範例，使用預設數據
+      setTimeout(() => {
+        if (chartType === 'candlestick') {
+          this.renderDefaultCandlestickChart();
+        } else {
+          // 其他圖表類型可以使用對應的預設數據
+          this.renderDefaultChartByType(chartType);
+        }
+      }, 300);
     }
+  }
+  
+  /**
+   * 顯示圖表加載動畫
+   */
+  showChartLoadingAnimation() {
+    const chartContainer = document.getElementById('chart-container');
+    if (chartContainer) {
+      chartContainer.innerHTML = `
+        <div class="flex items-center justify-center h-full w-full">
+          <div class="text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mx-auto mb-3"></div>
+            <p class="text-gray-500">載入圖表中...</p>
+          </div>
+        </div>
+      `;
+    }
+  }
+  
+  /**
+   * 根據圖表類型渲染默認圖表
+   * @param {string} type 圖表類型
+   */
+  renderDefaultChartByType(type) {
+    // 根據不同的圖表類型提供默認數據
+    switch(type) {
+      case 'candlestick':
+        this.renderDefaultCandlestickChart();
+        break;
+      case 'line':
+        this.renderDefaultLineChart();
+        break;
+      case 'area':
+        this.renderDefaultAreaChart();
+        break;
+      case 'bar':
+        this.renderDefaultBarChart();
+        break;
+      default:
+        // 如果沒有特定的默認數據，使用簡單的線圖
+        this.renderDefaultLineChart();
+        break;
+    }
+  }
+  
+  /**
+   * 渲染默認折線圖
+   */
+  renderDefaultLineChart() {
+    const defaultOptions = {
+      series: [{
+        name: "數據系列 1",
+        data: [30, 40, 35, 50, 49, 60, 70, 91, 125]
+      }],
+      chart: {
+        type: 'line',
+        height: 380,
+        toolbar: {
+          show: true
+        },
+        zoom: {
+          enabled: true
+        }
+      },
+      dataLabels: {
+        enabled: false
+      },
+      stroke: {
+        curve: 'straight',
+        width: 3
+      },
+      grid: {
+        row: {
+          colors: ['#f3f3f3', 'transparent'],
+          opacity: 0.5
+        }
+      },
+      xaxis: {
+        categories: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月'],
+      },
+      tooltip: {
+        y: {
+          formatter: function(value) {
+            return value + " 單位";
+          }
+        }
+      }
+    };
+    
+    this.renderChart(defaultOptions);
+  }
+  
+  /**
+   * 渲染默認區域圖
+   */
+  renderDefaultAreaChart() {
+    const defaultOptions = {
+      series: [{
+        name: "數據系列 1",
+        data: [31, 40, 28, 51, 42, 109, 100]
+      }, {
+        name: "數據系列 2",
+        data: [11, 32, 45, 32, 34, 52, 41]
+      }],
+      chart: {
+        type: 'area',
+        height: 380,
+        toolbar: {
+          show: true
+        },
+      },
+      dataLabels: {
+        enabled: false
+      },
+      stroke: {
+        curve: 'smooth'
+      },
+      xaxis: {
+        type: 'datetime',
+        categories: [
+          "2024-05-01T00:00:00.000Z",
+          "2024-05-02T00:00:00.000Z",
+          "2024-05-03T00:00:00.000Z",
+          "2024-05-04T00:00:00.000Z",
+          "2024-05-05T00:00:00.000Z",
+          "2024-05-06T00:00:00.000Z",
+          "2024-05-07T00:00:00.000Z"
+        ],
+      },
+      tooltip: {
+        x: {
+          format: 'dd/MM/yy'
+        },
+      },
+      colors: ['#3b82f6', '#10b981']
+    };
+    
+    this.renderChart(defaultOptions);
+  }
+  
+  /**
+   * 渲染默認柱狀圖
+   */
+  renderDefaultBarChart() {
+    const defaultOptions = {
+      series: [{
+        name: '基本',
+        data: [44, 55, 41, 67, 22, 43]
+      }, {
+        name: '進階',
+        data: [13, 23, 20, 8, 13, 27]
+      }, {
+        name: '專業',
+        data: [11, 17, 15, 15, 21, 14]
+      }],
+      chart: {
+        type: 'bar',
+        height: 380,
+        toolbar: {
+          show: true
+        },
+        stacked: true,
+      },
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          columnWidth: '55%',
+        },
+      },
+      dataLabels: {
+        enabled: false
+      },
+      xaxis: {
+        categories: ['2月', '3月', '4月', '5月', '6月', '7月'],
+      },
+      colors: ['#3b82f6', '#10b981', '#f97316'],
+      fill: {
+        opacity: 1
+      },
+      legend: {
+        position: 'top'
+      }
+    };
+    
+    this.renderChart(defaultOptions);
   }
 
   /**

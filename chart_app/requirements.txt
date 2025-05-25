@@ -1,6 +1,6 @@
 aiofiles==23.2.1
 aiohappyeyeballs==2.6.1
-aiohttp==3.11.16
+aiohttp==3.9.3
 aiosignal==1.3.2
 annotated-types==0.7.0
 anyio==4.9.0
@@ -52,7 +52,7 @@ h11==0.14.0
 httpcore==1.0.8
 httplib2==0.22.0
 httptools==0.6.4
-httpx==0.28.1
+httpx>=0.27.0
 httpx-sse==0.4.0
 hyperlink==21.0.0
 idna==3.10
@@ -85,7 +85,7 @@ loguru==0.7.2
 lxml==4.9.3
 markdown-it-py==3.0.0
 MarkupSafe==3.0.2
-matplotlib>=3.4.0,<4.0.0
+matplotlib==3.8.2
 mcp==1.6.0
 mcp-python==0.1.4
 mdurl==0.1.2
@@ -95,7 +95,7 @@ multitasking==0.0.11
 noisereduce==3.0.3
 notion-client==2.2.1
 numba==0.61.2
-numpy>=1.20.0,<2.0.0
+numpy==1.26.3
 openai==1.76.0
 opencv-python==4.11.0.86
 openpyxl>=3.0.0,<4.0.0
@@ -103,7 +103,7 @@ orjson==3.10.16
 ormsgpack==1.9.1
 outcome==1.3.0.post0
 packaging==24.2
-pandas>=1.3.0,<2.0.0
+pandas==2.2.0
 pandas-datareader==0.10.0
 parsel==1.10.0
 peewee==3.18.1
@@ -199,3 +199,7 @@ yfinance==0.2.58
 zipp==3.21.0
 zope.interface==7.2
 zstandard==0.23.0
+seaborn==0.13.2
+plotly==5.18.0
+dash==2.14.2
+dash-bootstrap-components==1.5.0

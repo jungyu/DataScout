@@ -1,106 +1,118 @@
-# DataScout LINE Bot
+# Line Bot 模組
 
-DataScout LINE Bot 是 DataScout 爬蟲框架的 LINE 機器人介面，允許使用者通過 LINE 平台便捷地操控爬蟲任務、追蹤狀態並獲取結果。
+## 專案概述
 
-## 功能特色
+Line Bot 模組提供了與 Line 平台整合的機器人服務，支援多種消息類型和互動功能。本模組基於 Line Bot SDK 和 Flask 框架，提供穩定可靠的機器人服務。
 
-- 🔄 **爬蟲控制**：啟動、排程和取消爬蟲任務
-- 📊 **狀態監控**：實時追蹤任務狀態與進度
-- 📋 **結果處理**：查看和匯出不同格式的爬蟲結果
-- 📸 **圖像分析**：使用 Google Gemini AI 分析上傳的圖片內容
-- 🔍 **文字提取**：從圖片中識別與提取文字內容
-- 👥 **多用戶支援**：支援多用戶訪問，具有身份驗證機制
-- 🔒 **權限控制**：區分普通用戶和管理員權限
-- ⏱️ **頻率限制**：防止濫用的請求頻率控制
+## 環境設置
 
-## 可用指令
+### 1. 創建虛擬環境
 
-### 基本指令
-- 「開始」 - 開始使用機器人
-- 「說明」 - 顯示幫助訊息
+```bash
+# 進入 line_bot 目錄
+cd line_bot
 
-### 爬蟲操作
-- 「爬蟲 [URL] [選項]」 - 啟動爬蟲任務
-- 「排程 [URL] [選項] [時間]」 - 排程爬蟲任務
-- 「取消 [任務ID]」 - 取消爬蟲任務
+# 創建虛擬環境
+python -m venv venv
 
-### 狀態查詢
-- 「狀態 [任務ID]」 - 查詢特定任務狀態
-- 「列表」 - 列出所有進行中的任務
-- 「歷史」 - 顯示歷史任務
+# 啟動虛擬環境
+# Windows
+venv\Scripts\activate
+# macOS/Linux
+source venv/bin/activate
+```
 
-### 結果處理
-- 「結果 [任務ID]」 - 獲取任務結果
-- 「匯出 [任務ID] [格式]」 - 匯出特定格式的結果
+### 2. 安裝依賴
 
-### 圖像處理
-- 「圖片」 - 顯示圖像分析功能說明
-- 直接發送圖片 - 自動分析圖片內容並提供互動按鈕
-- 發送圖片時添加說明 - 使用自定義提示詞引導分析
+```bash
+# 安裝依賴套件
+pip install -r requirements.txt
+```
 
-### 管理員指令
-- 「系統」 - 查看系統狀態
-- 「所有任務」 - 列出所有任務
-- 「終止 [任務ID]」 - 強制終止任務
+### 3. 環境變數設置
 
-## 安裝與設定
+在專案根目錄創建 `.env` 文件，添加以下配置：
 
-### 環境需求
+```env
+# Line Bot 配置
+LINE_CHANNEL_ACCESS_TOKEN=your_channel_access_token
+LINE_CHANNEL_SECRET=your_channel_secret
 
-- Python 3.8+
-- DataScout 爬蟲框架
-- LINE Channel Access Token 和 Channel Secret
+# Web 服務配置
+WEBHOOK_URL=your_webhook_url
+PORT=5000
 
-### 安裝步驟
+# Supabase 配置
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_key
+```
 
-1. 安裝所需依賴：
-   ```bash
-   pip install -r line_bot/requirements.txt
-   ```
+## 目錄結構
 
-2. 配置環境變數：
-   - 複製 `line_bot.env.example` 為 `.env`
-   - 編輯 `.env` 文件，填入 LINE Channel Access Token、Channel Secret 和其他配置
+```
+line_bot/
+├── core/           # 核心組件
+├── handlers/       # 消息處理器
+├── services/       # 業務邏輯
+├── templates/      # 消息模板
+└── utils/          # 工具函數
+```
 
-3. 啟動機器人：
-   ```bash
-   python line_bot/bot.py
-   ```
+## 使用方式
 
-## 基本用法
+### 開發環境
 
-1. 開始使用機器人：在 LINE 中輸入「開始」
-2. 啟動爬蟲任務：「爬蟲 https://example.com headless=true」
-3. 查看任務狀態：「狀態 [任務ID]」
-4. 獲取爬蟲結果：「結果 [任務ID]」
+```bash
+# 啟動開發服務器
+python app.py
+```
 
-## 配置選項
+### 生產環境
 
-在 `.env` 文件中可以配置以下選項：
+```bash
+# 使用 gunicorn 啟動
+gunicorn app:app -b 0.0.0.0:5000
+```
 
-- `LINE_CHANNEL_ACCESS_TOKEN`：LINE Channel Access Token
-- `LINE_CHANNEL_SECRET`：LINE Channel Secret
-- `ADMIN_USER_IDS`：管理員用戶 ID 列表
-- `AUTHORIZED_USERS`：授權用戶 ID 列表
-- `REQUIRE_AUTH`：是否啟用授權檢查
-- `GEMINI_API_KEY`：Google Gemini API 金鑰，用於圖像分析功能
+## 主要功能
 
-## 架構設計
+1. 消息處理
+   - 文字消息
+   - 圖片消息
+   - 貼圖消息
+   - 位置消息
+   - 檔案消息
 
-DataScout LINE Bot 採用模組化設計，主要包含以下元件：
+2. 互動功能
+   - 按鈕選單
+   - 輪播訊息
+   - 快速回覆
+   - 彈性訊息
 
-- **Bot 核心**：處理 LINE API 互動
-- **指令處理器**：負責解析和處理用戶指令
-- **任務管理器**：管理爬蟲任務的狀態和執行
-- **中介軟體**：處理身份驗證和請求限制
-- **格式化工具**：格式化輸出結果和狀態訊息
+3. 用戶管理
+   - 用戶資訊獲取
+   - 群組管理
+   - 好友管理
+
+4. 數據存儲
+   - 用戶對話記錄
+   - 使用統計
+   - 設定管理
 
 ## 注意事項
 
-- 爬蟲活動應遵守目標網站的使用條款和相關法規
-- 避免頻繁請求以防止被封鎖
-- 妥善保管 Channel Access Token 和 Channel Secret，避免未授權訪問
+1. 確保在執行前已啟動虛擬環境
+2. 檢查環境變數是否正確設置
+3. 確保所有依賴都已正確安裝
+4. 注意 Line 平台的限制和規範
 
-## 授權條款
+## 依賴套件說明
 
-參見 DataScout 專案的授權條款 
+- `line-bot-sdk`: Line Bot SDK
+- `flask`: Web 框架
+- `gunicorn`: WSGI 服務器
+- `python-dotenv`: 環境變數管理
+- `supabase`: Supabase 資料庫客戶端
+- `pandas`: 數據處理
+- `aiohttp`: 非同步 HTTP 客戶端
+- `httpx`: 現代 HTTP 客戶端 

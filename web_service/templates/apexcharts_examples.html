@@ -14,60 +14,102 @@
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <!-- 自訂樣式 -->
   <style>
-    /* 側邊欄樣式 */
+    /* 基本布局 */
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* 側邊欄基本樣式 */
     .sidebar {
-      background-color: #1f2937;
+      background-color: #111827;
       color: #f3f4f6;
-    }
-    .sidebar-header {
-      border-bottom: 1px solid #374151;
-      padding: 1rem;
-    }
-    .menu-title {
-      color: #9ca3af;
-      font-size: 0.875rem;
-      padding: 0.5rem 1rem;
-      margin-top: 1rem;
-    }
-    .menu-item {
-      padding: 0.5rem 1rem;
-      border-radius: 0.25rem;
-      margin-bottom: 0.25rem;
-      cursor: pointer;
-    }
-    .menu-item:hover {
-      background-color: #374151;
-    }
-    .menu-item.active {
-      background-color: #3b82f6;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      height: calc(100vh - 64px); /* 減去頂部導航欄高度 */
+      display: flex;
+      flex-direction: column;
     }
     
-    /* 圖表標題樣式 */
-    .chart-title {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
+    .sidebar-header {
+      border-bottom: 1px solid #1f2937;
+      padding: 1.25rem 1.5rem;
+      background-color: #111827;
     }
     
     /* 側邊欄類別樣式 */
     .menu-title {
       font-weight: 500;
-      border-left: 3px solid #3b82f6;
-      padding-left: 0.75rem;
-      min-height: auto;
-      color: #f3f4f6;
+      font-size: 0.85rem;
+      padding: 0.75rem 1.25rem;
+      color: #e5e7eb;
       transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      border-left: 3px solid transparent;
     }
     
     .menu-title:hover {
-      background-color: #2d3748;
+      background-color: #1f2937;
+      border-left-color: #3b82f6;
+      color: #ffffff;
+    }
+    
+    .menu-title.active {
+      background-color: #1f2937;
+      border-left-color: #3b82f6;
+      color: #ffffff;
+    }
+    
+    /* 選單項目樣式 */
+    .menu-item {
+      padding: 0.6rem 0.75rem 0.6rem 2.5rem;
+      font-size: 0.875rem;
+      transition: all 0.2s ease;
+      color: #d1d5db;
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.1rem;
+      border-radius: 0;
+      position: relative;
+    }
+    
+    .menu-item:hover {
+      background-color: #1f2937;
+      color: #ffffff;
+    }
+    
+    .menu-item.active {
+      background-color: rgba(59, 130, 246, 0.1);
+      color: #3b82f6;
+      font-weight: 500;
+    }
+    
+    .menu-item.active::before {
+      content: '';
+      position: absolute;
+      left: 1.25rem;
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      background-color: #3b82f6;
+    }
+    
+    /* 側邊欄區塊樣式 */
+    .sidebar-block {
+      margin-bottom: 0.75rem;
+      border-radius: 0.375rem;
+      transition: all 0.2s ease;
+      overflow: hidden;
     }
     
     /* 折疊內容樣式調整 */
     [x-show] {
-      background-color: #1f2937;
-      border-top: 1px solid #374151;
-      padding-top: 0.5rem !important;
+      background-color: #111827;
+      border-top: none;
+      padding: 0 !important;
     }
     
     /* Alpine.js 過渡效果 */
@@ -96,16 +138,32 @@
       transform: translateX(var(--tw-translate-x)) translateY(var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
     }
     
-    .menu-item {
-      padding-left: 1.5rem;
-      font-size: 0.9rem;
+    /* 摺疊指示器樣式 */
+    .menu-arrow {
+      font-size: 0.75rem;
+      transition: transform 0.2s ease;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.1);
     }
     
-    /* 選項選中狀態調整 */
-    .menu-item.active {
-      background-color: #3b82f6;
-      color: white;
-      font-weight: 500;
+    .menu-arrow.open {
+      transform: rotate(90deg);
+      background-color: rgba(59, 130, 246, 0.2);
+    }
+    
+    /* 布局修復 */
+    .flex-1 {
+      flex: 1 1 0%;
+    }
+    
+    main {
+      flex-grow: 1;
+      overflow-y: auto;
     }
     
     /* 資料卡片樣式 */
@@ -116,50 +174,226 @@
       margin-bottom: 1rem;
       background-color: white;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
     }
+    
+    .data-card:hover {
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+    
     .data-card-title {
       font-weight: 600;
       margin-bottom: 0.5rem;
+      color: #111827;
+    }
+    
+    /* 圖表標題樣式 */
+    .chart-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: #111827;
+    }
+    
+    /* 滾動條樣式優化 */
+    .sidebar-menu::-webkit-scrollbar {
+      width: 4px;
+    }
+    
+    .sidebar-menu::-webkit-scrollbar-track {
+      background: #1f2937;
+    }
+    
+    .sidebar-menu::-webkit-scrollbar-thumb {
+      background: #4b5563;
+      border-radius: 10px;
+    }
+    
+    .sidebar-menu::-webkit-scrollbar-thumb:hover {
+      background: #6b7280;
+    }
+    
+    /* 布局修復 - 重要樣式 */
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      height: 100%;
+    }
+    
+    /* 確保主容器佔滿所有可用空間 */
+    .flex {
+      display: flex;
+    }
+    
+    .flex-col {
+      flex-direction: column;
+    }
+    
+    .min-h-screen {
+      min-height: 100vh;
+    }
+    
+    /* 主布局結構 */
+    body > div {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    
+    /* 主內容區域 */
+    .flex-1 {
+      flex: 1 1 0%;
+    }
+    
+    .overflow-hidden {
+      overflow: hidden;
+    }
+    
+    /* 可滾動區域 */
+    .overflow-auto {
+      overflow: auto;
+    }
+    
+    /* 適應頂部導航欄的內容區域 */
+    .flex-1 > main {
+      height: calc(100vh - 64px);
+    }
+    
+    /* 確保頁腳在底部 */
+    .mt-auto {
+      margin-top: auto !important;
+    }
+    
+    /* 頁腳適當間距 */
+    footer {
+      padding-top: 1rem;
+      padding-bottom: 1rem;
+    }
+    
+    /* 主內容區域與頁腳間距 */
+    .main-content-area {
+      min-height: calc(100vh - 15rem); /* 調整更合適的高度計算 */
+      padding-bottom: 3rem;
+      margin-bottom: 2rem;
+    }
+    
+    /* 確保在小螢幕上也有適當的間距 */
+    @media (max-width: 768px) {
+      .main-content-area {
+        min-height: calc(100vh - 20rem);
+        padding-bottom: 2rem;
+      }
     }
   </style>
 </head>
-<body class="bg-base-100 min-h-screen">
-  <!-- 主要容器 -->
-  <div x-data="{ sidebarOpen: true }" class="flex h-screen">
-    <!-- 移動設備側邊欄切換按鈕 -->
-    <div class="lg:hidden fixed bottom-4 right-4 z-30">
-      <button @click="sidebarOpen = !sidebarOpen" class="btn btn-circle btn-primary">
-        <span x-text="sidebarOpen ? '✕' : '☰'" class="text-lg"></span>
-      </button>
-    </div>
-    
-    <!-- 側邊欄 -->
-    <aside :class="{'hidden': !sidebarOpen, 'w-64 flex-shrink-0': true, 'fixed z-20 h-full lg:static': true}" class="sidebar">
-      <!-- Logo -->
-      <div class="sidebar-header">
-        <h1 class="text-xl font-bold">DataScout</h1>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+  <div x-data="{ sidebarOpen: true }" class="flex flex-col min-h-screen">
+    <!-- 頂部導覽列 -->
+    <header class="bg-white border-b border-gray-200 shadow-sm flex items-center justify-between p-4 sticky top-0 z-10">
+      <div class="flex items-center space-x-4">
+        <!-- 側邊欄開關按鈕 -->
+        <button @click="sidebarOpen = !sidebarOpen" class="btn btn-sm btn-ghost lg:flex hidden" data-toggle="sidebar">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+          </svg>
+        </button>
+        
+        <div class="flex items-center">
+          <h1 class="text-xl font-bold flex items-center mr-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-blue-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
+              <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
+            </svg>
+            DataScout
+          </h1>
+          
+          <div class="tabs tabs-boxed bg-gray-100">
+            <a class="tab tab-active bg-blue-500 text-white">ApexCharts圖表</a>
+            <a class="tab">API</a>
+            <a class="tab">技術文件</a>
+          </div>
+        </div>
       </div>
       
+      <div class="flex items-center">
+        <div class="flex gap-2 mr-4">
+          <button class="btn btn-circle btn-ghost">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
+          <button class="btn btn-circle btn-ghost">
+            <div class="indicator">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <span class="badge badge-xs badge-primary indicator-item"></span>
+            </div>
+          </button>
+        </div>
+        <div class="avatar placeholder">
+          <div class="bg-primary text-primary-content rounded-full w-10">
+            <span>CM</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 主要內容布局 -->
+    <div class="flex flex-1 overflow-hidden">
+      <!-- 移動設備側邊欄切換按鈕 -->
+      <div class="lg:hidden fixed bottom-4 right-4 z-30">
+        <button @click="sidebarOpen = !sidebarOpen" class="btn btn-circle btn-primary shadow-lg">
+          <span x-text="sidebarOpen ? '✕' : '☰'" class="text-lg"></span>
+        </button>
+      </div>
+      
+      <!-- 側邊欄 -->
+      <aside :class="{'hidden': !sidebarOpen, 'w-64 flex-shrink-0': true, 'fixed lg:static z-20 h-[calc(100vh-64px)]': true}" class="sidebar overflow-hidden">
+        <!-- 側邊欄頭部 -->
+        <div class="sidebar-header">
+          <h2 class="text-lg font-bold flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
+              <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
+            </svg>
+            圖表選單
+          </h2>
+        </div>
+      
       <!-- 側邊選單 -->
-      <nav class="p-4 overflow-y-auto h-[calc(100vh-64px)]">
-        <div class="form-control mb-4">
+      <nav class="p-3 overflow-y-auto h-[calc(100vh-64px)] sidebar-menu">
+        <div class="form-control mb-4 px-3 py-2">
           <label class="cursor-pointer label justify-start gap-2">
             <input type="checkbox" checked class="toggle toggle-primary toggle-sm" />
-            <span class="label-text text-neutral-content">範例資料</span>
+            <span class="label-text text-gray-300">使用範例資料</span>
           </label>
         </div>
         
         <!-- 基本圖表類型 -->
-        <div x-data="{ open: true }" class="mb-2 bg-base-300 rounded-md">
-          <div @click="open = !open" class="menu-title py-2 px-4 flex justify-between items-center cursor-pointer">
-            <span>基本圖表類型</span>
-            <span x-text="open ? '▼' : '►'" class="text-xs"></span>
+        <div x-data="{ open: true }" class="sidebar-block">
+          <div @click="open = !open" 
+               :class="{'active': open}" 
+               class="menu-title">
+            <div class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <span>基本圖表類型</span>
+            </div>
+            <div :class="{'open': open}" class="menu-arrow">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
           </div>
           <div x-show="open" 
                x-transition:enter="transition ease-out duration-200" 
                x-transition:enter-start="opacity-0 transform -translate-y-2" 
                x-transition:enter-end="opacity-100 transform translate-y-0"
-               class="px-0 py-0">
+               class="py-1">
             <ul class="menu menu-compact">
               <li><div class="menu-item chart-type-item" data-type="line">折線圖 (Line Chart)</div></li>
               <li><div class="menu-item chart-type-item" data-type="area">區域圖 (Area Chart)</div></li>
@@ -176,16 +410,27 @@
         </div>
         
         <!-- 進階圖表類型 -->
-        <div x-data="{ open: true }" class="mb-2 bg-base-300 rounded-md">
-          <div @click="open = !open" class="menu-title py-2 px-4 flex justify-between items-center cursor-pointer">
-            <span>進階圖表類型</span>
-            <span x-text="open ? '▼' : '►'" class="text-xs"></span>
+        <div x-data="{ open: true }" class="sidebar-block">
+          <div @click="open = !open"
+               :class="{'active': open}" 
+               class="menu-title">
+            <div class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              <span>進階圖表類型</span>
+            </div>
+            <div :class="{'open': open}" class="menu-arrow">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
           </div>
           <div x-show="open" 
                x-transition:enter="transition ease-out duration-200" 
                x-transition:enter-start="opacity-0 transform -translate-y-2" 
                x-transition:enter-end="opacity-100 transform translate-y-0"
-               class="px-0 py-0">
+               class="py-1">
             <ul class="menu menu-compact">
               <li><div class="menu-item active chart-type-item" data-type="candlestick">蠟燭圖 (Candlestick)</div></li>
               <li><div class="menu-item chart-type-item" data-type="boxPlot">箱形圖 (Box Plot)</div></li>
@@ -200,16 +445,27 @@
         </div>
         
         <!-- 時間序列與監控圖表 -->
-        <div x-data="{ open: false }" class="mb-2 bg-base-300 rounded-md">
-          <div @click="open = !open" class="menu-title py-2 px-4 flex justify-between items-center cursor-pointer">
-            <span>時間序列與監控圖表</span>
-            <span x-text="open ? '▼' : '►'" class="text-xs"></span>
+        <div x-data="{ open: false }" class="sidebar-block">
+          <div @click="open = !open" 
+               :class="{'active': open}" 
+               class="menu-title">
+            <div class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>時間序列與監控圖表</span>
+            </div>
+            <div :class="{'open': open}" class="menu-arrow">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
           </div>
           <div x-show="open" 
                x-transition:enter="transition ease-out duration-200" 
                x-transition:enter-start="opacity-0 transform -translate-y-2" 
                x-transition:enter-end="opacity-100 transform translate-y-0"
-               class="px-0 py-0">
+               class="py-1">
             <ul class="menu menu-compact">
               <li><div class="menu-item chart-type-item" data-type="timeSeries">時間序列線圖</div></li>
               <li><div class="menu-item chart-type-item" data-type="timeSeriesArea">時間序列區域圖</div></li>
@@ -221,16 +477,27 @@
         </div>
         
         <!-- 比較與分析圖表 -->
-        <div x-data="{ open: false }" class="mb-2 bg-base-300 rounded-md">
-          <div @click="open = !open" class="menu-title py-2 px-4 flex justify-between items-center cursor-pointer">
-            <span>比較與分析圖表</span>
-            <span x-text="open ? '▼' : '►'" class="text-xs"></span>
+        <div x-data="{ open: false }" class="sidebar-block">
+          <div @click="open = !open" 
+               :class="{'active': open}" 
+               class="menu-title">
+            <div class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <span>比較與分析圖表</span>
+            </div>
+            <div :class="{'open': open}" class="menu-arrow">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
           </div>
           <div x-show="open" 
                x-transition:enter="transition ease-out duration-200" 
                x-transition:enter-start="opacity-0 transform -translate-y-2" 
                x-transition:enter-end="opacity-100 transform translate-y-0"
-               class="px-0 py-0">
+               class="py-1">
             <ul class="menu menu-compact">
               <li><div class="menu-item chart-type-item" data-type="groupedBar">分組柱狀圖</div></li>
               <li><div class="menu-item chart-type-item" data-type="stackedBar">堆疊柱狀圖</div></li>
@@ -245,16 +512,27 @@
         </div>
         
         <!-- 動態更新圖表 -->
-        <div x-data="{ open: false }" class="mb-2 bg-base-300 rounded-md">
-          <div @click="open = !open" class="menu-title py-2 px-4 flex justify-between items-center cursor-pointer">
-            <span>動態更新圖表</span>
-            <span x-text="open ? '▼' : '►'" class="text-xs"></span>
+        <div x-data="{ open: false }" class="sidebar-block">
+          <div @click="open = !open" 
+               :class="{'active': open}" 
+               class="menu-title">
+            <div class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>動態更新圖表</span>
+            </div>
+            <div :class="{'open': open}" class="menu-arrow">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
           </div>
           <div x-show="open" 
                x-transition:enter="transition ease-out duration-200" 
                x-transition:enter-start="opacity-0 transform -translate-y-2" 
                x-transition:enter-end="opacity-100 transform translate-y-0"
-               class="px-0 py-0">
+               class="py-1">
             <ul class="menu menu-compact">
               <li><div class="menu-item chart-type-item" data-type="realtimeLine">實時折線圖</div></li>
               <li><div class="menu-item chart-type-item" data-type="realtimeDashboard">實時儀表板</div></li>
@@ -267,72 +545,64 @@
     </aside>
     
     <!-- 主要內容區 -->
-    <div :class="{'lg:ml-0': !sidebarOpen, 'flex-1': true}" class="flex flex-col">
-      <!-- 頂部導覽列 -->
-      <header class="bg-base-100 border-b border-base-300 flex items-center justify-between p-4">
-        <div class="flex items-center space-x-4">
-          <div class="tabs tabs-boxed">
-            <a class="tab tab-active">ApexCharts圖表</a>
-            <a class="tab">API</a>
-            <a class="tab">技術文件</a>
-          </div>
-        </div>
-        
-        <div class="flex items-center">
-          <div class="flex gap-2 mr-4">
-            <button class="btn btn-circle btn-ghost">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
-            <button class="btn btn-circle btn-ghost">
-              <div class="indicator">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                <span class="badge badge-xs badge-primary indicator-item"></span>
-              </div>
-            </button>
-          </div>
-          <div class="avatar placeholder">
-            <div class="bg-primary text-primary-content rounded-full w-10">
-              <span>CM</span>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div :class="{'lg:ml-0': !sidebarOpen, 'flex-1': true}" class="flex flex-col overflow-hidden">
       
       <!-- 內容區域 -->
-      <main class="flex-1 p-6 overflow-auto bg-base-200">
-        <!-- 標題區 -->
-        <div class="bg-base-100 p-4 mb-4 rounded-md">
-          <h2 class="text-xl font-bold">ApexCharts 蠟燭圖範例</h2>
+      <main class="flex-1 p-6 overflow-auto bg-gray-50">
+        <div class="main-content-area mb-8">
+          <!-- 標題區 -->
+        <div class="bg-white p-5 mb-6 rounded-lg shadow-sm flex justify-between items-center">
+          <h2 class="text-xl font-bold text-gray-800 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 13v-1m4 1v-3m4 3V8M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+            </svg>
+            ApexCharts 蠟燭圖範例
+          </h2>
+          <div class="flex gap-2">
+            <button class="btn btn-sm btn-outline btn-primary">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              匯出
+            </button>
+            <button class="btn btn-sm btn-outline">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              分享
+            </button>
+          </div>
         </div>
         
         <!-- 主要內容 -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- 範例資料列表 -->
           <div class="col-span-1">
-            <div class="bg-base-100 p-4 rounded-md">
-              <h3 class="text-lg font-medium mb-4">範例資料</h3>
+            <div class="bg-white p-5 rounded-lg shadow-sm">
+              <h3 class="text-lg font-semibold mb-4 text-gray-800 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                範例資料
+              </h3>
               
               <div id="examples-list" class="space-y-4">
                 <!-- 蠟燭圖範例卡片 -->
                 <div class="data-card">
                   <h4 class="data-card-title">AAPL 股票資料</h4>
-                  <p class="text-sm mb-2">蘋果公司日線 OHLC 資料</p>
+                  <p class="text-sm mb-3 text-gray-600">蘋果公司日線 OHLC 資料</p>
                   <button class="btn btn-sm btn-primary load-example" data-id="apexcharts_candlestick_stock">載入資料</button>
                 </div>
                 
                 <div class="data-card">
                   <h4 class="data-card-title">TSMC 股票資料</h4>
-                  <p class="text-sm mb-2">台積電日線 OHLC 資料</p>
+                  <p class="text-sm mb-3 text-gray-600">台積電日線 OHLC 資料</p>
                   <button class="btn btn-sm btn-primary load-example" data-id="apexcharts_candlestick_stock">載入資料</button>
                 </div>
                 
                 <div class="data-card">
                   <h4 class="data-card-title">BTC/USD 資料</h4>
-                  <p class="text-sm mb-2">比特幣美元小時線資料</p>
+                  <p class="text-sm mb-3 text-gray-600">比特幣美元小時線資料</p>
                   <button class="btn btn-sm btn-primary load-example" data-id="apexcharts_candlestick_stock">載入資料</button>
                 </div>
               </div>
@@ -341,14 +611,14 @@
           
           <!-- 圖表區域 -->
           <div class="col-span-1 lg:col-span-2">
-            <div class="bg-base-100 p-4 rounded-md">
-              <div class="flex justify-between items-center mb-4">
-                <h3 id="chart-type-title" class="text-lg font-medium">蠟燭圖 (Candlestick Chart)</h3>
+            <div class="bg-white p-5 rounded-lg shadow-sm">
+              <div class="flex justify-between items-center mb-5">
+                <h3 id="chart-type-title" class="text-lg font-semibold text-gray-800">蠟燭圖 (Candlestick Chart)</h3>
                 
                 <div class="btn-group">
-                  <button class="btn btn-xs">壓縮</button>
+                  <button class="btn btn-xs btn-outline">壓縮</button>
                   <button class="btn btn-xs btn-active">正常</button>
-                  <button class="btn btn-xs">展開</button>
+                  <button class="btn btn-xs btn-outline">展開</button>
                 </div>
               </div>
               
@@ -356,59 +626,53 @@
               <div class="bg-white p-4 rounded-lg border">
                 <div id="chart-container" class="h-96 w-full"></div>
                 
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mt-4">
-                  <div class="flex flex-wrap gap-x-4 gap-y-2">
-                    <span class="flex items-center gap-1">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mt-6 pt-4 border-t">
+                  <div class="flex flex-wrap gap-x-5 gap-y-2">
+                    <span class="flex items-center gap-2 text-sm text-gray-600">
                       <span class="inline-block w-3 h-3 rounded-full bg-blue-500"></span> 趨勢線
                     </span>
-                    <span class="flex items-center gap-1">
+                    <span class="flex items-center gap-2 text-sm text-gray-600">
                       <span class="inline-block w-3 h-3 rounded-full bg-green-500"></span> 上漲蠟燭
                     </span>
-                    <span class="flex items-center gap-1">
+                    <span class="flex items-center gap-2 text-sm text-gray-600">
                       <span class="inline-block w-3 h-3 rounded-full bg-red-500"></span> 下跌蠟燭
                     </span>
                   </div>
                   
                   <div class="flex gap-2">
-                    <button class="btn btn-sm" id="exportPNG">匯出 PNG</button>
-                    <button class="btn btn-sm" id="exportSVG">匯出 SVG</button>
+                    <button class="btn btn-sm btn-outline" id="exportPNG">匯出 PNG</button>
+                    <button class="btn btn-sm btn-outline" id="exportSVG">匯出 SVG</button>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </main>
+        
+              </main>
     </div>
+    </div>
+    
+    <!-- 頁腳區域 -->
+    <footer class="bg-white border-t border-gray-200 mt-auto">
+      <div class="container mx-auto py-6 px-4">
+        <div class="flex flex-col md:flex-row justify-between items-center">
+          <div class="text-sm text-gray-500 mb-4 md:mb-0">
+            © 2025 DataScout. 版權所有。
+          </div>
+          <div class="flex items-center space-x-4">
+            <a href="#" class="text-sm text-gray-600 hover:text-blue-500">隱私政策</a>
+            <a href="#" class="text-sm text-gray-600 hover:text-blue-500">使用條款</a>
+            <a href="#" class="text-sm text-gray-600 hover:text-blue-500">技術支援</a>
+          </div>
+        </div>
+      </div>
+    </footer>
   </div>
   <!-- 載入 ApexCharts 管理模組 -->
   <script src="{{ url_for('static', path='/js/apexcharts-manager.js') }}"></script>
   
-  <!-- Alpine.js 互動腳本 -->
-  <script>
-    // 當圖表類型項目被點擊時，打開包含該項目的折疊區域
-    document.addEventListener('DOMContentLoaded', function() {
-      document.querySelectorAll('.chart-type-item').forEach(item => {
-        item.addEventListener('click', function() {
-          // 找到此項目的父折疊區域
-          const parentSection = this.closest('[x-data]');
-          if (parentSection && parentSection.__x) {
-            // 設置 open 為 true（打開折疊）
-            parentSection.__x.$data.open = true;
-          }
-          
-          // 在移動設備上點擊後自動收起側邊欄
-          const windowWidth = window.innerWidth;
-          if (windowWidth < 1024) { // lg 斷點通常為 1024px
-            // 尋找根容器並存取 Alpine.js 數據
-            const rootContainer = document.querySelector('[x-data*="sidebarOpen"]');
-            if (rootContainer && rootContainer.__x) {
-              rootContainer.__x.$data.sidebarOpen = false;
-            }
-          }
-        });
-      });
-    });
-  </script>
+  <!-- 載入側邊欄管理模組 -->
+  <script src="{{ url_for('static', path='/js/sidebar-manager.js') }}"></script>
 </body>
 </html>

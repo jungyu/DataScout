@@ -1,0 +1,23 @@
+{
+  "name": "datascout-dashboard",
+  "version": "1.0.0",
+  "description": "DataScout Dashboard with ApexCharts",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "dependencies": {
+    "alpinejs": "^3.13.0",
+    "apexcharts": "^3.42.0",
+    "daisyui": "^3.7.3"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.15",
+    "postcss": "^8.4.29",
+    "tailwindcss": "^3.3.3",
+    "vite": "^4.5.14"
+  }
+}

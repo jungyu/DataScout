@@ -119,6 +119,47 @@ class StorageConfig:
         return cls(**config_dict)
 
 @dataclass
+class LocalStorageConfig(StorageConfig):
+    """本地存儲配置類"""
+    
+    # 路徑配置
+    base_path: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "local")
+    
+    # 備份配置
+    enable_backup: bool = True
+    backup_path: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "backup")
+    backup_interval: int = 3600  # 備份間隔（秒）
+    max_backups: int = 10  # 最大備份數量
+    
+    # 文件配置
+    file_extension: str = '.json'  # 文件擴展名
+    encoding: str = 'utf-8'  # 文件編碼
+    create_dir: bool = True  # 是否自動創建目錄
+    
+    def __post_init__(self):
+        """初始化後的驗證"""
+        super().__post_init__()
+        self.validate_local_config()
+    
+    def validate_local_config(self) -> None:
+        """
+        驗證本地存儲特定配置
+        
+        Raises:
+            ConfigError: 配置參數無效
+        """
+        if not self.base_path:
+            raise ConfigError("本地存儲路徑不能為空")
+        if not self.file_extension:
+            raise ConfigError("文件擴展名不能為空")
+        if not self.encoding:
+            raise ConfigError("文件編碼不能為空")
+        if self.backup_interval < 0:
+            raise ConfigError("備份間隔不能為負數")
+        if self.max_backups < 0:
+            raise ConfigError("最大備份數量不能為負數")
+
+@dataclass
 class FileConfig(StorageConfig):
     """文件存儲配置類"""
     
@@ -311,6 +352,9 @@ class SupabaseConfig(StorageConfig):
     
     # 模式配置
     schema: str = 'public'  # 數據庫模式
+
+    # 日誌開關
+    enable_logging: bool = True
     
     def __post_init__(self):
         """初始化後的驗證"""
@@ -781,4 +825,52 @@ class RabbitMQConfig(StorageConfig):
             if not self.ssl_keyfile:
                 raise ConfigError("SSL key file is required when SSL is enabled")
             if self.ssl_cert_reqs not in ["CERT_NONE", "CERT_OPTIONAL", "CERT_REQUIRED"]:
-                raise ConfigError("SSL cert_reqs must be one of: CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED") 
+                raise ConfigError("SSL cert_reqs must be one of: CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED")
+
+@dataclass
+class NotionConfig(StorageConfig):
+    """Notion 配置類"""
+    
+    # Notion API 配置
+    api_key: str = ''  # Notion API Key
+    version: str = '2022-06-28'  # API 版本
+    
+    # 數據庫配置
+    database_id: str = ''  # 數據庫 ID
+    page_id: str = ''  # 頁面 ID
+    
+    # 緩存配置
+    cache_enabled: bool = True  # 是否啟用緩存
+    cache_ttl: int = 3600  # 緩存過期時間（秒）
+    cache_max_size: int = 1000  # 最大緩存條數
+    
+    # 重試配置
+    max_retries: int = 3  # 最大重試次數
+    retry_delay: int = 1  # 重試延遲（秒）
+    
+    def __post_init__(self):
+        """初始化後的驗證"""
+        super().__post_init__()
+        self.validate_notion_config()
+    
+    def validate_notion_config(self) -> None:
+        """
+        驗證 Notion 特定配置
+        
+        Raises:
+            ConfigError: 配置參數無效
+        """
+        if not self.api_key:
+            raise ConfigError("Notion API Key 不能為空")
+        if not self.version:
+            raise ConfigError("API 版本不能為空")
+        if not self.database_id:
+            raise ConfigError("數據庫 ID 不能為空")
+        if self.cache_ttl < 0:
+            raise ConfigError("緩存過期時間不能為負數")
+        if self.cache_max_size < 0:
+            raise ConfigError("最大緩存條數不能為負數")
+        if self.max_retries < 0:
+            raise ConfigError("最大重試次數不能為負數")
+        if self.retry_delay < 0:
+            raise ConfigError("重試延遲不能為負數") 
