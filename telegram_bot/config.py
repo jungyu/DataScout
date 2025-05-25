@@ -6,7 +6,7 @@ import os
 from typing import Dict, Any, Optional
 
 # Bot 設定
-TELEGRAM_BOT_TOKEN = os.environ.get("DATASCOUT_BOT_TOKEN", "")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 ADMIN_USER_IDS = [int(id) for id in os.environ.get("ADMIN_USER_IDS", "").split(",") if id.strip()]
 
 # API 金鑰

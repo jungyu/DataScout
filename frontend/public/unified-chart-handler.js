@@ -191,7 +191,7 @@
     console.log('處理面積圖');
     
     // 確保使用正確的圖表容器ID
-    const containerId = ChartElementMap[ChartType.AREA] || 'areaChart';
+    const containerId = ChartElementMap['area'] || 'areaChart';
     
     // 確保相應的處理函數存在
     if (window.handleAreaChart && window.handleAreaChart !== handleAreaChart) {

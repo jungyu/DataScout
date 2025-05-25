@@ -101,7 +101,7 @@
       { pattern: 'line.html', container: 'lineChart' },
       { pattern: 'column.html', container: 'columnChart' },
       { pattern: 'bar.html', container: 'barChart' },
-      { pattern: 'polararea.html', container: 'polarareaChart' },
+      { pattern: 'polararea.html', container: 'polarAreaChart' },
       { pattern: 'pie.html', container: 'pieChart' },
       { pattern: 'donut.html', container: 'donutChart' },
       { pattern: 'radar.html', container: 'radarChart' },

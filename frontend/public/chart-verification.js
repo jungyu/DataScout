@@ -23,12 +23,12 @@
         } else if (currentUrl.includes('line.html')) {
           console.log('檢測到折線圖頁面，開始驗證折線圖渲染');
           verifyLineChart();
-        } else if (currentUrl.includes('area.html')) {
-          console.log('檢測到區域圖頁面，開始驗證區域圖渲染');
-          verifyChartRendering('區域圖', 'areaChart');
         } else if (currentUrl.includes('polararea.html')) {
           console.log('檢測到極區圖頁面，開始驗證極區圖渲染');
-          verifyChartRendering('極區圖', 'polarAreaChart');
+          verifyPolarAreaChart();
+        } else if (currentUrl.includes('area.html')) {
+          console.log('檢測到區域圖頁面，開始驗證區域圖渲染');
+          verifyAreaChart();
         } else if (currentUrl.includes('bar.html')) {
           console.log('檢測到條形圖頁面，開始驗證條形圖渲染');
           verifyBarChart();
@@ -107,6 +107,11 @@
     return verifyChartRendering('折線圖', 'lineChart');
   }
   
+  // 驗證區域圖渲染
+  function verifyAreaChart() {
+    return verifyChartRendering('區域圖', 'areaChart');
+  }
+  
   // 驗證條形圖渲染
   function verifyBarChart() {
     return verifyChartRendering('條形圖', 'barChart');
@@ -171,7 +176,10 @@
         case 'pie': return verifyPieChart();
         case 'donut': return verifyDonutChart();
         case 'radar': return verifyRadarChart();
-        case 'polarArea': return verifyPolarAreaChart();
+        case 'polararea': 
+        case 'polarArea': 
+        case 'polar_area': 
+          return verifyPolarAreaChart();
         case 'heatmap': return verifyHeatmapChart();
         case 'treemap': return verifyTreemapChart();
         case 'scatter': return verifyScatterChart();

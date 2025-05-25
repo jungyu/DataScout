@@ -9,41 +9,30 @@
 
   // 定義圖表類型枚舉
   const ChartType = {
-    AREA: 'area',           // 區域圖
+    AREA: 'area',
     LINE: 'line',
     COLUMN: 'column',
-    CANDLESTICK: 'candlestick',
-    BOXPLOT: 'boxplot',
     BAR: 'bar',
-    BUBBLE: 'bubble',
+    PIE: 'pie', 
     DONUT: 'donut',
-    FUNNEL: 'funnel',
-    HEATMAP: 'heatmap',
-    MIXED: 'mixed',
-    PIE: 'pie',
-    POLAR_AREA: 'polarArea',  // 極區圖 (注意：這裡使用駝峰式命名與統一命名)
     RADAR: 'radar',
-    SCATTER: 'scatter',
-    STACKED_BAR: 'stacked_bar',
+    POLARAREA: 'polararea', // 統一使用小寫
+    HEATMAP: 'heatmap',
     TREEMAP: 'treemap',
+    SCATTER: 'scatter',
+    MIXED: 'mixed',
+    STACKED_BAR: 'stacked_bar',
     
     // 獲取所有圖表類型
     getAll() {
-      return Object.keys(this).filter(key => typeof this[key] === 'string');
+      return Object.values(this).filter(value => typeof value === 'string');
     },
     
     // 檢查是否為有效的圖表類型
     isValid(type) {
       if (!type) return false;
-      
-      // 轉換為小寫並去除前後空白
-      const normalizedType = String(type).toLowerCase().trim();
-      
-      // 獲取所有有效類型的小寫形式
-      const validTypes = this.getAll().map(t => t.toLowerCase());
-      
-      // 檢查是否為有效類型
-      return validTypes.includes(normalizedType);
+      const lowerType = type.toLowerCase();
+      return this.getAll().some(validType => validType.toLowerCase() === lowerType);
     }
   };
 
@@ -56,7 +45,7 @@
     [ChartType.PIE]: 'pieChart',
     [ChartType.DONUT]: 'donutChart',
     [ChartType.RADAR]: 'radarChart',
-    [ChartType.POLAR_AREA]: 'polarAreaChart', // 使用更一致的命名
+    [ChartType.POLARAREA]: 'polarAreaChart', // 使用更一致的命名
     [ChartType.HEATMAP]: 'heatmapChart',
     [ChartType.TREEMAP]: 'treemapChart',
     [ChartType.SCATTER]: 'scatterChart',
@@ -74,7 +63,7 @@
     [ChartType.PIE]: ['圓餅圖', 'pie chart'],
     [ChartType.DONUT]: ['甜甜圈圖', 'donut chart'],
     [ChartType.RADAR]: ['雷達圖', 'radar chart'],
-    [ChartType.POLAR_AREA]: ['極區圖', 'polar area chart'], // 更改為更簡潔的中文名稱
+    [ChartType.POLARAREA]: ['極區圖', 'polar area chart'], // 更改為更簡潔的中文名稱
     [ChartType.HEATMAP]: ['熱力圖', 'heatmap chart'],
     [ChartType.TREEMAP]: ['樹狀圖', 'treemap chart'],
     [ChartType.SCATTER]: ['散佈圖', 'scatter chart'],
@@ -89,7 +78,7 @@
   // 圖表類型檢測映射表
   const chartTypeMapping = {
     'area.html': ChartType.AREA,
-    'polararea.html': ChartType.POLAR_AREA
+    'polararea.html': ChartType.POLARAREA
   };
   
   // 初始化資料選擇器
@@ -148,7 +137,7 @@
     if (pathname.includes('pie.html')) return ChartType.PIE;
     if (pathname.includes('donut.html')) return ChartType.DONUT;
     if (pathname.includes('radar.html')) return ChartType.RADAR;
-    if (pathname.includes('polararea.html')) return ChartType.POLAR_AREA;
+    if (pathname.includes('polararea.html')) return ChartType.POLARAREA;
     if (pathname.includes('heatmap.html')) return ChartType.HEATMAP;
     if (pathname.includes('treemap.html')) return ChartType.TREEMAP;
     if (pathname.includes('scatter.html')) return ChartType.SCATTER;
@@ -547,7 +536,8 @@
     }
     
     // 特殊處理極區圖類型
-    if (chartType === 'polarArea' && typeof window.handlePolarAreaChart === 'function') {
+    const polarAreaTypes = ['polarArea', 'polararea', 'polar_area'];
+    if (polarAreaTypes.includes(chartType.toLowerCase()) && typeof window.handlePolarAreaChart === 'function') {
       console.log('偵測到極區圖類型，使用特殊處理邏輯');
       window.handlePolarAreaChart(data);
       return;

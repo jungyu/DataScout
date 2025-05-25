@@ -217,7 +217,7 @@
           if (window.chartErrorHandler) {
             window.chartErrorHandler.showError('polarareaChart', `載入極區域圖預設資料失敗: ${error.message}`);
             // 嘗試加載替代數據
-            window.loadPolarAreaChartExample('apexcharts_pie_sales_channels.json');
+            window.loadPolarAreaChartExample('apexcharts_polararea_basic.json');
           }
         });
     }

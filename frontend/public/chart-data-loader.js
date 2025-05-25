@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
   } else if (currentPath.includes('/line')) {
     chartType = 'line';
     console.log('偵測到路徑包含 line，設定圖表類型為：折線圖');
+  } else if (currentPath.includes('/polararea')) {
+    chartType = 'polararea';
+    console.log('偵測到路徑包含 polararea，設定圖表類型為：極區域圖');
   } else if (currentPath.includes('/area')) {
     chartType = 'area';
     console.log('偵測到路徑包含 area，設定圖表類型為：區域圖');

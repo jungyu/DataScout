@@ -63,7 +63,7 @@
   },
   "yaxis": {
     "labels": {
-      "formatter": "function(val) { return val.toFixed(2) + '%'; }"
+      "formatter": null
     },
     "min": 0,
     "max": 4,
