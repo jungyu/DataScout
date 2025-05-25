@@ -21,7 +21,7 @@
     HEATMAP: 'heatmap',
     MIXED: 'mixed',
     PIE: 'pie',
-    POLAR_AREA: 'polarArea',  // 極區圖
+    POLAR_AREA: 'polarArea',  // 極區圖 (注意：這裡使用駝峰式命名與統一命名)
     RADAR: 'radar',
     SCATTER: 'scatter',
     STACKED_BAR: 'stacked_bar',

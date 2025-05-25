@@ -134,7 +134,7 @@
   
   // 驗證極區域圖渲染
   function verifyPolarAreaChart() {
-    return verifyChartRendering('極區域圖', 'polarAreaChart');
+    return verifyChartRendering('極區域圖', 'polarAreaChart');  // 使用正確的 ID
   }
   
   // 驗證熱力圖渲染

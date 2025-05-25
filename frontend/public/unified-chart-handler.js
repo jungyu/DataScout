@@ -9,33 +9,56 @@
   // 全局存儲圖表實例
   window.chartInstances = window.chartInstances || {};
   
+  // 圖表容器ID映射
+  const ChartElementMap = {
+    'area': 'areaChart',
+    'line': 'lineChart', 
+    'column': 'columnChart',
+    'candlestick': 'candlestickChart',
+    'boxplot': 'boxplotChart',
+    'bar': 'barChart',
+    'bubble': 'bubbleChart',
+    'donut': 'donutChart',
+    'funnel': 'funnelChart',
+    'heatmap': 'heatmapChart',
+    'mixed': 'mixedChart',
+    'pie': 'pieChart',
+    'polararea': 'polarAreaChart', // 統一使用小寫
+    'radar': 'radarChart',
+    'scatter': 'scatterChart',
+    'treemap': 'treemapChart'
+  };
+
   // 圖表類型與處理函數對應表
   const chartHandlers = {
     'area': handleAreaChart,        // 區域圖
-    'line': handleLineChart,
-    'column': handleColumnChart,
-    'candlestick': handleCandlestickChart,
-    'boxplot': handleBoxplotChart,
-    'bar': handleBarChart,
-    'bubble': handleBubbleChart,
-    'donut': handleDonutChart,
-    'funnel': handleFunnelChart,
-    'heatmap': handleHeatmapChart,
-    'mixed': handleMixedChart,
-    'pie': handlePieChart,
-    'polarArea': handlePolarAreaChart, // 注意這裡使用駝峰式命名，與 ChartType.POLAR_AREA 保持一致
-    'radar': handleRadarChart,
-    'scatter': handleScatterChart,
-    'stacked_bar': handleStackedBarChart,
-    'treemap': handleTreemapChart
+    'line': handleLineChart,        // 折線圖 
+    'column': handleColumnChart,    // 柱狀圖
+    'candlestick': handleCandlestickChart, // 蠟燭圖
+    'boxplot': handleBoxplotChart,  // 箱型圖
+    'bar': handleBarChart,         // 條形圖
+    'bubble': handleBubbleChart,   // 氣泡圖 
+    'donut': handleDonutChart,     // 甜甜圈圖
+    'funnel': handleFunnelChart,   // 漏斗圖
+    'heatmap': handleHeatmapChart, // 熱力圖
+    'mixed': handleMixedChart,     // 混合圖
+    'pie': handlePieChart,         // 圓餅圖
+    'polararea': handlePolarAreaChart, // 極區域圖(統一使用小寫)
+    'radar': handleRadarChart,     // 雷達圖
+    'scatter': handleScatterChart, // 散點圖
+    'stacked_bar': handleStackedBarChart, // 堆疊條形圖
+    'treemap': handleTreemapChart  // 樹狀圖
   };
   
   // 統一處理圖表渲染
   window.handleChart = function(data, chartType) {
     console.log(`統一處理${chartType}類型的圖表渲染`, data);
     
+    // 獲取正確的圖表容器ID
+    const chartElementId = ChartElementMap[chartType.toLowerCase()] || `${chartType}Chart`;
+    
     // 檢查是否存在對應的處理函數
-    const handler = chartHandlers[chartType];
+    const handler = chartHandlers[chartType.toLowerCase()];
     if (typeof handler === 'function') {
       return handler(data);
     }
@@ -46,7 +69,9 @@
   
   // 通用圖表處理邏輯
   function handleGenericChart(data, chartType) {
-    const chartElementId = `${chartType}Chart`;
+    // 轉換圖表類型為小寫以確保一致性
+    chartType = chartType.toLowerCase();
+    const chartElementId = ChartElementMap[chartType] || `${chartType}Chart`;
     console.log(`通用處理: ${chartType} 圖表 (容器ID: ${chartElementId})`);
     
     // 檢查圖表容器
@@ -63,7 +88,6 @@
     // 清除現有的圖表實例
     if (window.ApexCharts) {
       try {
-        // 使用 ApexCharts API 清除
         const existingChart = ApexCharts.getChartByID(chartElementId) || window.chartInstances[chartElementId];
         if (existingChart && typeof existingChart.destroy === 'function') {
           console.log(`清除既有${chartType}圖表實例`);
@@ -85,34 +109,19 @@
       return false;
     }
     
-    // 處理 yaxis.labels.formatter 字串轉換為函數
-    if (data.yaxis && Array.isArray(data.yaxis)) {
-        data.yaxis = data.yaxis.map(yAxisConfig => {
-            if (yAxisConfig && yAxisConfig.labels && typeof yAxisConfig.labels.formatter === 'string') {
-                try {
-                    // 使用 eval 將字串轉換為函數
-                    yAxisConfig.labels.formatter = eval(`(${yAxisConfig.labels.formatter})`);
-                } catch (e) {
-                    console.error('轉換 yaxis.labels.formatter 字串為函數時出錯:', e);
-                }
-            }
-            return yAxisConfig;
-        });
-    }
-    
-    // 確保圖表類型設置正確
+    // 確保圖表設定存在
     if (!data.chart) data.chart = {};
     
-    // 設置正確的圖表類型
+    // 根據圖表類型設定正確的類型
     switch (chartType) {
       case 'area':
         data.chart.type = 'area';
         break;
       case 'line':
-        data.chart.type = 'line';
+        data.chart.type = 'line'; 
         break;
       case 'column':
-        data.chart.type = 'bar'; // ApexCharts 中的 column 是 bar 的一種
+        data.chart.type = 'bar';
         if (!data.plotOptions) data.plotOptions = {};
         if (!data.plotOptions.bar) data.plotOptions.bar = {};
         data.plotOptions.bar.horizontal = false;
@@ -138,22 +147,25 @@
       case 'pie':
         data.chart.type = 'pie';
         break;
-      case 'polarArea':
+      case 'polararea':
         data.chart.type = 'polarArea';
         break;
       case 'radar':
         data.chart.type = 'radar';
         break;
       case 'scatter':
-        data.chart.type = 'scatter';
+        data.chart.type = 'scatter'; 
         break;
       case 'heatmap':
         data.chart.type = 'heatmap';
         break;
+      case 'treemap':
+        data.chart.type = 'treemap';
+        break;
       default:
         data.chart.type = chartType.replace('_', '');
     }
-    
+
     try {
       console.log(`初始化${chartType}圖表`, data);
       const chart = new ApexCharts(chartContainer, data);
@@ -178,12 +190,15 @@
   function handleAreaChart(data) {
     console.log('處理面積圖');
     
+    // 確保使用正確的圖表容器ID
+    const containerId = ChartElementMap[ChartType.AREA] || 'areaChart';
+    
     // 確保相應的處理函數存在
     if (window.handleAreaChart && window.handleAreaChart !== handleAreaChart) {
       return window.handleAreaChart(data);
     }
     
-    return handleGenericChart(data, 'area');
+    return handleGenericChart(data, 'area', containerId);
   }
   
   // 處理折線圖
