@@ -1,0 +1,104 @@
+// filepath: /Users/aaron/Downloads/Techwind_v3.0.0/HTML/Dashboard/frontend/public/example-toggle.js
+// 範例資料 Toggle 功能
+document.addEventListener('DOMContentLoaded', function() {
+  // 等待幾毫秒確保DOM完全載入
+  setTimeout(function() {
+    console.log('執行範例資料Toggle功能');
+    
+    // 獲取 Toggle 按鈕元素
+    const toggleBtn = document.getElementById('example-data-toggle');
+    
+    // 檢測當前頁面的圖表類型（與 chart-data-loader.js 保持一致的邏輯）
+    const currentPath = window.location.pathname;
+    let chartType = 'candlestick'; // 默認為蠟燭圖
+    
+    // 更精確的路徑檢測
+    if (currentPath.endsWith('/') || currentPath.endsWith('/index.html')) {
+      chartType = 'candlestick'; // 首頁是蠟燭圖
+      console.log('[Toggle] 偵測到首頁，設定圖表類型為：蠟燭圖');
+    } else if (currentPath.includes('/line')) {
+      chartType = 'line';
+      console.log('[Toggle] 偵測到路徑包含 line，設定圖表類型為：折線圖');
+    } else if (currentPath.includes('/area')) {
+      chartType = 'area';
+      console.log('[Toggle] 偵測到路徑包含 area，設定圖表類型為：區域圖');
+    } else if (currentPath.includes('/column')) {
+      chartType = 'column';
+      console.log('[Toggle] 偵測到路徑包含 column，設定圖表類型為：柱狀圖');
+    }
+    
+    // 查找範例資料和檔案上傳區域
+    const fileUploadSection = document.getElementById('file-upload-section');
+    
+    // 等待一段時間確保 chart-data-loader.js 已經處理過數據選擇器
+    setTimeout(function() {
+      // 根據圖表類型找到相應的數據區塊
+      const chartDataSections = {
+        'line': document.querySelector('.line-chart-data'),
+        'area': document.querySelector('.area-chart-data'),
+        'column': document.querySelector('.column-chart-data'),
+        'candlestick': document.querySelector('.candlestick-chart-data')
+      };
+      
+      // 當前圖表類型的數據區塊
+      const exampleDataSection = chartDataSections[chartType];
+      console.log('[Toggle] 找到的數據區塊:', chartType, exampleDataSection ? '找到了' : '未找到');
+    
+    if (toggleBtn && exampleDataSection && fileUploadSection) {
+      console.log('找到所有必要元素，當前圖表類型:', chartType);
+      
+      // 初始狀態
+      let showExamples = toggleBtn.checked;
+      
+      // 初始更新顯示
+      updateDisplay();
+      
+      // 監聽切換事件
+      toggleBtn.addEventListener('change', function() {
+        showExamples = toggleBtn.checked;
+        updateDisplay();
+        console.log('範例資料顯示狀態切換為:', showExamples ? '顯示' : '隱藏');
+      });
+      
+      // 更新顯示函數
+      function updateDisplay() {
+        // 移除重複的範例項目
+        const exampleItems = document.querySelectorAll(`[data-chart-type="${chartType}"]`);
+        const processedIds = new Set();
+        
+        exampleItems.forEach(item => {
+          const id = item.id;
+          if (id && processedIds.has(id)) {
+            // 如果ID已經處理過，表示是重複項目，移除它
+            item.remove();
+            console.log('移除重複項目:', id);
+          } else if (id) {
+            // 第一次遇到此ID，記錄下來
+            processedIds.add(id);
+          }
+        });
+        
+        // 更新顯示狀態
+        if (showExamples) {
+          // 顯示範例資料
+          exampleDataSection.style.display = 'block';
+          fileUploadSection.style.display = 'none';
+        } else {
+          // 顯示檔案上傳區塊
+          exampleDataSection.style.display = 'none';
+          fileUploadSection.style.display = 'block';
+        }
+        
+        console.log('更新顯示狀態完成:', showExamples ? '顯示範例資料' : '顯示檔案上傳區塊');
+      }
+    } else {
+      console.error('找不到所需元素', {
+        toggleBtn: !!toggleBtn,
+        exampleDataSection: !!exampleDataSection,
+        fileUploadSection: !!fileUploadSection
+      });
+    }
+  }, 100);
+  }, 500); // 增加時間，確保有足夠時間等待組件載入完成
+});
+});

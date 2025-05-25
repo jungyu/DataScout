@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function() {
     examplesContainer.innerHTML = '';
 
     // 獲取所有折線圖示例
-    fetch('/assets/examples/index.json')
+    fetch('/static/assets/examples/index.json')
       .then(response => response.json())
       .then(examples => {
         // 過濾出折線圖示例

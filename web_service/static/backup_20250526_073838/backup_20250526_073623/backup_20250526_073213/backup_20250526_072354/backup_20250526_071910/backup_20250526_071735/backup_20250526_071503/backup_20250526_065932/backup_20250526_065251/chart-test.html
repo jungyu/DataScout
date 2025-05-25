@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-tw" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataScout - 全圖表測試頁面</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!-- TailwindCSS & DaisyUI -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@3.7.3/dist/full.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <script src="./json-formatter-fix.js"></script>
+  <script src="./json-enhancer.js"></script>
+  <script src="./chart-error-handler.js"></script>
+  <script src="./chart-error-handler-enhanced.js"></script>
+  <script src="./chart-recovery-tool.js" defer></script>
+  <script src="./chart-testing-tool.js" defer></script>
+  <script src="./chart-navigator.js" defer></script>
+  <script src="./example-toggle.js" defer></script>
+  <script src="./file-upload-handler.js" defer></script>
+  <script src="./unified-chart-handler.js" defer></script>
+  <script src="./data-loader.js" defer></script>
+  <script src="./chart-fix.js" defer></script>
+  <script src="./chart-compat.js" defer></script>
+  <script src="./chart-verification.js" defer></script>
+  
+  <!-- 所有圖表特定處理器 -->
+  <script src="./candlestick-fix.js" defer></script>
+  <script src="./line-chart-handler.js" defer></script>
+  <script src="./area-chart-handler.js" defer></script>
+  <script src="./bar-chart-handler.js" defer></script>
+  <script src="./column-chart-handler.js" defer></script>
+  <script src="./pie-chart-handler.js" defer></script>
+  <script src="./donut-chart-handler.js" defer></script>
+  <script src="./radar-chart-handler.js" defer></script>
+  <script src="./polararea-chart-handler.js" defer></script>
+  <script src="./heatmap-chart-handler.js" defer></script>
+  <script src="./treemap-chart-handler.js" defer></script>
+  <script src="./scatter-chart-handler.js" defer></script>
+  <script src="./mixed-chart-handler.js" defer></script>
+  
+  <script>
+    tailwind.config = {
+      daisyui: {
+        themes: ["light", "dark"],
+      },
+    }
+  </script>
+  
+  <!-- 組件加載器 -->
+  <script src="component-loader.js"></script>
+  
+  <style>
+    .chart-container {
+      height: 350px;
+      position: relative;
+    }
+    
+    .chart-test-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    
+    .chart-test-badge {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+    }
+    
+    .chart-test-badge.success {
+      background-color: #10B981;
+      color: white;
+    }
+    
+    .chart-test-badge.error {
+      background-color: #EF4444;
+      color: white;
+    }
+    
+    .chart-test-badge.warning {
+      background-color: #F59E0B;
+      color: white;
+    }
+  </style>
+</head>
+<body class="bg-base-300">
+  <div class="flex h-screen">
+    <!-- 側邊欄 -->
+    <div id="sidebar" class="w-64 bg-primary text-primary-content overflow-y-auto" data-component="components/layout/Sidebar.html"></div>
+    
+    <!-- 主要內容區 -->
+    <div class="flex-1 flex flex-col">
+      <!-- 頂部導航 -->
+      <div id="topbar" data-component="components/layout/Topbar.html"></div>
+      
+      <!-- 內容區 -->
+      <div class="flex-1 overflow-auto p-6 bg-base-200">
+        <!-- 頁面標題 -->
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <h1 class="text-2xl font-bold text-base-content">全圖表測試頁面</h1>
+            <p class="text-base-content/70">測試所有圖表類型的渲染效果</p>
+          </div>
+          <div>
+            <button id="run-all-tests" class="btn btn-primary">測試所有圖表</button>
+          </div>
+        </div>
+        
+        <!-- 圖表摘要 -->
+        <div class="mb-6">
+          <div class="stats shadow w-full">
+            <div class="stat">
+              <div class="stat-title">總圖表數量</div>
+              <div class="stat-value text-xl" id="total-chart-count">13</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">成功渲染</div>
+              <div class="stat-value text-xl text-success" id="success-chart-count">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">失敗數量</div>
+              <div class="stat-value text-xl text-error" id="failed-chart-count">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">成功率</div>
+              <div class="stat-value text-xl text-info" id="success-rate">0%</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 圖表網格 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" id="chart-grid">
+          <!-- 圖表將通過JavaScript動態插入 -->
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // 圖表測試器
+    document.addEventListener('DOMContentLoaded', function() {
+      // 等待組件載入完成
+      document.addEventListener('component-loaded', function() {
+        setTimeout(initTestPage, 1500);
+      });
+    });
+    
+    // 初始化測試頁面
+    function initTestPage() {
+      const chartTypes = [
+        { id: 'candlestickChart', type: 'candlestick', name: '蠟燭圖' },
+        { id: 'lineChart', type: 'line', name: '折線圖' },
+        { id: 'areaChart', type: 'area', name: '面積圖' },
+        { id: 'barChart', type: 'bar', name: '條形圖' },
+        { id: 'columnChart', type: 'column', name: '柱狀圖' },
+        { id: 'pieChart', type: 'pie', name: '圓餅圖' },
+        { id: 'donutChart', type: 'donut', name: '甜甜圈圖' },
+        { id: 'radarChart', type: 'radar', name: '雷達圖' },
+        { id: 'polarareaChart', type: 'polararea', name: '極區域圖' },
+        { id: 'heatmapChart', type: 'heatmap', name: '熱力圖' },
+        { id: 'treemapChart', type: 'treemap', name: '樹狀圖' },
+        { id: 'scatterChart', type: 'scatter', name: '散點圖' },
+        { id: 'mixedChart', type: 'mixed', name: '混合圖' }
+      ];
+      
+      // 更新統計數據
+      document.getElementById('total-chart-count').textContent = chartTypes.length;
+      
+      // 創建圖表容器
+      const chartGrid = document.getElementById('chart-grid');
+      chartTypes.forEach(chart => {
+        const chartCard = createChartCard(chart);
+        chartGrid.appendChild(chartCard);
+      });
+      
+      // 添加運行所有測試按鈕事件
+      document.getElementById('run-all-tests').addEventListener('click', runAllChartTests);
+      
+      // 自動運行測試
+      setTimeout(runAllChartTests, 1000);
+    }
+    
+    // 創建圖表卡片
+    function createChartCard(chart) {
+      const card = document.createElement('div');
+      card.className = 'card bg-base-100 shadow-xl';
+      card.innerHTML = `
+        <div class="card-body p-4">
+          <div class="chart-test-header">
+            <h2 class="card-title text-base">${chart.name}</h2>
+            <span class="chart-test-badge" id="badge-${chart.id}">等待測試</span>
+          </div>
+          <div class="chart-container" id="${chart.id}">
+            <div class="flex items-center justify-center h-full">
+              <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          </div>
+          <div class="card-actions justify-end mt-2">
+            <a href="${chart.type === 'candlestick' ? 'index.html' : chart.type + '.html'}" class="btn btn-xs btn-outline">查看詳情</a>
+            <button class="btn btn-xs btn-primary test-chart-btn" data-chart-type="${chart.type}" data-chart-id="${chart.id}">測試</button>
+          </div>
+        </div>
+      `;
+      
+      // 添加測試按鈕事件
+      setTimeout(() => {
+        const testBtn = card.querySelector('.test-chart-btn');
+        if (testBtn) {
+          testBtn.addEventListener('click', function() {
+            const chartType = this.getAttribute('data-chart-type');
+            const chartId = this.getAttribute('data-chart-id');
+            testSingleChart(chartType, chartId);
+          });
+        }
+      }, 100);
+      
+      return card;
+    }
+    
+    // 測試單個圖表
+    function testSingleChart(chartType, chartId) {
+      console.log(`測試${chartType}圖表...`);
+      const chartContainer = document.getElementById(chartId);
+      const badge = document.getElementById(`badge-${chartId}`);
+      
+      badge.textContent = '測試中...';
+      badge.className = 'chart-test-badge warning';
+      
+      // 清除現有的圖表實例
+      if (window.ApexCharts) {
+        try {
+          const existingChart = ApexCharts.getChartByID(chartId);
+          if (existingChart && typeof existingChart.destroy === 'function') {
+            existingChart.destroy();
+          }
+        } catch (e) {
+          console.warn(`清除${chartType}圖表時出錯:`, e);
+        }
+      }
+      
+      // 嘗試渲染圖表
+      try {
+        // 檢查初始化函數
+        const initFuncName = `init${chartType.charAt(0).toUpperCase() + chartType.slice(1)}Chart`;
+        const handleFuncName = `handle${chartType.charAt(0).toUpperCase() + chartType.slice(1)}Chart`;
+        
+        if (typeof window[initFuncName] === 'function') {
+          window[initFuncName]();
+          setTimeout(() => verifyChartRendered(chartType, chartId), 1500);
+        } else if (typeof window[handleFuncName] === 'function') {
+          // 獲取默認數據
+          const defaultData = window.chartErrorHandlerEnhanced.getDefaultChartData(chartType);
+          window[handleFuncName](defaultData);
+          setTimeout(() => verifyChartRendered(chartType, chartId), 1500);
+        } else {
+          badge.textContent = '未找到處理函數';
+          badge.className = 'chart-test-badge error';
+          updateStats();
+        }
+      } catch (error) {
+        console.error(`渲染${chartType}圖表時出錯:`, error);
+        badge.textContent = '錯誤';
+        badge.className = 'chart-test-badge error';
+        updateStats();
+      }
+    }
+    
+    // 驗證圖表是否成功渲染
+    function verifyChartRendered(chartType, chartId) {
+      const chartContainer = document.getElementById(chartId);
+      const badge = document.getElementById(`badge-${chartId}`);
+      
+      // 檢查ApexCharts畫布元素
+      const hasApexChart = chartContainer.querySelector('.apexcharts-canvas');
+      if (hasApexChart) {
+        badge.textContent = '成功';
+        badge.className = 'chart-test-badge success';
+      } else {
+        badge.textContent = '失敗';
+        badge.className = 'chart-test-badge error';
+      }
+      
+      updateStats();
+    }
+    
+    // 更新統計信息
+    function updateStats() {
+      const totalCharts = 13;
+      const successCharts = document.querySelectorAll('.chart-test-badge.success').length;
+      const failedCharts = document.querySelectorAll('.chart-test-badge.error').length;
+      const successRate = Math.round((successCharts / totalCharts) * 100);
+      
+      document.getElementById('success-chart-count').textContent = successCharts;
+      document.getElementById('failed-chart-count').textContent = failedCharts;
+      document.getElementById('success-rate').textContent = `${successRate}%`;
+    }
+    
+    // 運行所有圖表測試
+    function runAllChartTests() {
+      const chartTypes = [
+        { type: 'candlestick', id: 'candlestickChart' },
+        { type: 'line', id: 'lineChart' },
+        { type: 'area', id: 'areaChart' },
+        { type: 'bar', id: 'barChart' },
+        { type: 'column', id: 'columnChart' },
+        { type: 'pie', id: 'pieChart' },
+        { type: 'donut', id: 'donutChart' },
+        { type: 'radar', id: 'radarChart' },
+        { type: 'polararea', id: 'polarareaChart' },
+        { type: 'heatmap', id: 'heatmapChart' },
+        { type: 'treemap', id: 'treemapChart' },
+        { type: 'scatter', id: 'scatterChart' },
+        { type: 'mixed', id: 'mixedChart' }
+      ];
+      
+      // 按順序測試圖表，間隔500ms
+      let index = 0;
+      const testInterval = setInterval(() => {
+        if (index >= chartTypes.length) {
+          clearInterval(testInterval);
+          return;
+        }
+        
+        const chart = chartTypes[index];
+        testSingleChart(chart.type, chart.id);
+        index++;
+      }, 500);
+    }
+  </script>
+</body>
+</html>

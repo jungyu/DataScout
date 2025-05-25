@@ -1,0 +1,85 @@
+{
+  "series": [
+    {
+      "data": [
+        {
+          "x": "首頁",
+          "y": 25800
+        },
+        {
+          "x": "產品頁",
+          "y": 18400
+        },
+        {
+          "x": "購物車",
+          "y": 12300
+        },
+        {
+          "x": "結帳頁",
+          "y": 8700
+        },
+        {
+          "x": "部落格",
+          "y": 15600
+        },
+        {
+          "x": "關於我們",
+          "y": 6200
+        },
+        {
+          "x": "聯絡我們",
+          "y": 4900
+        },
+        {
+          "x": "FAQ",
+          "y": 7800
+        },
+        {
+          "x": "會員中心",
+          "y": 9500
+        },
+        {
+          "x": "活動專區",
+          "y": 11200
+        }
+      ]
+    }
+  ],
+  "options": {
+    "legend": {
+      "show": false
+    },
+    "chart": {
+      "type": "treemap",
+      "height": 350
+    },
+    "title": {
+      "text": "網站各頁面月訪問量"
+    },
+    "dataLabels": {
+      "enabled": true,
+      "style": {
+        "fontSize": "12px"
+      },
+      "formatter": null
+    },
+    "colors": [
+      "#3B93A5",
+      "#F7B844",
+      "#ADD8C7",
+      "#EC3C65",
+      "#CDD7B6",
+      "#C1F666",
+      "#D43F97",
+      "#1E5D8C",
+      "#421243",
+      "#7F94B0"
+    ],
+    "plotOptions": {
+      "treemap": {
+        "distributed": true,
+        "enableShades": false
+      }
+    }
+  }
+}

@@ -198,7 +198,7 @@
       window.cleanupChartInstances(chartElementId);
     }
     
-    fetch(`/assets/examples/index.json`)
+    fetch(`/static/assets/examples/index.json`)
       .then(response => {
         if (!response.ok) throw new Error('範例索引檔案不存在');
         return response.json();

@@ -1,0 +1,66 @@
+{
+  "series": [
+    {
+      "name": "美國債務總額(兆美元)",
+      "data": [
+        { "x": "2000-01-01", "y": 5.7 },
+        { "x": "2005-01-01", "y": 7.9 },
+        { "x": "2010-01-01", "y": 13.6 },
+        { "x": "2015-01-01", "y": 18.2 },
+        { "x": "2020-01-01", "y": 23.5 },
+        { "x": "2022-01-01", "y": 29.6 },
+        { "x": "2023-01-01", "y": 31.4 },
+        { "x": "2024-01-01", "y": 34.0 },
+        { "x": "2025-01-01", "y": 35.8 }
+      ]
+    }
+  ],
+  "chart": {
+    "type": "area",
+    "height": 350,
+    "zoom": {
+      "enabled": true
+    }
+  },
+  "title": {
+    "text": "美國債務總額趨勢(2000-2025)",
+    "align": "left"
+  },
+  "dataLabels": {
+    "enabled": false
+  },
+  "xaxis": {
+    "type": "datetime"
+  },
+  "yaxis": {
+    "title": {
+      "text": "債務(兆美元)"
+    },
+    "min": 0
+  },
+  "stroke": {
+    "curve": "smooth",
+    "width": 1
+  },
+  "fill": {
+    "type": "gradient",
+    "gradient": {
+      "shadeIntensity": 1,
+      "opacityFrom": 0.7,
+      "opacityTo": 0.3
+    }
+  },
+  "colors": ["#FF4560"],
+  "annotations": {
+    "yaxis": [
+      {
+        "y": 20,
+        "strokeDashArray": 5,
+        "borderColor": "#FEB019",
+        "label": {
+          "text": "危險債務水平"
+        }
+      }
+    ]
+  }
+}

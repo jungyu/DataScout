@@ -1,0 +1,69 @@
+{
+  "series": [
+    {
+      "name": "金融業",
+      "data": [
+        [2.5, 7.8], [3.2, 8.1], [3.8, 9.2], [4.1, 9.8], [4.7, 10.3],
+        [5.2, 10.9], [5.9, 11.1], [6.5, 11.8], [7.1, 12.5], [7.8, 13.2]
+      ]
+    },
+    {
+      "name": "科技業",
+      "data": [
+        [2.1, 18.5], [2.7, 19.3], [3.5, 20.1], [4.2, 21.0], [5.0, 22.5],
+        [5.8, 23.2], [6.7, 24.1], [7.5, 25.5], [8.2, 26.8], [8.9, 28.2]
+      ]
+    },
+    {
+      "name": "製造業",
+      "data": [
+        [3.0, 12.2], [3.7, 13.1], [4.2, 14.3], [4.9, 15.2], [5.5, 16.0],
+        [6.2, 16.5], [6.8, 17.2], [7.4, 18.1], [8.0, 18.9], [8.6, 19.5]
+      ]
+    }
+  ],
+  "chart": {
+    "height": 350,
+    "type": "scatter",
+    "zoom": {
+      "enabled": true,
+      "type": "xy"
+    }
+  },
+  "title": {
+    "text": "風險與報酬率關係",
+    "align": "left"
+  },
+  "xaxis": {
+    "title": {
+      "text": "風險 (%)"
+    },
+    "tickAmount": 10
+  },
+  "yaxis": {
+    "title": {
+      "text": "年報酬率 (%)"
+    },
+    "tickAmount": 10
+  },
+  "tooltip": {
+    "custom": "function({ series, seriesIndex, dataPointIndex, w }) { const data = w.globals.initialSeries[seriesIndex].data[dataPointIndex]; return `<div class=\"p-2\"><span class=\"font-bold\">${w.globals.seriesNames[seriesIndex]}</span><br>風險: ${data[0]}%<br>報酬: ${data[1]}%</div>`; }"
+  },
+  "markers": {
+    "size": 7,
+    "strokeWidth": 2,
+    "fillOpacity": 0.8
+  },
+  "colors": ["#008FFB", "#00E396", "#FEB019"],
+  "legend": {
+    "position": "bottom"
+  },
+  "grid": {
+    "borderColor": "#e0e0e0",
+    "xaxis": {
+      "lines": {
+        "show": true
+      }
+    }
+  }
+}

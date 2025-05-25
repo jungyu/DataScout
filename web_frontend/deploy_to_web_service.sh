@@ -33,6 +33,15 @@ echo "📦 額外複製範例資料..."
 mkdir -p "$STATIC_PATH/assets/examples"
 cp -r public/assets/examples/* "$STATIC_PATH/assets/examples/" 2>/dev/null || true
 
+# 5.2 複製組件（特別是 charts 目錄）
+echo "📦 複製組件 components/charts..."
+mkdir -p "$STATIC_PATH/components/charts"
+cp -r public/components/charts/*.html "$STATIC_PATH/components/charts/"
+
+# 5.3 複製自訂 JS（如 data-loader.js、component-loader.js 等）
+echo "📦 複製自訂 JS..."
+cp -r public/*.js "$STATIC_PATH/"
+
 # 6. 複製 index.html 到 templates
 echo "📦 複製 index.html 到 templates..."
 cp dist/index.html "$TEMPLATES_PATH/index.html"

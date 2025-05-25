@@ -1,0 +1,38 @@
+{
+  "series": [2500, 1800, 1200, 850, 600, 350],
+  "chart": {
+    "type": "funnel",
+    "height": 350
+  },
+  "plotOptions": {
+    "funnel": {
+      "width": "80%",
+      "neckWidth": "20%",
+      "neckHeight": "25%",
+      "gradientShape": "smooth",
+      "dataLabels": {
+        "position": "right"
+      }
+    }
+  },
+  "title": {
+    "text": "招聘流程漏斗",
+    "align": "left"
+  },
+  "dataLabels": {
+    "enabled": true,
+    "style": {
+      "fontSize": "12px"
+    }
+  },
+  "labels": ["收到履歷", "初步篩選", "技術測試", "一面", "二面", "錄取"],
+  "colors": ["#2E93fA", "#66DA26", "#546E7A", "#E91E63", "#FF9800", "#00B746"],
+  "legend": {
+    "position": "bottom"
+  },
+  "tooltip": {
+    "y": {
+      "formatter": "function(value) { return value + ' 人'; }"
+    }
+  }
+}

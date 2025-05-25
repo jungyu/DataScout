@@ -1,0 +1,75 @@
+{
+  "series": [
+    {
+      "name": "溫度",
+      "data": [25.1, 25.3, 25.5, 25.8, 26.1, 26.5, 27.0, 27.4, 27.7, 27.9, 28.1, 28.0, 27.8, 27.5, 27.2, 26.9, 26.7, 26.5, 26.3, 26.0, 25.8, 25.6, 25.4, 25.2]
+    }
+  ],
+  "chart": {
+    "type": "area",
+    "height": 350,
+    "zoom": {
+      "enabled": false
+    }
+  },
+  "dataLabels": {
+    "enabled": false
+  },
+  "stroke": {
+    "curve": "smooth",
+    "width": 2,
+    "lineCap": "round"
+  },
+  "fill": {
+    "type": "gradient",
+    "gradient": {
+      "shade": "light",
+      "type": "vertical",
+      "shadeIntensity": 0.4,
+      "inverseColors": false,
+      "opacityFrom": 0.8,
+      "opacityTo": 0.2,
+      "stops": [0, 90, 100]
+    }
+  },
+  "colors": ["#FF4560"],
+  "title": {
+    "text": "室內溫度監測",
+    "align": "left"
+  },
+  "grid": {
+    "row": {
+      "colors": ["transparent", "transparent"],
+      "opacity": 0.2
+    },
+    "borderColor": "#f1f1f1"
+  },
+  "xaxis": {
+    "categories": ["00:00", "01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"],
+    "tickAmount": 6,
+    "labels": {
+      "rotate": 0
+    }
+  },
+  "yaxis": {
+    "min": 20,
+    "max": 30,
+    "tickAmount": 5
+  },
+  "annotations": {
+    "yaxis": [
+      {
+        "y": 28.0,
+        "borderColor": "#FF4560",
+        "label": {
+          "borderColor": "#FF4560",
+          "style": {
+            "color": "#fff",
+            "background": "#FF4560"
+          },
+          "text": "最高溫度"
+        }
+      }
+    ]
+  }
+}

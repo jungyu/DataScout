@@ -1,0 +1,72 @@
+{
+  "series": [
+    {
+      "name": "利率",
+      "data": [3.5, 3.25, 3.0, 2.75, 2.5, 2.25, 2.0, 2.0, 1.75, 1.75, 1.5, 1.5, 
+               1.25, 1.0, 0.75, 0.5, 0.25, 0.25, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
+    }
+  ],
+  "chart": {
+    "type": "line",
+    "height": 350,
+    "zoom": {
+      "enabled": false
+    }
+  },
+  "dataLabels": {
+    "enabled": false
+  },
+  "stroke": {
+    "width": 3,
+    "curve": "stepline"
+  },
+  "title": {
+    "text": "央行基準利率變化趨勢",
+    "align": "left"
+  },
+  "grid": {
+    "row": {
+      "colors": ["#f3f3f3", "transparent"],
+      "opacity": 0.5
+    }
+  },
+  "xaxis": {
+    "categories": ["2017Q1", "2017Q2", "2017Q3", "2017Q4", "2018Q1", "2018Q2", "2018Q3", "2018Q4", 
+                   "2019Q1", "2019Q2", "2019Q3", "2019Q4", "2020Q1", "2020Q2", "2020Q3", "2020Q4", 
+                   "2021Q1", "2021Q2", "2021Q3", "2021Q4", "2022Q1", "2022Q2", "2022Q3", "2022Q4"],
+    "tickAmount": 8
+  },
+  "annotations": {
+    "xaxis": [
+      {
+        "x": "2020Q1",
+        "strokeDashArray": 0,
+        "borderColor": "#775DD0",
+        "label": {
+          "borderColor": "#775DD0",
+          "style": {
+            "color": "#fff",
+            "background": "#775DD0"
+          },
+          "text": "COVID-19影響"
+        }
+      }
+    ]
+  },
+  "tooltip": {
+    "fixed": {
+      "enabled": true,
+      "position": "topLeft",
+      "offsetY": 30,
+      "offsetX": 60
+    }
+  },
+  "yaxis": {
+    "labels": {
+      "formatter": null
+    },
+    "min": 0,
+    "max": 4,
+    "tickAmount": 8
+  }
+}

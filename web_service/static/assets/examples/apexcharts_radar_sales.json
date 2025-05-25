@@ -1,0 +1,19 @@
+{
+  "series": [{
+    "name": "銷售額",
+    "data": [80, 90, 70]
+  }],
+  "labels": ["業務A", "業務B", "業務C"],
+  "title": {
+    "text": "業務員銷售指標"
+  },
+  "chart": {
+    "type": "radar",
+    "height": 350
+  },
+  "colors": ["#00B8D9"],
+  "yaxis": {
+    "min": 0,
+    "max": 100
+  }
+} 

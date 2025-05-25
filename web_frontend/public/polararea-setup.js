@@ -21,7 +21,7 @@ function setupExampleDataButtons() {
   container.innerHTML = '<div class="text-sm text-center py-4">載入範例數據中...</div>';
   
   // 從index.json載入所有極區域圖範例
-  fetch('./assets/examples/index.json')
+  fetch('/static/assets/examples/index.json')
     .then(response => {
       if (!response.ok) throw new Error('無法載入範例索引檔');
       return response.json();

@@ -1,0 +1,101 @@
+{
+  "series": [
+    {
+      "name": "溫度",
+      "type": "line",
+      "data": [22, 24, 26, 28, 30, 32, 34, 36, 38, 36, 33, 30]
+    },
+    {
+      "name": "雨量",
+      "type": "column",
+      "data": [5, 7, 10, 15, 20, 30, 45, 70, 95, 60, 35, 10]
+    },
+    {
+      "name": "濕度",
+      "type": "area",
+      "data": [65, 68, 72, 75, 78, 80, 83, 85, 87, 86, 82, 78]
+    }
+  ],
+  "chart": {
+    "height": 350,
+    "type": "line",
+    "stacked": false,
+    "toolbar": {
+      "show": true
+    }
+  },
+  "title": {
+    "text": "年度氣象數據綜合分析",
+    "align": "left"
+  },
+  "stroke": {
+    "width": [3, 0, 1],
+    "curve": "smooth",
+    "dashArray": [0, 0, 0]
+  },
+  "plotOptions": {
+    "bar": {
+      "columnWidth": "30%"
+    }
+  },
+  "fill": {
+    "opacity": [1, 0.8, 0.2],
+    "type": ["solid", "solid", "gradient"],
+    "gradient": {
+      "shade": "light",
+      "type": "vertical",
+      "opacityFrom": 0.6,
+      "opacityTo": 0.1,
+      "stops": [0, 100]
+    }
+  },
+  "labels": ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"],
+  "markers": {
+    "size": [4, 0, 0],
+    "colors": ["#FF4560", "#775DD0", "#00E396"],
+    "strokeColors": "#fff",
+    "strokeWidth": 2
+  },
+  "xaxis": {
+    "type": "category",
+    "title": {
+      "text": "月份"
+    }
+  },
+  "yaxis": [
+    {
+      "seriesName": "溫度",
+      "title": {
+        "text": "溫度 (°C)"
+      }
+    },
+    {
+      "seriesName": "雨量",
+      "opposite": true,
+      "title": {
+        "text": "雨量 (mm)"
+      }
+    },
+    {
+      "seriesName": "濕度",
+      "opposite": true,
+      "title": {
+        "text": "濕度 (%)"
+      }
+    }
+  ],
+  "tooltip": {
+    "shared": true,
+    "intersect": false,
+    "y": {
+      "formatter": "function (y, { seriesIndex }) { if (typeof y !== 'undefined') { if (seriesIndex === 0) return y + ' °C'; else if (seriesIndex === 1) return y + ' mm'; else return y + '%'; } return y; }"
+    }
+  },
+  "legend": {
+    "position": "top"
+  },
+  "colors": ["#FF4560", "#775DD0", "#00E396"],
+  "grid": {
+    "borderColor": "#f1f1f1"
+  }
+}

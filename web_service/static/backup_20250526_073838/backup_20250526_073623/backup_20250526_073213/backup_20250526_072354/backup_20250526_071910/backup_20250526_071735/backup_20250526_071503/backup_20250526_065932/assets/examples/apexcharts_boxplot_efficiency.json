@@ -1,0 +1,86 @@
+{
+  "series": [
+    {
+      "name": "研發部",
+      "data": [
+        {
+          "x": "2023年4-6月",
+          "y": [55, 70, 82, 93, 98]
+        },
+        {
+          "x": "2023年7-9月",
+          "y": [53, 68, 75, 83, 90]
+        },
+        {
+          "x": "2023年10-12月",
+          "y": [48, 64, 73, 80, 85]
+        },
+        {
+          "x": "2024年1-3月",
+          "y": [60, 72, 80, 88, 95]
+        }
+      ]
+    },
+    {
+      "name": "市場部",
+      "data": [
+        {
+          "x": "2023年4-6月",
+          "y": [40, 65, 75, 85, 92]
+        },
+        {
+          "x": "2023年7-9月",
+          "y": [45, 68, 78, 88, 94]
+        },
+        {
+          "x": "2023年10-12月",
+          "y": [43, 63, 73, 83, 89]
+        },
+        {
+          "x": "2024年1-3月",
+          "y": [48, 67, 77, 87, 93]
+        }
+      ]
+    }
+  ],
+  "chart": {
+    "type": "boxPlot",
+    "height": 350
+  },
+  "title": {
+    "text": "部門工作效率分布",
+    "align": "left"
+  },
+  "plotOptions": {
+    "boxPlot": {
+      "colors": {
+        "upper": "#00E396",
+        "lower": "#008FFB"
+      }
+    }
+  },
+  "xaxis": {
+    "title": {
+      "text": "季度"
+    }
+  },
+  "yaxis": {
+    "title": {
+      "text": "效率評分 (0-100)"
+    }
+  },
+  "tooltip": {
+    "shared": false,
+    "custom": "function({ seriesIndex, dataPointIndex, w }) { const data = w.globals.initialSeries[seriesIndex].data[dataPointIndex].y; return `<div class=\"p-2\"><b>${w.globals.seriesNames[seriesIndex]} - ${w.globals.initialSeries[seriesIndex].data[dataPointIndex].x}</b><br>最小值: ${data[0]}<br>第一四分位數: ${data[1]}<br>中位數: ${data[2]}<br>第三四分位數: ${data[3]}<br>最大值: ${data[4]}</div>`; }"
+  },
+  "legend": {
+    "position": "top"
+  },
+  "grid": {
+    "borderColor": "#e7e7e7",
+    "row": {
+      "colors": ["#f3f3f3", "transparent"],
+      "opacity": 0.5
+    }
+  }
+}

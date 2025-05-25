@@ -1,0 +1,79 @@
+{
+  "series": [
+    {
+      "name": "科技業",
+      "data": [
+        [80, 22, 45],
+        [76, 18, 35],
+        [92, 28, 55],
+        [88, 25, 48],
+        [95, 33, 62],
+        [72, 15, 30],
+        [84, 26, 52]
+      ]
+    },
+    {
+      "name": "醫療業",
+      "data": [
+        [65, 12, 25],
+        [70, 16, 32],
+        [60, 8, 18],
+        [75, 18, 36],
+        [68, 14, 30],
+        [72, 17, 34],
+        [78, 20, 40]
+      ]
+    },
+    {
+      "name": "金融業",
+      "data": [
+        [82, 24, 48],
+        [78, 20, 40],
+        [85, 26, 52],
+        [90, 30, 60],
+        [75, 19, 38],
+        [80, 22, 44],
+        [88, 28, 56]
+      ]
+    }
+  ],
+  "chart": {
+    "height": 350,
+    "type": "bubble"
+  },
+  "title": {
+    "text": "台灣產業投資報酬分析",
+    "align": "left"
+  },
+  "dataLabels": {
+    "enabled": false
+  },
+  "fill": {
+    "opacity": 0.8
+  },
+  "xaxis": {
+    "title": {
+      "text": "投資規模 (百萬)"
+    },
+    "tickAmount": 10,
+    "min": 50,
+    "max": 100
+  },
+  "yaxis": {
+    "title": {
+      "text": "年報酬率 (%)"
+    },
+    "min": 0,
+    "max": 35
+  },
+  "tooltip": {
+    "custom": "function({ series, seriesIndex, dataPointIndex }) { const data = series[seriesIndex][dataPointIndex]; return `<div class=\"p-2\"><b>${this.w.globals.seriesNames[seriesIndex]}</b><br>投資規模: ${data[0]} 百萬<br>報酬率: ${data[1]}%<br>市場佔有率: ${data[2]/2}%</div>` }"
+  },
+  "legend": {
+    "position": "top"
+  },
+  "colors": ["#00E396", "#008FFB", "#FEB019"],
+  "markers": {
+    "strokeWidth": 2
+  }
+}

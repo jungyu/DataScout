@@ -19,7 +19,7 @@
     
     try {
       // 載入索引文件
-      const indexResp = await fetch('/assets/examples/index.json');
+      const indexResp = await fetch('/static/assets/examples/index.json');
       if (!indexResp.ok) throw new Error('無法載入 index.json');
       
       const indexData = await indexResp.json();
