@@ -1,49 +1,37 @@
 from setuptools import setup, find_packages
 
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
+with open("requirements.txt", "r", encoding="utf-8") as fh:
+    requirements = fh.read().splitlines()
+
 setup(
     name="datascout",
-    version="0.2.0",
-    packages=find_packages(),
-    install_requires=[
-        "selenium>=4.0.0",
-        "webdriver_manager>=3.8.0",
-        "requests>=2.26.0",
-        "beautifulsoup4>=4.9.3",
-        "pandas>=1.3.0",
-        "numpy>=1.21.0",
-        "python-dotenv>=0.19.0",
-        "fastapi>=0.68.0",
-        "uvicorn>=0.15.0",
-        "undetected-chromedriver>=3.5.0",
-        "fake-useragent>=1.1.1",
-        "pyppeteer>=1.0.2",
-        "data_scout_extractors>=0.1.0",
-        "playwright",
-        "loguru",
-    ],
-    author="Aaron Yu",
-    author_email="aaron@datascout.com",
-    description="高級網頁自動化與數據採集框架，具備強大的反檢測功能",
-    long_description=open("README.md").read(),
+    version="0.1.0",
+    author="DataScout Team",
+    author_email="your.email@example.com",
+    description="股票行情查詢機器人",
+    long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/jungyu/DataScout",
+    url="https://github.com/yourusername/datascout",
+    packages=find_packages(),
     classifiers=[
-        "Development Status :: 4 - Beta",
-        "Intended Audience :: Developers",
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Financial and Insurance Industry",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-        "Topic :: Internet :: WWW/HTTP",
-        "Topic :: Software Development :: Libraries :: Python Modules",
-        "Topic :: Software Development :: Testing",
+        "Programming Language :: Python :: 3.11",
     ],
     python_requires=">=3.8",
-    project_urls={
-        "Bug Reports": "https://github.com/jungyu/DataScout/issues",
-        "Source": "https://github.com/jungyu/DataScout",
-        "Documentation": "https://datascout.readthedocs.io/",
-    }
+    install_requires=requirements,
+    entry_points={
+        "console_scripts": [
+            "datascout=autoflow.flows.stock_bot_flow:main",
+        ],
+    },
 ) 
