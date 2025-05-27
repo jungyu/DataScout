@@ -41,7 +41,8 @@
     "strokeWidth": 2
   },
   "tooltip": {
-    "shared": true
+    "shared": true,
+    "intersect": false
   },
   "xaxis": {
     "categories": ["技術能力", "溝通技巧", "領導力", "創新思維", "執行力", "團隊合作"]
