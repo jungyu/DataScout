@@ -1,0 +1,295 @@
+<!-- 左側資料選擇區 -->
+<div class="bg-base-100 p-4 rounded-lg shadow-md border border-base-300" id="chart-data-selector-component" data-selector-type="chart">
+  <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 text-accent" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" />
+      </svg>
+      <span class="text-base font-semibold text-base-content">範例資料</span>
+    </div>
+    <!-- Toggle 按鈕 -->
+    <label class="relative inline-flex items-center cursor-pointer">
+      <input type="checkbox" id="example-data-toggle" class="sr-only peer" checked>
+      <div class="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-accent"></div>
+    </label>
+  </div>
+  
+  <!-- 範例資料 - 線圖數據 -->
+  <div id="line-chart-data" class="space-y-3 line-chart-data chart-data-block" data-chart-type="line">
+    <div class="bg-base-200 p-4 mb-4 rounded-lg hover:bg-base-300 transition-colors border border-base-300" id="sales-data" data-chart-type="line">
+      <div class="font-medium mb-1 text-base-content">銷售數據</div>
+      <div class="text-sm text-base-content opacity-80 mb-2">月度銷售和訪客趨勢</div>
+      <button class="text-accent hover:text-accent-focus text-sm font-medium btn-sm btn-ghost px-2 py-0.5 rounded">點擊載入</button>
+    </div>
+    
+    <div class="bg-base-200 p-4 mb-4 rounded-lg hover:bg-base-300 transition-colors border border-base-300" id="revenue-data" data-chart-type="line">
+      <div class="font-medium mb-1 text-base-content">收入數據</div>
+      <div class="text-sm text-base-content opacity-80 mb-2">季度收入趨勢</div>
+      <button class="text-accent hover:text-accent-focus text-sm font-medium btn-sm btn-ghost px-2 py-0.5 rounded">點擊載入</button>
+    </div>
+    
+    <div class="bg-base-200 p-4 mb-4 rounded-lg hover:bg-base-300 transition-colors border border-base-300" id="web-traffic-data" data-chart-type="line">
+      <div class="font-medium mb-1 text-base-content">網站流量</div>
+      <div class="text-sm text-base-content opacity-80 mb-2">週度網站流量資料</div>
+      <button class="text-accent hover:text-accent-focus text-sm font-medium btn-sm btn-ghost px-2 py-0.5 rounded">點擊載入</button>
+    </div>
+  </div>
+  
+  <!-- 範例資料 - 區域圖數據 -->
+  <div id="area-chart-data" class="space-y-3 area-chart-data chart-data-block" data-chart-type="area">
+    <div class="bg-base-200 p-4 mb-4 rounded-lg hover:bg-base-300 transition-colors border border-base-300" id="webstat-data" data-chart-type="area">
+      <div class="font-medium mb-1 text-base-content">網站統計資料</div>
+      <div class="text-sm text-base-content opacity-80 mb-2">每月訪問量與轉換率</div>
+      <button class="text-accent hover:text-accent-focus text-sm font-medium btn-sm btn-ghost px-2 py-0.5 rounded">點擊載入</button>
+    </div>
+    
+    <div class="bg-base-200 p-4 mb-4 rounded-lg hover:bg-base-300 transition-colors border border-base-300" id="traffic-data" data-chart-type="area">
+      <div class="font-medium mb-1 text-base-content">流量來源分析</div>
+      <div class="text-sm text-base-content opacity-80 mb-2">不同管道的訪問量趨勢</div>
+      <button class="text-accent hover:text-accent-focus text-sm font-medium btn-sm btn-ghost px-2 py-0.5 rounded">點擊載入</button>
+    </div>
+    
+    <div class="bg-base-200 p-4 mb-4 rounded-lg hover:bg-base-300 transition-colors border border-base-300" id="engagement-data" data-chart-type="area">
+      <div class="font-medium mb-1 text-base-content">使用者參與度</div>
+      <div class="text-sm text-base-content opacity-80 mb-2">每週頁面瀏覽時間統計</div>
+      <button class="text-accent hover:text-accent-focus text-sm font-medium btn-sm btn-ghost px-2 py-0.5 rounded">點擊載入</button>
+    </div>
+  </div>
+  
+  <!-- 範例資料 - 柱狀圖數據 -->
+  <div id="column-chart-data" class="space-y-3 column-chart-data chart-data-block" data-chart-type="column">
+    <div class="bg-base-200 p-4 mb-4 rounded-lg hover:bg-base-300 transition-colors border border-base-300" id="finance-data" data-chart-type="column">
+      <div class="font-medium mb-1 text-base-content">財務數據</div>
+      <div class="text-sm text-base-content opacity-80 mb-2">季度營收與成本分析</div>
+      <button class="text-accent hover:text-accent-focus text-sm font-medium btn-sm btn-ghost px-2 py-0.5 rounded">點擊載入</button>
+    </div>
+    
+    <div class="bg-base-200 p-4 mb-4 rounded-lg hover:bg-base-300 transition-colors border border-base-300" id="product-data" data-chart-type="column">
+      <div class="font-medium mb-1 text-base-content">產品銷售統計</div>
+      <div class="text-sm text-base-content opacity-80 mb-2">熱門產品銷售量</div>
+      <button class="text-accent hover:text-accent-focus text-sm font-medium btn-sm btn-ghost px-2 py-0.5 rounded">點擊載入</button>
+    </div>
+    
+    <div class="bg-base-200 p-4 mb-4 rounded-lg hover:bg-base-300 transition-colors border border-base-300" id="comparison-data" data-chart-type="column">
+      <div class="font-medium mb-1 text-base-content">年度比較資料</div>
+      <div class="text-sm text-base-content opacity-80 mb-2">兩年數據對比</div>
+      <button class="text-accent hover:text-accent-focus text-sm font-medium btn-sm btn-ghost px-2 py-0.5 rounded">點擊載入</button>
+    </div>
+  </div>
+  
+  <!-- 範例資料 - 蠟燭圖數據 -->
+  <div id="candlestick-chart-data" class="space-y-3 candlestick-chart-data chart-data-block" data-chart-type="candlestick">
+    <div class="bg-base-200 p-4 mb-4 rounded-lg hover:bg-base-300 transition-colors border border-base-300" id="apple-data" data-chart-type="candlestick">
+      <div class="font-medium mb-1 text-base-content">AAPL 股票資料</div>
+      <div class="text-sm text-base-content opacity-80 mb-2">蘋果公司日線 OHLC 資料</div>
+      <button class="text-accent hover:text-accent-focus text-sm font-medium btn-sm btn-ghost px-2 py-0.5 rounded">點擊載入</button>
+    </div>
+    
+    <div class="bg-base-200 p-4 mb-4 rounded-lg hover:bg-base-300 transition-colors border border-base-300" id="tsmc-data" data-chart-type="candlestick">
+      <div class="font-medium mb-1 text-base-content">TSMC 股票資料</div>
+      <div class="text-sm text-base-content opacity-80 mb-2">台積電日線 OHLC 資料</div>
+      <button class="text-accent hover:text-accent-focus text-sm font-medium btn-sm btn-ghost px-2 py-0.5 rounded">點擊載入</button>
+    </div>
+    
+    <div class="bg-base-200 p-4 mb-4 rounded-lg hover:bg-base-300 transition-colors border border-base-300" id="btc-data" data-chart-type="candlestick">
+      <div class="font-medium mb-1 text-base-content">BTC/USD 資料</div>
+      <div class="text-sm text-base-content opacity-80 mb-2">比特幣對美元小時線資料</div>
+      <button class="text-accent hover:text-accent-focus text-sm font-medium btn-sm btn-ghost px-2 py-0.5 rounded">點擊載入</button>
+    </div>
+  </div>
+  
+  <!-- 檔案上傳區塊，預設隱藏 -->
+  <div id="file-upload-section" style="display: none;">
+    <div class="bg-base-200 p-4 mb-4 rounded-lg border border-base-300">
+      <div class="font-medium mb-2 text-base-content">上傳自定義資料檔案</div>
+      <div class="border-2 border-dashed border-base-300 rounded-md p-6 text-center cursor-pointer" id="file-drop-area">
+        <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-base-content opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+        <p class="mt-4 text-sm text-base-content">
+          <span class="font-semibold">點擊上傳</span> 或拖放檔案至此處
+        </p>
+        <p class="mt-2 text-xs text-base-content opacity-70">
+          支援 CSV, JSON 及 Excel 檔案
+        </p>
+        <input type="file" class="hidden" id="file-upload" accept=".csv,.json,.xlsx,.xls" />
+        <button class="btn btn-sm btn-accent mt-4">
+          選擇檔案
+        </button>
+      </div>
+      
+      <!-- 檔案預覽區域 - 會在選擇檔案後顯示 -->
+      <div id="file-preview-area" style="display: none;" class="mt-4 p-3 bg-gray-50 dark:bg-slate-800 rounded-md"></div>
+      
+      <!-- 檔案上傳按鈕 - 會在選擇檔案後啟用 -->
+      <div class="flex justify-end mt-4">
+        <button id="upload-file-btn" class="px-4 py-2 bg-primary text-white font-medium rounded-md shadow-sm text-xs opacity-50 cursor-not-allowed">
+          上傳檔案
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ChartDataSelector 的自初始化腳本 - 加強版
+  (function() {
+    console.log('資料選擇器組件初始化中...(強化版)');
+    
+    // 取得當前腳本的父元素（選擇器根元素）
+    const selectorElement = document.currentScript.parentElement;
+    
+    // 確保元素有正確的ID
+    if (!selectorElement.id || selectorElement.id !== 'chart-data-selector-component') {
+      selectorElement.id = 'chart-data-selector-component';
+      console.log('修正選擇器 ID');
+    }
+    
+    // 添加特殊標記，表示自初始化腳本已運行
+    selectorElement.setAttribute('data-initialized', 'true');
+    selectorElement.setAttribute('data-initialization-time', new Date().toISOString());
+    
+    // 在DOM完全加載後執行初始化
+    function initSelector() {
+      // 檢測當前頁面的圖表類型
+      const currentPath = window.location.pathname;
+      let chartType = 'candlestick'; // 默認為蠟燭圖
+      
+      // 更精確地檢測頁面類型，避免部分匹配的問題
+      if (currentPath.endsWith('/') || currentPath.endsWith('/index.html')) {
+        chartType = 'candlestick';
+      } else if (currentPath.endsWith('line.html')) {
+        chartType = 'line';
+      } else if (currentPath.endsWith('area.html')) {
+        chartType = 'area';
+      } else if (currentPath.endsWith('column.html')) {
+        chartType = 'column';
+      }
+      
+      console.log(`路徑[${currentPath}]被判定為圖表類型: ${chartType}`)
+      
+      console.log('資料選擇器檢測到圖表類型:', chartType);
+      
+      // 標記組件，以便進行調試
+      selectorElement.setAttribute('data-active-chart', chartType);
+      
+      try {
+        // 確保所有數據區塊都有正確的數據屬性
+        const dataBlocks = selectorElement.querySelectorAll('.line-chart-data, .area-chart-data, .column-chart-data, .candlestick-chart-data');
+        dataBlocks.forEach(block => {
+          // 從類名中提取圖表類型
+          const className = Array.from(block.classList).find(cls => cls.endsWith('-chart-data'));
+          if (className && !block.hasAttribute('data-chart-type')) {
+            const type = className.replace('-chart-data', '');
+            block.setAttribute('data-chart-type', type);
+            console.log(`為元素 ${block.id} 添加缺失的數據屬性: ${type}`);
+          }
+          
+          // 添加統一的圖表數據區塊類名
+          if (!block.classList.contains('chart-data-block')) {
+            block.classList.add('chart-data-block');
+          }
+        });
+        
+        // 強制顯示/隱藏數據區塊
+        const allDataBlocks = selectorElement.querySelectorAll('.chart-data-block');
+        console.log(`找到 ${allDataBlocks.length} 個數據區塊`);
+        
+        allDataBlocks.forEach(block => {
+          const blockChartType = block.getAttribute('data-chart-type');
+          // 強制設置 display 樣式
+          block.style.setProperty('display', blockChartType === chartType ? 'block' : 'none', 'important');
+          console.log(`${blockChartType} 數據區塊 (${block.id}) 顯示狀態:`, 
+                      blockChartType === chartType ? '顯示' : '隱藏');
+        });
+      } catch (error) {
+        console.error('處理數據區塊時發生錯誤:', error);
+      }
+      
+      // 確保上傳區塊隱藏
+      const uploadSection = selectorElement.querySelector('#file-upload-section');
+      if (uploadSection) {
+        uploadSection.style.display = 'none';
+      }
+      
+      // 處理切換按鈕
+      const toggleBtn = selectorElement.querySelector('#example-data-toggle');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('change', function() {
+          const showExamples = this.checked;
+          const currentTypeBlock = selectorElement.querySelector(`.chart-data-block[data-chart-type="${chartType}"]`);
+          const uploadSection = selectorElement.querySelector('#file-upload-section');
+          
+          if (currentTypeBlock) currentTypeBlock.style.display = showExamples ? 'block' : 'none';
+          if (uploadSection) uploadSection.style.display = showExamples ? 'none' : 'block';
+          
+          console.log('切換顯示:', showExamples ? '範例資料' : '檔案上傳');
+        });
+      }
+      
+      // 發送組件已初始化事件
+      const event = new CustomEvent('chart-data-selector-initialized', {
+        detail: { chartType, selectorId: selectorElement.id }
+      });
+      document.dispatchEvent(event);
+      console.log('資料選擇器初始化完成:', chartType);
+    }
+    
+    // 立即執行初始化
+    try {
+      initSelector();
+    } catch (e) {
+      console.error('資料選擇器初始化失敗:', e);
+    }
+    
+    // 對於已載入的頁面，延遲執行另一次初始化，確保可靠性
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      setTimeout(function() {
+        try {
+          console.log('資料選擇器執行延遲初始化...');
+          initSelector();
+        } catch (e) {
+          console.error('資料選擇器延遲初始化失敗:', e);
+        }
+      }, 500);
+    } else {
+      // 否則等待 DOM 載入完成
+      document.addEventListener('DOMContentLoaded', function() {
+        try {
+          console.log('資料選擇器於 DOMContentLoaded 時初始化...');
+          initSelector();
+        } catch (e) {
+          console.error('資料選擇器 DOMContentLoaded 初始化失敗:', e);
+        }
+      });
+    }
+    
+    // 在頁面完全載入後執行額外檢查
+    window.addEventListener('load', function() {
+      try {
+        console.log('資料選擇器於頁面載入完成後進行最終檢查...');
+        // 檢查當前顯示的數據區塊是否正確
+        const currentPath = window.location.pathname;
+        let expectedType = 'candlestick';
+        // 使用更精確的頁面檢測
+        if (currentPath.endsWith('line.html')) expectedType = 'line';
+        else if (currentPath.endsWith('area.html')) expectedType = 'area';
+        else if (currentPath.endsWith('column.html')) expectedType = 'column';
+        
+        console.log(`最終檢查：路徑[${currentPath}]被判定為圖表類型: ${expectedType}`);
+        
+        const activeBlock = selectorElement.querySelector(`.chart-data-block[data-chart-type="${expectedType}"]`);
+        const isCorrect = activeBlock && window.getComputedStyle(activeBlock).display !== 'none';
+        
+        console.log(`最終檢查結果: ${isCorrect ? '正確' : '需要修正'} (預期顯示 ${expectedType})`);
+        
+        if (!isCorrect) {
+          // 重新執行初始化
+          initSelector();
+        }
+      } catch (e) {
+        console.error('資料選擇器最終檢查失敗:', e);
+      }
+    });
+  })();
+</script>

@@ -2,8 +2,8 @@
 // 此工具將檢查頁面上的組件載入情況，並提供詳細的診斷信息
 
 (function() {
-    // 檢查環境
-    const isDevelopment = window.location.port === '5173';
+    // 檢查環境 - 支援多個開發端口
+    const isDevelopment = ['5173', '5174', '5175', '3000', '8080'].includes(window.location.port);
     const environment = isDevelopment ? '開發環境' : '生產環境';
     
     // 檢查組件路徑處理

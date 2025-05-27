@@ -1,0 +1,98 @@
+<!-- filepath: /Users/aaron/Projects/DataScout/web_frontend/index.html -->
+<!DOCTYPE html>
+<html lang="zh-tw" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataScout - 數據可視化儀表板</title>
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <!-- TailwindCSS & DaisyUI -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@3.7.3/dist/full.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <script>
+    tailwind.config = {
+      daisyui: {
+        themes: ["light", "dark"],
+      },
+    }
+  </script>
+  <script type="module" src="/src/index.js"></script>
+</head>
+<body class="bg-base-300">
+  <div class="flex h-screen">
+    <!-- 側邊欄 -->
+    <div id="sidebar" class="w-64 bg-primary text-primary-content overflow-y-auto">
+      <div class="p-4 text-2xl font-bold">
+        DataScout
+      </div>
+      
+      <div class="p-4">
+        <div class="join join-vertical w-full">
+          <!-- 基本圖表類型 -->
+          <div class="collapse collapse-arrow join-item border-b border-primary-focus">
+            <input type="radio" name="accordion-charts" checked /> 
+            <div class="collapse-title font-medium text-sm bg-primary-focus bg-opacity-50 text-white">
+              基本圖表類型
+            </div>
+            <div class="collapse-content p-0 bg-primary/5">
+              <ul class="menu menu-sm py-2">
+                <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/line.html" data-chart-type="line">折線圖 (Line Chart)</a></li>
+                <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/area.html" data-chart-type="area">區域圖 (Area Chart)</a></li>
+                <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/column.html" data-chart-type="column">柱狀圖 (Column Chart)</a></li>
+                <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/bar.html" data-chart-type="bar">條形圖 (Bar Chart)</a></li>
+                <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/pie.html" data-chart-type="pie">圓餅圖 (Pie Chart)</a></li>
+                <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/donut.html" data-chart-type="donut">環形圖 (Donut Chart)</a></li>
+                <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/radar.html" data-chart-type="radar">雷達圖 (Radar Chart)</a></li>
+                <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/scatter.html" data-chart-type="scatter">散點圖 (Scatter Chart)</a></li>
+                <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/heatmap.html" data-chart-type="heatmap">熱力圖 (Heat Map)</a></li>
+                <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/treemap.html" data-chart-type="treemap">樹狀圖 (Treemap)</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 主要內容區 -->
+    <div class="flex-1 flex flex-col">
+      <!-- 頂部導航 -->
+      <div id="topbar" class="bg-base-100 shadow-md">
+        <div class="navbar">
+          <div class="flex-1">
+            <button class="btn btn-ghost" id="sidebar-toggle">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
+          <div class="flex-none">
+            <button class="btn btn-ghost btn-circle">
+              <div class="indicator">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                <span class="badge badge-xs badge-primary indicator-item"></span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- 內容區 -->
+      <div class="flex-1 overflow-auto p-6 bg-base-200">
+        <!-- 圖表標題 -->
+        <div id="chart-header" class="mb-4">
+          <h1 class="text-2xl font-bold">BTC/USD 小時K線圖</h1>
+          <p class="text-sm text-gray-500">更新時間：2024-03-21 06:00:00</p>
+        </div>
+        <!-- 圖表內容 - 蠟燭圖 -->
+        <div id="chart-content" class="bg-base-100 p-4 rounded-lg shadow-lg">
+          <div id="candlestickChart" class="w-full h-[500px]"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- 調試工具 -->
+  <script src="/static/debug-tool.js"></script>
+</body>
+</html>

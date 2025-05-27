@@ -2,6 +2,25 @@
 import './styles/main.css';
 import './index.css';
 import ApexCharts from 'apexcharts';
+// 導入組件載入器
+import { initComponentLoader } from './component-loader.js';
+
+// 檢查是否需要導向到 line.html
+function checkAndRedirectToLine() {
+  // 只在首頁時導向，避免其他頁面被重定向
+  if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+    console.log('首頁訪問，自動導向 line.html');
+    
+    // 根據環境決定重定向目標
+    const isDevelopment = ['5173', '5174', '5175', '5176', '5177', '3000', '8080'].includes(window.location.port);
+    const targetUrl = isDevelopment ? '/line.html' : '/static/line.html';
+    
+    console.log(`重定向目標: ${targetUrl} (環境: ${isDevelopment ? '開發' : '生產'})`);
+    window.location.href = targetUrl;
+    return true;
+  }
+  return false;
+}
 
 // 圖表初始化函數
 function initCandlestickChart() {
@@ -89,8 +108,19 @@ function initSidebarToggle() {
 
 // 頁面載入完成後初始化
 document.addEventListener('DOMContentLoaded', () => {
-  // 初始化圖表
-  initCandlestickChart();
-  // 初始化側邊欄切換
-  initSidebarToggle();
+  // 先檢查是否需要導向到 line.html
+  if (checkAndRedirectToLine()) {
+    return; // 如果需要導向，則停止後續初始化
+  }
+  
+  // 先初始化組件載入器
+  initComponentLoader();
+  
+  // 延遲初始化圖表和其他功能，確保組件已載入
+  setTimeout(() => {
+    // 初始化圖表
+    initCandlestickChart();
+    // 初始化側邊欄切換
+    initSidebarToggle();
+  }, 500);
 });
