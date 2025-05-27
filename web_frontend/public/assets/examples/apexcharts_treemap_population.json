@@ -106,5 +106,8 @@
         "enableShades": false
       }
     }
+  },
+  "chart": {
+    "type": "treemap"
   }
 }

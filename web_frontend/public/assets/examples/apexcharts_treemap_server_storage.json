@@ -52,8 +52,7 @@
       "enabled": true,
       "style": {
         "fontSize": "12px"
-      },
-      "formatter": null
+      }
     },
     "colors": [
       "#3B93A5",
@@ -90,5 +89,8 @@
         }
       }
     }
+  },
+  "chart": {
+    "type": "treemap"
   }
 }

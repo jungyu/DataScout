@@ -157,6 +157,59 @@
         console.error('找不到handleFunctionStrings函數或修復失敗，使用默認數據');
         return this.getDefaultChartData();
       }
+    },
+    
+    // 獲取預設圖表數據
+    getDefaultChartData: function() {
+      return {
+        chart: {
+          type: 'line',
+          height: 350,
+          toolbar: {
+            show: true
+          }
+        },
+        title: {
+          text: '預設圖表數據',
+          align: 'center',
+          style: {
+            fontSize: '16px',
+            color: '#263238'
+          }
+        },
+        series: [{
+          name: '範例數據',
+          data: [10, 41, 35, 51, 49, 62, 69, 91, 148]
+        }],
+        xaxis: {
+          categories: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月'],
+          labels: {
+            style: {
+              colors: '#8e8da4'
+            }
+          }
+        },
+        yaxis: {
+          labels: {
+            style: {
+              colors: '#8e8da4'
+            }
+          }
+        },
+        colors: ['#008FFB'],
+        stroke: {
+          curve: 'smooth',
+          width: 2
+        },
+        grid: {
+          borderColor: '#e7e7e7'
+        },
+        legend: {
+          labels: {
+            colors: '#8e8da4'
+          }
+        }
+      };
     }
   };
 

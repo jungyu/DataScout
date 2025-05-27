@@ -151,6 +151,24 @@
       "description": "專案團隊人力資源配置",
       "file": "apexcharts_pie_team.json",
       "suitableTypes": ["pie", "donut", "polararea"]
+    },
+    {
+      "title": "科技公司市場佔有率",
+      "description": "台灣主要科技公司市場份額分析",
+      "file": "apexcharts_pie_market_share.json",
+      "suitableTypes": ["pie", "donut", "polararea"]
+    },
+    {
+      "title": "市場份額分析",
+      "description": "市場佔有率分析圖表",
+      "file": "apexcharts_pie_market.json",
+      "suitableTypes": ["pie", "donut", "polararea"]
+    },
+    {
+      "title": "銷售渠道分析",
+      "description": "各銷售渠道佔比統計",
+      "file": "apexcharts_pie_sales_channels.json",
+      "suitableTypes": ["pie", "donut", "polararea"]
     }
   ],
   "donut": [

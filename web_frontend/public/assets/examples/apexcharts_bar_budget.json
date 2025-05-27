@@ -51,9 +51,7 @@
     "opacity": 1
   },
   "tooltip": {
-    "y": {
-      "formatter": "function(val) { return val + ' 萬元'; }"
-    }
+    "enabled": true
   },
   "legend": {
     "position": "top",

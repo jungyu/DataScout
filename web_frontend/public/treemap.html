@@ -34,7 +34,7 @@
   <!-- 組件加載器 -->
   <script src="component-loader.js"></script>
 </head>
-<body class="bg-base-300">
+<body class="bg-base-300" data-chart-type="treemap">
   <div class="flex h-screen">
     <!-- 側邊欄 -->
     <div id="sidebar" class="w-64 bg-primary text-primary-content overflow-y-auto" data-component="components/layout/Sidebar.html"></div>
@@ -57,6 +57,184 @@
 
   <!-- 事件監聽和初始化圖表 -->
   <script>
+    // 初始化樹狀圖表
+    function initTreemapChart(externalData) {
+      const chartElement = document.getElementById('treemapChart');
+      if (!chartElement) {
+        console.error('找不到樹狀圖表容器元素: #treemapChart');
+        return;
+      }
+      
+      // 清理現有的圖表實例
+      if (window.cleanupChartInstances) {
+        window.cleanupChartInstances('treemapChart');
+      }
+      
+      // 如果提供了外部數據，直接使用
+      if (externalData) {
+        const chart = new ApexCharts(chartElement, externalData);
+        chart.render();
+        
+        // 如果有註冊函數，則註冊圖表實例以便後續清理
+        if (window.registerChartInstance) {
+          window.registerChartInstance('treemapChart', chart);
+        }
+        return;
+      }
+      
+      // 檢查是否已經由 data-loader 初始化
+      if (window.__chartPageInitialized && window.__currentChartType === 'treemap') {
+        console.log('樹狀圖表已由 data-loader 初始化');
+        return;
+      }
+      
+      console.log('使用默認方法初始化樹狀圖');
+      
+      // 請求JSON數據
+      fetch('./assets/examples/apexcharts_treemap_basic.json')
+        .then(response => response.json())
+        .then(data => {
+          // 使用JSON數據初始化圖表
+          const chart = new ApexCharts(chartElement, data);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('treemapChart', chart);
+          }
+        })
+        .catch(error => {
+          console.error("Failed to load treemap chart data:", error);
+          
+          // 失敗時使用默認數據
+          const defaultData = {
+            series: [
+              {
+                data: [
+                  {
+                    x: '電子商務',
+                    y: 218
+                  },
+                  {
+                    x: '軟體開發',
+                    y: 149
+                  },
+                  {
+                    x: '金融科技',
+                    y: 184
+                  },
+                  {
+                    x: '人工智慧',
+                    y: 55
+                  },
+                  {
+                    x: '物聯網',
+                    y: 84
+                  },
+                  {
+                    x: '區塊鏈',
+                    y: 31
+                  },
+                  {
+                    x: '雲端計算',
+                    y: 70
+                  },
+                  {
+                    x: '大數據',
+                    y: 30
+                  },
+                  {
+                    x: '網路安全',
+                    y: 44
+                  },
+                  {
+                    x: '行動應用',
+                    y: 68
+                  },
+                  {
+                    x: '遊戲開發',
+                    y: 28
+                  },
+                  {
+                    x: '數位行銷',
+                    y: 19
+                  },
+                  {
+                    x: '企業軟體',
+                    y: 29
+                  }
+                ]
+              }
+            ],
+            legend: {
+              show: false
+            },
+            chart: {
+              height: 350,
+              type: 'treemap'
+            },
+            colors: [
+              '#3B82F6',
+              '#8B5CF6', 
+              '#10B981',
+              '#F59E0B',
+              '#EF4444',
+              '#6B7280',
+              '#EC4899',
+              '#14B8A6',
+              '#F97316',
+              '#06B6D4',
+              '#84CC16',
+              '#A855F7',
+              '#F59E0B'
+            ],
+            plotOptions: {
+              treemap: {
+                enableShades: true,
+                shadeIntensity: 0.5,
+                reverseNegativeShade: true,
+                colorScale: {
+                  ranges: [{
+                    from: 0,
+                    to: 50,
+                    color: '#CD363A'
+                  },
+                  {
+                    from: 51,
+                    to: 100,
+                    color: '#52B12C'
+                  }]
+                }
+              }
+            },
+            title: {
+              text: "科技產業投資分佈圖",
+              align: 'center',
+              style: {
+                fontSize: '18px',
+                fontWeight: 'bold',
+                color: '#263238'
+              }
+            },
+            tooltip: {
+              y: {
+                formatter: function(val) {
+                  return val + "億美元"
+                }
+              }
+            }
+          };
+          
+          const chart = new ApexCharts(chartElement, defaultData);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('treemapChart', chart);
+          }
+        });
+    }
+
     document.addEventListener('component-loaded', function(e) {
       // 當所有組件都載入完成後初始化圖表
       if (e.detail.componentPath === 'components/charts/TreemapChartContent.html') {

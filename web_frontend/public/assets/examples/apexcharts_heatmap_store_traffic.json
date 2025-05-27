@@ -49,9 +49,7 @@
     }
   },
   "tooltip": {
-    "y": {
-      "formatter": "function(val) { return val + ' 人/分鐘'; }"
-    }
+    "enabled": true
   },
   "plotOptions": {
     "heatmap": {

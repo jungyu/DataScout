@@ -92,18 +92,49 @@
     });
     
     // 初始化區域圖
-    function initAreaChart() {
+    function initAreaChart(externalData) {
       // 檢查是否已經正確載入圖表容器
       const chartElement = document.getElementById('areaChart');
       if (!chartElement) return;
+      
+      // 檢查是否有已註冊的圖表實例，並清理它們
+      if (window.cleanupChartInstances) {
+        window.cleanupChartInstances('areaChart');
+      }
+      
+      // 如果傳入了外部數據，直接使用
+      if (externalData) {
+        console.log('使用外部數據初始化區域圖');
+        const chart = new ApexCharts(chartElement, externalData);
+        chart.render();
+        
+        // 如果有註冊函數，則註冊圖表實例以便後續清理
+        if (window.registerChartInstance) {
+          window.registerChartInstance('areaChart', chart);
+        }
+        return;
+      }
+      
+      // 檢查是否已經由 data-loader.js 處理
+      if (window.__chartPageInitialized && window.__currentChartType === 'area') {
+        console.log('圖表已由 data-loader.js 初始化，跳過重複初始化');
+        return;
+      }
+      
+      console.log('使用默認方法初始化區域圖');
       
       // 請求JSON數據
       fetch('./assets/examples/apexcharts_area_webstat.json')
         .then(response => response.json())
         .then(data => {
           // 使用JSON數據初始化圖表
-          var chart = new ApexCharts(chartElement, data);
+          const chart = new ApexCharts(chartElement, data);
           chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('areaChart', chart);
+          }
         })
         .catch(error => {
           console.error("Failed to load chart data:", error);
@@ -162,8 +193,13 @@
             colors: ['#8b5cf6', '#6366f1']
           };
           
-          var chart = new ApexCharts(chartElement, defaultData);
+          const chart = new ApexCharts(chartElement, defaultData);
           chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('areaChart', chart);
+          };
         });
     }
     

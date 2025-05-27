@@ -41,9 +41,6 @@
   "tooltip": {
     "enabled": true,
     "shared": true,
-    "intersect": false,
-    "y": {
-      "formatter": "function(y, seriesIndex) { if (typeof y !== 'undefined') { return y + (seriesIndex === 0 ? ' 百萬元' : '%'); } return y; }"
-    }
+    "intersect": false
   }
 }

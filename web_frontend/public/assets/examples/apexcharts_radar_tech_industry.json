@@ -40,9 +40,7 @@
     "position": "top"
   },
   "tooltip": {
-    "y": {
-      "formatter": "function(val) { return val + '/100'; }"
-    }
+    "enabled": true
   },
   "colors": ["#FF4560", "#00E396", "#FEB019"]
 }

@@ -31,8 +31,6 @@
     "position": "bottom"
   },
   "tooltip": {
-    "y": {
-      "formatter": "function(value) { return value + ' 人'; }"
-    }
+    "enabled": true
   }
 }

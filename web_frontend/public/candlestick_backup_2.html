@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-tw" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataScout - 數據可視化儀表板 - 蠟燭圖</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!-- TailwindCSS & DaisyUI -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@3.7.3/dist/full.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <script src="./json-enhancer.js"></script>
+  <script src="./json-formatter-fix.js"></script>
+  <script src="./chart-formatter-fix.js"></script>
+  <script src="./chart-error-handler.js"></script>
+  <script src="./chart-error-handler-enhanced.js"></script>
+  <script src="./chart-recovery-tool.js" defer></script>
+  <script src="./example-toggle.js" defer></script>
+  <script src="./file-upload-handler.js" defer></script>
+  <script src="./unified-chart-handler.js" defer></script>
+  <script src="./data-loader.js" defer></script>
+  <script src="./chart-fix.js" defer></script>
+  <script src="./chart-compat.js" defer></script>
+  <script src="./candlestick-fix.js" defer></script>
+  <script src="./chart-verification.js" defer></script>
+  <script src="./chart-testing-tool.js" defer></script>
+  <script src="./sidebar-activator.js" defer></script>
+  <script>
+    tailwind.config = {
+      daisyui: {
+        themes: ["light", "dark"],
+      },
+    }
+  </script>
+  <script src="component-loader.js"></script>
+</head>
+<body class="bg-base-300">
+  <div class="flex h-screen">
+    <!-- 側邊欄 -->
+    <div id="sidebar" class="w-64 bg-primary text-primary-content overflow-y-auto" data-component="components/layout/Sidebar.html"></div>
+    
+    <!-- 主要內容區 -->
+    <div class="flex-1 flex flex-col">
+      <!-- 頂部導航 -->
+      <div id="topbar" data-component="components/layout/Topbar.html"></div>
+      
+      <!-- 內容區 -->
+      <div class="flex-1 overflow-auto p-6 bg-base-200">
+        <!-- 圖表標題 -->
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <h2 class="text-2xl font-bold text-base-content">蠟燭圖 (Candlestick Chart)</h2>
+            <p class="text-base-content/70 mt-1">展示金融市場價格走勢的標準工具</p>
+          </div>
+          
+          <div class="join">
+            <div class="join-item form-control">
+              <label class="cursor-pointer label">
+                <span class="label-text mr-2 text-base-content">範例資料</span> 
+                <input id="example-data-toggle" type="checkbox" class="toggle toggle-primary" checked /> 
+              </label>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 圖表卡片 -->
+        <div class="bg-base-100 rounded-lg shadow-md border border-base-300">
+          <!-- 圖表工具列 -->
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center p-4 border-b border-base-300">
+            <div class="mb-2 md:mb-0 flex flex-col">
+              <h3 id="chart-title" class="font-semibold text-lg text-base-content">AAPL 股票走勢圖</h3>
+              <p class="text-xs text-base-content/70">數據範圍: 2023/01-2023/03</p>
+            </div>
+            
+            <!-- 數據選擇區 -->
+            <div class="flex flex-wrap gap-2">
+              <button class="example-btn btn btn-xs btn-outline btn-primary" data-example="apexcharts_candlestick_stock.json">
+                AAPL
+              </button>
+              <button class="example-btn btn btn-xs btn-outline" data-example="apexcharts_candlestick_nasdaq.json">
+                NASDAQ
+              </button>
+              <button class="example-btn btn btn-xs btn-outline" data-example="apexcharts_candlestick_taiwan.json">
+                台股
+              </button>
+              <button class="example-btn btn btn-xs btn-outline" data-example="apexcharts_candlestick_bitcoin.json">
+                比特幣
+              </button>
+            </div>
+          </div>
+          
+          <!-- 圖表區域 -->
+          <div class="p-4">
+            <div id="candlestickChart" style="height: 450px;"></div>
+          </div>
+        </div>
+        
+        <!-- 資料上傳區 -->
+        <div id="file-upload-section" class="mt-6 bg-base-100 p-4 rounded-lg shadow-md border border-base-300" style="display: none">
+          <h3 class="font-semibold text-lg mb-3 text-base-content">上傳自定義資料</h3>
+          <div class="flex flex-col md:flex-row gap-4">
+            <div>
+              <input type="file" id="candlestickFile" class="file-input file-input-bordered file-input-sm w-full max-w-xs" />
+              <p class="text-xs text-base-content/70 mt-1">支援 JSON 格式</p>
+            </div>
+            <div>
+              <button id="upload-btn" class="btn btn-sm btn-primary">上傳並使用</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 範例資料部分 -->
+        <div id="example-data-section" class="mt-6 bg-base-100 p-4 rounded-lg shadow-md border border-base-300">
+          <h3 class="font-semibold text-lg mb-3 text-base-content">範例資料說明</h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 範例1 -->
+            <div class="p-3 border border-base-300 rounded-lg bg-base-100 hover:border-primary transition-colors">
+              <h4 class="font-semibold text-base-content">AAPL 股票走勢</h4>
+              <p class="text-sm text-base-content/70 mb-2">蘋果公司股價日線數據</p>
+              <p class="text-xs text-base-content/70">
+                展示蘋果公司股價的 OHLC (開盤、最高、最低、收盤) 數據，適用於金融市場分析和技術分析。
+              </p>
+              <div class="mt-3 flex justify-end">
+                <button class="example-btn btn btn-xs btn-outline btn-primary" data-example="apexcharts_candlestick_stock.json">
+                  載入範例
+                </button>
+              </div>
+            </div>
+            
+            <!-- 範例2 -->
+            <div class="p-3 border border-base-300 rounded-lg bg-base-100 hover:border-primary transition-colors">
+              <h4 class="font-semibold text-base-content">NASDAQ 指數</h4>
+              <p class="text-sm text-base-content/70 mb-2">納斯達克指數日線資料</p>
+              <p class="text-xs text-base-content/70">
+                展示納斯達克指數走勢，包含開盤、最高、最低和收盤價，是了解美國科技股整體表現的指標。
+              </p>
+              <div class="mt-3 flex justify-end">
+                <button class="example-btn btn btn-xs btn-outline" data-example="apexcharts_candlestick_nasdaq.json">
+                  載入範例
+                </button>
+              </div>
+            </div>
+            
+            <!-- 範例3 -->
+            <div class="p-3 border border-base-300 rounded-lg bg-base-100 hover:border-primary transition-colors">
+              <h4 class="font-semibold text-base-content">台灣加權指數</h4>
+              <p class="text-sm text-base-content/70 mb-2">台股日線 OHLC 資料</p>
+              <p class="text-xs text-base-content/70">
+                顯示台灣加權股價指數的走勢，包含台灣證券市場的整體表現數據，適合分析台股市場趨勢。
+              </p>
+              <div class="mt-3 flex justify-end">
+                <button class="example-btn btn btn-xs btn-outline" data-example="apexcharts_candlestick_taiwan.json">
+                  載入範例
+                </button>
+              </div>
+            </div>
+            
+            <!-- 範例4 -->
+            <div class="p-3 border border-base-300 rounded-lg bg-base-100 hover:border-primary transition-colors">
+              <h4 class="font-semibold text-base-content">比特幣/美元</h4>
+              <p class="text-sm text-base-content/70 mb-2">BTC/USD 日線資料</p>
+              <p class="text-xs text-base-content/70">
+                展示比特幣兌美元的價格走勢，加密貨幣市場的行情表現，波動性較大的金融資產範例。
+              </p>
+              <div class="mt-3 flex justify-end">
+                <button class="example-btn btn btn-xs btn-outline" data-example="apexcharts_candlestick_bitcoin.json">
+                  載入範例
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 圖表初始化與資料載入 -->
+  <script>
+    let candlestickChartInstance;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      initCandlestickChart();
+      initDataToggle();
+      setupExampleDataButtons();
+      setupFileUploader();
+    });
+    
+    // 初始化蠟燭圖表
+    function initCandlestickChart(externalData) {
+      const chartElement = document.getElementById('candlestickChart');
+      if (!chartElement) {
+        console.error('找不到蠟燭圖表容器元素: #candlestickChart');
+        return;
+      }
+      
+      // 清理現有的圖表實例
+      if (window.cleanupChartInstances) {
+        window.cleanupChartInstances('candlestickChart');
+      }
+      
+      // 如果提供了外部數據，直接使用
+      if (externalData) {
+        const chart = new ApexCharts(chartElement, externalData);
+        chart.render();
+        
+        // 如果有註冊函數，則註冊圖表實例以便後續清理
+        if (window.registerChartInstance) {
+          window.registerChartInstance('candlestickChart', chart);
+        }
+        return;
+      }
+      
+      // 檢查是否已經由 data-loader 初始化
+      if (window.__chartPageInitialized && window.__currentChartType === 'candlestick') {
+        console.log('蠟燭圖表已由 data-loader 初始化');
+        return;
+      }
+      
+      console.log('使用默認方法初始化蠟燭圖');
+      
+      // 請求JSON數據
+      fetch('./assets/examples/apexcharts_candlestick_ohlc.json')
+        .then(response => response.json())
+        .then(data => {
+          // 使用JSON數據初始化圖表
+          const chart = new ApexCharts(chartElement, data);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('candlestickChart', chart);
+          }
+        })
+        .catch(error => {
+          console.error("Failed to load candlestick chart data:", error);
+          
+          // 失敗時使用默認數據
+          const defaultData = {
+            series: [{
+              data: [
+                { x: new Date(2023, 0, 3), y: [150.64, 158.12, 150.1, 157.96] },
+                { x: new Date(2023, 0, 4), y: [157.85, 158.88, 154.23, 156.60] },
+                { x: new Date(2023, 0, 5), y: [156.57, 160.49, 156.43, 159.75] },
+                { x: new Date(2023, 0, 6), y: [159.75, 160.89, 158.00, 159.83] },
+                { x: new Date(2023, 0, 9), y: [159.32, 160.42, 158.28, 160.25] },
+                { x: new Date(2023, 0, 10), y: [160.45, 162.88, 159.58, 162.74] },
+                { x: new Date(2023, 0, 11), y: [162.96, 163.72, 160.07, 162.95] },
+                { x: new Date(2023, 0, 12), y: [163.22, 163.85, 160.28, 162.14] },
+                { x: new Date(2023, 0, 13), y: [162.3, 165.54, 161.87, 164.56] },
+                { x: new Date(2023, 0, 17), y: [162.9, 163.88, 160.5, 161.11] },
+                { x: new Date(2023, 0, 18), y: [161.62, 164.3, 159.95, 161.84] },
+                { x: new Date(2023, 0, 19), y: [160.04, 160.77, 157.85, 159.15] },
+                { x: new Date(2023, 0, 20), y: [158.99, 162.25, 157.17, 161.03] }
+              ]
+            }],
+            chart: {
+              type: 'candlestick',
+              height: 350,
+              toolbar: {
+                show: true
+              }
+            },
+            title: {
+              text: 'AAPL 股票走勢圖',
+              align: 'center',
+              style: {
+                fontSize: '18px',
+                fontWeight: 'bold',
+                color: '#263238'
+              }
+            },
+            xaxis: {
+              type: 'datetime'
+            },
+            yaxis: {
+              tooltip: {
+                enabled: true
+              }
+            },
+            plotOptions: {
+              candlestick: {
+                colors: {
+                  upward: '#22c55e',
+                  downward: '#ef4444'
+                }
+              }
+            }
+          };
+          
+          const chart = new ApexCharts(chartElement, defaultData);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('candlestickChart', chart);
+          }
+        });
+    }
+            { x: new Date(2023, 0, 17), y: [162.9, 163.88, 160.5, 161.11] },
+            { x: new Date(2023, 0, 18), y: [161.62, 164.3, 159.95, 161.84] },
+            { x: new Date(2023, 0, 19), y: [160.04, 160.77, 157.85, 159.15] },
+            { x: new Date(2023, 0, 20), y: [158.99, 162.25, 157.17, 161.03] }
+          ]
+        }]
+      };
+      
+      // 使用提供的數據或默認數據
+      const data = chartData || defaultData;
+      
+      // 蠟燭圖配置
+      const options = {
+        series: data.series,
+        chart: {
+          type: 'candlestick',
+          height: 450,
+          toolbar: {
+            show: true,
+            tools: {
+              download: true,
+              selection: true,
+              zoom: true,
+              zoomin: true,
+              zoomout: true,
+              pan: true,
+              reset: true
+            }
+          }
+        },
+        title: chartData?.title || {
+          text: 'AAPL 股票走勢圖',
+          align: 'left'
+        },
+        xaxis: {
+          type: 'datetime'
+        },
+        yaxis: {
+          tooltip: {
+            enabled: true
+          }
+        },
+        plotOptions: chartData?.plotOptions || {
+          candlestick: {
+            colors: {
+              upward: '#22c55e',
+              downward: '#ef4444'
+            },
+            wick: {
+              useFillColor: true
+            }
+          }
+        }
+      };
+      
+      // 初始化圖表並保存實例
+      candlestickChartInstance = new ApexCharts(chartElement, options);
+      candlestickChartInstance.render();
+    }
+    
+    // 更新蠟燭圖數據的函數，供 data-loader.js 調用
+    function updateCandlestickChart(data) {
+      console.log('更新燭形圖數據:', data);
+      initCandlestickChart(data);
+    }
+    
+    
+    // 初始化資料切換功能
+    function initDataToggle() {
+      const toggle = document.getElementById('example-data-toggle');
+      const exampleSection = document.getElementById('example-data-section');
+      const uploadSection = document.getElementById('file-upload-section');
+      
+      if (toggle && exampleSection && uploadSection) {
+        toggle.addEventListener('change', function() {
+          if (this.checked) {
+            exampleSection.style.display = 'block';
+            uploadSection.style.display = 'none';
+          } else {
+            exampleSection.style.display = 'none';
+            uploadSection.style.display = 'block';
+          }
+        });
+      }
+    }
+    
+    // 設置範例數據按鈕
+    function setupExampleDataButtons() {
+      const exampleButtons = document.querySelectorAll('.example-btn');
+      exampleButtons.forEach(button => {
+        button.addEventListener('click', function() {
+          const exampleFile = this.dataset.example;
+          loadCandlestickChartExample(exampleFile);
+          
+          // 更新按鈕狀態
+          exampleButtons.forEach(btn => {
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-outline');
+          });
+          this.classList.remove('btn-outline');
+          this.classList.add('btn-primary');
+        });
+      });
+    }
+    
+    // 載入蠟燭圖範例
+    function loadCandlestickChartExample(exampleFile) {
+      console.log(`載入蠟燭圖範例: ${exampleFile}`);
+      
+      fetch(`./assets/examples/${exampleFile}`)
+        .then(response => {
+          if (!response.ok) throw new Error(`範例檔案 ${exampleFile} 不存在`);
+          return response.json();
+        })
+        .then(data => {
+          initCandlestickChart(data);
+          // 更新標題
+          updateChartTitle(data.title?.text || '蠟燭圖');
+        })
+        .catch(error => {
+          console.error('載入蠟燭圖範例資料失敗:', error);
+          alert(`載入失敗: ${error.message}`);
+        });
+    }
+    
+    // 設置文件上傳功能
+    function setupFileUploader() {
+      const uploadBtn = document.getElementById('upload-btn');
+      const fileInput = document.getElementById('candlestickFile');
+      
+      if (uploadBtn && fileInput) {
+        uploadBtn.addEventListener('click', function() {
+          if (fileInput.files.length === 0) {
+            alert('請先選擇檔案');
+            return;
+          }
+          
+          const file = fileInput.files[0];
+          const reader = new FileReader();
+          
+          reader.onload = function(e) {
+            try {
+              const data = JSON.parse(e.target.result);
+              initCandlestickChart(data);
+              updateChartTitle(data.title?.text || file.name);
+            } catch (error) {
+              console.error('解析上傳的 JSON 檔案失敗:', error);
+              alert(`檔案解析失敗: ${error.message}`);
+            }
+          };
+          
+          reader.readAsText(file);
+        });
+      }
+    }
+    
+    // 更新圖表標題
+    function updateChartTitle(title) {
+      const titleElement = document.getElementById('chart-title');
+      if (titleElement) {
+        titleElement.textContent = title;
+      }
+    }
+  </script>
+</body>
+</html>

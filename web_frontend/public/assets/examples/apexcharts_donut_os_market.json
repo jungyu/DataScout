@@ -33,12 +33,10 @@
     }
   },
   "dataLabels": {
-    "formatter": null
+    "enabled": true
   },
   "tooltip": {
-    "y": {
-      "formatter": null
-    }
+    "enabled": true
   },
   "responsive": [
     {

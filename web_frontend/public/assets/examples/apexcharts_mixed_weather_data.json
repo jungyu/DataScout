@@ -86,10 +86,7 @@
   ],
   "tooltip": {
     "shared": true,
-    "intersect": false,
-    "y": {
-      "formatter": "function (y, { seriesIndex }) { if (typeof y !== 'undefined') { if (seriesIndex === 0) return y + ' °C'; else if (seriesIndex === 1) return y + ' mm'; else return y + '%'; } return y; }"
-    }
+    "intersect": false
   },
   "legend": {
     "position": "top"

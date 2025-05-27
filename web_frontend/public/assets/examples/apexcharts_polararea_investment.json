@@ -1,10 +1,24 @@
 {
-  "series": [14, 23, 21, 17, 15, 10],
+  "series": [
+    14,
+    23,
+    21,
+    17,
+    15,
+    10
+  ],
   "chart": {
-    "type": "polarArea",
+    "type": "polar",
     "height": 350
   },
-  "labels": ["醫療保健", "金融服務", "能源", "科技", "消費品", "工業"],
+  "labels": [
+    "醫療保健",
+    "金融服務",
+    "能源",
+    "科技",
+    "消費品",
+    "工業"
+  ],
   "title": {
     "text": "投資組合產業分布",
     "align": "left"
@@ -15,14 +29,19 @@
   "fill": {
     "opacity": 0.8
   },
-  "colors": ["#00D8B6", "#008FFB", "#FEB019", "#FF4560", "#775DD0", "#546E7A"],
+  "colors": [
+    "#00D8B6",
+    "#008FFB",
+    "#FEB019",
+    "#FF4560",
+    "#775DD0",
+    "#546E7A"
+  ],
   "legend": {
     "position": "bottom"
   },
   "tooltip": {
-    "y": {
-      "formatter": "function(val) { return val + '%'; }"
-    }
+    "enabled": true
   },
   "yaxis": {
     "show": false

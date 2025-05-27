@@ -28,18 +28,15 @@
   ],
   "dataLabels": {
     "enabled": true,
-    "formatter": null,
-    "value": {
-      "show": true,
+    "style": {
       "fontSize": "16px",
       "fontFamily": "Helvetica, Arial, sans-serif",
-      "fontWeight": 400
+      "fontWeight": 400,
+      "colors": ["#fff"]
     }
   },
   "tooltip": {
-    "y": {
-      "formatter": "function(val) { return val + '%'; }"
-    }
+    "enabled": true
   },
   "stroke": {
     "width": 2

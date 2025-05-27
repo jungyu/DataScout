@@ -1,0 +1,82 @@
+{
+  "chart": {
+    "type": "line",
+    "height": 350,
+    "toolbar": {
+      "show": true
+    }
+  },
+  "title": {
+    "text": "混合圖表 - 流量與轉換率",
+    "align": "left",
+    "style": {
+      "fontSize": "16px",
+      "color": "#263238"
+    }
+  },
+  "series": [{
+    "name": "網站流量",
+    "type": "column",
+    "data": [23, 11, 22, 27, 13, 22, 37, 21, 44, 22, 30, 45]
+  }, {
+    "name": "轉換率",
+    "type": "line",
+    "data": [3.2, 2.8, 3.5, 4.1, 2.9, 3.8, 4.6, 3.4, 5.2, 3.7, 4.3, 5.8]
+  }],
+  "stroke": {
+    "width": [0, 2]
+  },
+  "plotOptions": {
+    "bar": {
+      "columnWidth": "50%"
+    }
+  },
+  "colors": ["#008FFB", "#FF4560"],
+  "dataLabels": {
+    "enabled": true,
+    "enabledOnSeries": [1]
+  },
+  "labels": ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"],
+  "xaxis": {
+    "type": "category",
+    "labels": {
+      "style": {
+        "colors": "#8e8da4"
+      }
+    }
+  },
+  "yaxis": [{
+    "title": {
+      "text": "網站流量 (千人次)",
+      "style": {
+        "color": "#008FFB"
+      }
+    },
+    "labels": {
+      "style": {
+        "colors": "#008FFB"
+      }
+    }
+  }, {
+    "opposite": true,
+    "title": {
+      "text": "轉換率 (%)",
+      "style": {
+        "color": "#FF4560"
+      }
+    },
+    "labels": {
+      "style": {
+        "colors": "#FF4560"
+      }
+    }
+  }],
+  "grid": {
+    "borderColor": "#e7e7e7"
+  },
+  "legend": {
+    "labels": {
+      "colors": "#8e8da4"
+    }
+  }
+}

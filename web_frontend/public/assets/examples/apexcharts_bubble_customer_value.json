@@ -66,9 +66,7 @@
       "max": 10
     },
     "tooltip": {
-      "z": {
-        "formatter": null
-      }
+      "enabled": true
     }
   }
 }

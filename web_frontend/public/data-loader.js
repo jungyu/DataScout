@@ -22,6 +22,9 @@
     SCATTER: 'scatter',
     MIXED: 'mixed',
     STACKED_BAR: 'stacked_bar',
+    BOXPLOT: 'boxplot',
+    FUNNEL: 'funnel',
+    BUBBLE: 'bubble',
     
     // 獲取所有圖表類型
     getAll() {
@@ -50,6 +53,10 @@
     [ChartType.TREEMAP]: 'treemapChart',
     [ChartType.SCATTER]: 'scatterChart',
     [ChartType.MIXED]: 'mixedChart',
+    [ChartType.STACKED_BAR]: 'stackedBarChart',
+    [ChartType.BOXPLOT]: 'boxplotChart',
+    [ChartType.FUNNEL]: 'funnelChart',
+    [ChartType.BUBBLE]: 'bubbleChart',
     [ChartType.CANDLESTICK]: 'candlestickChart', 
     // 其他圖表類型可在此擴充...
   };
@@ -198,7 +205,7 @@
       window.cleanupChartInstances(chartElementId);
     }
     
-    fetch(`/static/assets/examples/index.json`)
+    fetch(`/assets/examples/index.json`)
       .then(response => {
         if (!response.ok) throw new Error('範例索引檔案不存在');
         return response.json();

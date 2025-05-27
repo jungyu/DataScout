@@ -215,7 +215,12 @@
       if (window.processJsonFunctions) {
         externalData = window.processJsonFunctions(externalData);
       }
-      return window.handlePieChart(externalData);
+      // 使用修復版本處理餅圖
+      if (window.handlePieChartFixed) {
+        return window.handlePieChartFixed(externalData);
+      } else {
+        return window.handlePieChart(externalData);
+      }
     }
     
     // 從預設路徑載入資料

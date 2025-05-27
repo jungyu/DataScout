@@ -37,7 +37,7 @@
   <!-- 組件加載器 -->
   <script src="component-loader.js"></script>
 </head>
-<body class="bg-base-300">
+<body class="bg-base-300" data-chart-type="polararea">
   <div class="flex h-screen">
     <!-- 側邊欄 -->
     <div id="sidebar" class="w-64 bg-primary text-primary-content overflow-y-auto" data-component="components/layout/Sidebar.html"></div>
@@ -60,6 +60,115 @@
 
   <!-- 事件監聽和初始化圖表 -->
   <script>
+    // 初始化極區圖表
+    function initPolarAreaChart(externalData) {
+      const chartElement = document.getElementById('polarareaChart');
+      if (!chartElement) {
+        console.error('找不到極區圖表容器元素: #polarareaChart');
+        return;
+      }
+      
+      // 清理現有的圖表實例
+      if (window.cleanupChartInstances) {
+        window.cleanupChartInstances('polarareaChart');
+      }
+      
+      // 如果提供了外部數據，直接使用
+      if (externalData) {
+        const chart = new ApexCharts(chartElement, externalData);
+        chart.render();
+        
+        // 如果有註冊函數，則註冊圖表實例以便後續清理
+        if (window.registerChartInstance) {
+          window.registerChartInstance('polarareaChart', chart);
+        }
+        return;
+      }
+      
+      // 檢查是否已經由 data-loader 初始化
+      if (window.__chartPageInitialized && window.__currentChartType === 'polararea') {
+        console.log('極區圖表已由 data-loader 初始化');
+        return;
+      }
+      
+      console.log('使用默認方法初始化極區圖');
+      
+      // 請求JSON數據
+      fetch('./assets/examples/apexcharts_polararea_basic.json')
+        .then(response => response.json())
+        .then(data => {
+          // 使用JSON數據初始化圖表
+          const chart = new ApexCharts(chartElement, data);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('polarareaChart', chart);
+          }
+        })
+        .catch(error => {
+          console.error("Failed to load polar area chart data:", error);
+          
+          // 失敗時使用默認數據
+          const defaultData = {
+            series: [14, 23, 21, 17, 15, 10, 12, 17, 21],
+            chart: {
+              type: 'polarArea',
+              height: 350
+            },
+            labels: ['研發', '市場營銷', '銷售', '客服', '營運', '人力資源', '財務', '法務', '其他'],
+            colors: ['#00D9FF', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6B7280', '#EC4899', '#14B8A6', '#F97316'],
+            fill: {
+              opacity: 0.8
+            },
+            stroke: {
+              width: 1,
+              colors: undefined
+            },
+            yaxis: {
+              show: false
+            },
+            legend: {
+              position: 'bottom'
+            },
+            plotOptions: {
+              polarArea: {
+                rings: {
+                  strokeWidth: 0
+                },
+                spokes: {
+                  strokeWidth: 0
+                }
+              }
+            },
+            title: {
+              text: "部門資源分配分析",
+              align: 'center',
+              style: {
+                fontSize: '18px',
+                fontWeight: 'bold',
+                color: '#263238'
+              }
+            },
+            tooltip: {
+              y: {
+                formatter: function(val) {
+                  return val + "%"
+                }
+              }
+            }
+          };
+          
+          const chart = new ApexCharts(chartElement, defaultData);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('polarareaChart', chart);
+          }
+        });
+    }
+
     document.addEventListener('component-loaded', function(e) {
       // 當所有組件都載入完成後初始化圖表
       if (e.detail.componentPath === 'components/charts/PolarareaChartContent.html') {

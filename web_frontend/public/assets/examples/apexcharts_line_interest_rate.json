@@ -63,7 +63,7 @@
   },
   "yaxis": {
     "labels": {
-      "formatter": null
+      "show": true
     },
     "min": 0,
     "max": 4,

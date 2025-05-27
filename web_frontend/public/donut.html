@@ -39,7 +39,7 @@
   <!-- 組件加載器 -->
   <script src="component-loader.js"></script>
 </head>
-<body class="bg-base-300">
+<body class="bg-base-300" data-chart-type="donut">
   <div class="flex h-screen">
     <!-- 側邊欄 -->
     <div id="sidebar" class="w-64 bg-primary text-primary-content overflow-y-auto" data-component="components/layout/Sidebar.html"></div>
@@ -62,6 +62,163 @@
 
   <!-- 事件監聽和初始化圖表 -->
   <script>
+    // 初始化甜甜圈圖表
+    function initDonutChart(externalData) {
+      const chartElement = document.getElementById('donutChart');
+      if (!chartElement) {
+        console.error('找不到甜甜圈圖表容器元素: #donutChart');
+        return;
+      }
+      
+      // 清理現有的圖表實例
+      if (window.cleanupChartInstances) {
+        window.cleanupChartInstances('donutChart');
+      }
+      
+      // 如果提供了外部數據，直接使用
+      if (externalData) {
+        const chart = new ApexCharts(chartElement, externalData);
+        chart.render();
+        
+        // 如果有註冊函數，則註冊圖表實例以便後續清理
+        if (window.registerChartInstance) {
+          window.registerChartInstance('donutChart', chart);
+        }
+        return;
+      }
+      
+      // 檢查是否已經由 data-loader 初始化
+      if (window.__chartPageInitialized && window.__currentChartType === 'donut') {
+        console.log('甜甜圈圖表已由 data-loader 初始化');
+        return;
+      }
+      
+      console.log('使用默認方法初始化甜甜圈圖');
+      
+      // 請求JSON數據
+      fetch('./assets/examples/apexcharts_donut_market.json')
+        .then(response => response.json())
+        .then(data => {
+          // 使用JSON數據初始化圖表
+          const chart = new ApexCharts(chartElement, data);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('donutChart', chart);
+          }
+        })
+        .catch(error => {
+          console.error("Failed to load donut chart data:", error);
+          
+          // 失敗時使用默認數據
+          const defaultData = {
+            series: [44, 55, 13, 43, 22],
+            chart: {
+              type: 'donut',
+              height: 350
+            },
+            labels: ['電商平台', '社交媒體', '搜索引擎', '直接訪問', '其他'],
+            colors: ['#00D9FF', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444'],
+            plotOptions: {
+              pie: {
+                startAngle: -90,
+                endAngle: 270,
+                donut: {
+                  size: '75%',
+                  labels: {
+                    show: true,
+                    name: {
+                      show: true,
+                      fontSize: '16px',
+                      fontFamily: 'Helvetica, Arial, sans-serif',
+                      fontWeight: 600,
+                      color: undefined,
+                      offsetY: -10
+                    },
+                    value: {
+                      show: true,
+                      fontSize: '20px',
+                      fontFamily: 'Helvetica, Arial, sans-serif',
+                      fontWeight: 400,
+                      color: undefined,
+                      offsetY: 16,
+                      formatter: function (val) {
+                        return val + "%"
+                      }
+                    },
+                    total: {
+                      show: true,
+                      showAlways: false,
+                      label: '總計',
+                      fontSize: '16px',
+                      fontFamily: 'Helvetica, Arial, sans-serif',
+                      fontWeight: 600,
+                      color: '#373d3f',
+                      formatter: function (w) {
+                        return w.globals.seriesTotals.reduce((a, b) => {
+                          return a + b
+                        }, 0) + '%'
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            dataLabels: {
+              enabled: false
+            },
+            fill: {
+              type: 'gradient',
+              gradient: {
+                shade: 'dark',
+                type: 'horizontal',
+                shadeIntensity: 0.5,
+                gradientToColors: undefined,
+                inverseColors: true,
+                opacityFrom: 1,
+                opacityTo: 1,
+                stops: [0, 50, 100],
+                colorStops: []
+              }
+            },
+            legend: {
+              position: 'right',
+              offsetY: 0,
+              height: 230,
+            },
+            title: {
+              text: "市場份額分析",
+              align: 'center',
+              style: {
+                fontSize: '18px',
+                fontWeight: 'bold',
+                color: '#263238'
+              }
+            },
+            responsive: [{
+              breakpoint: 480,
+              options: {
+                chart: {
+                  width: 200
+                },
+                legend: {
+                  position: 'bottom'
+                }
+              }
+            }]
+          };
+          
+          const chart = new ApexCharts(chartElement, defaultData);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('donutChart', chart);
+          }
+        });
+    }
+
     document.addEventListener('component-loaded', function(e) {
       // 當所有組件都載入完成後初始化圖表
       if (e.detail.componentPath === 'components/charts/DonutChartContent.html') {

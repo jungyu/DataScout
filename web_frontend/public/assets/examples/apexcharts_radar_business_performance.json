@@ -42,9 +42,7 @@
     "position": "bottom"
   },
   "tooltip": {
-    "y": {
-      "formatter": "function(val) { return val + '%'; }"
-    }
+    "enabled": true
   },
   "colors": ["#008FFB", "#FF4560"],
   "grid": {

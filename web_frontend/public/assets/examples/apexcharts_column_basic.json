@@ -1,0 +1,75 @@
+{
+  "chart": {
+    "type": "bar",
+    "height": 350,
+    "toolbar": {
+      "show": true
+    }
+  },
+  "title": {
+    "text": "基本柱狀圖",
+    "align": "left",
+    "style": {
+      "fontSize": "16px",
+      "color": "#263238"
+    }
+  },
+  "plotOptions": {
+    "bar": {
+      "horizontal": false,
+      "columnWidth": "55%",
+      "endingShape": "rounded"
+    }
+  },
+  "dataLabels": {
+    "enabled": false
+  },
+  "stroke": {
+    "show": true,
+    "width": 2,
+    "colors": ["transparent"]
+  },
+  "series": [{
+    "name": "營收",
+    "data": [44, 55, 57, 56, 61, 58, 63, 60, 66]
+  }, {
+    "name": "利潤",
+    "data": [76, 85, 101, 98, 87, 105, 91, 114, 94]
+  }, {
+    "name": "成本",
+    "data": [35, 41, 36, 26, 45, 48, 52, 53, 41]
+  }],
+  "xaxis": {
+    "categories": ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月"],
+    "labels": {
+      "style": {
+        "colors": "#8e8da4"
+      }
+    }
+  },
+  "yaxis": {
+    "title": {
+      "text": "金額 (萬元)",
+      "style": {
+        "color": "#8e8da4"
+      }
+    },
+    "labels": {
+      "style": {
+        "colors": "#8e8da4"
+      }
+    }
+  },
+  "fill": {
+    "opacity": 1
+  },
+  "colors": ["#008FFB", "#00E396", "#FEB019"],
+  "grid": {
+    "borderColor": "#e7e7e7"
+  },
+  "legend": {
+    "labels": {
+      "colors": "#8e8da4"
+    }
+  }
+}

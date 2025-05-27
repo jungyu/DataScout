@@ -21,7 +21,6 @@
   },
   "dataLabels": {
     "enabled": true,
-    "formatter": "function(val, opt) { const name = opt.w.globals.labels[opt.dataPointIndex]; return name + ': ' + val; }",
     "dropShadow": {
       "enabled": true
     }
@@ -32,8 +31,6 @@
     "position": "bottom"
   },
   "tooltip": {
-    "y": {
-      "formatter": "function(value) { return value + ' 人'; }"
-    }
+    "enabled": true
   }
 }

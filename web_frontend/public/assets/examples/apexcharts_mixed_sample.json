@@ -60,10 +60,7 @@
     ],
     "tooltip": {
       "shared": true,
-      "intersect": false,
-      "y": {
-        "formatter": null
-      }
+      "intersect": false
     },
     "legend": {
       "horizontalAlign": "left",

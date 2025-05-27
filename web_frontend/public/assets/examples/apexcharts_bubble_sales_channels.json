@@ -62,12 +62,7 @@
       }
     },
     "tooltip": {
-      "y": {
-        "formatter": null
-      },
-      "z": {
-        "formatter": null
-      }
+      "enabled": true
     }
   }
 }

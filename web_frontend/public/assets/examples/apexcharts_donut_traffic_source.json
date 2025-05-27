@@ -30,21 +30,17 @@
           },
           "total": {
             "show": true,
-            "label": "總流量",
-            "formatter": "function(w) { return w.globals.seriesTotals.reduce((a, b) => a + b, 0) + '%'; }"
+            "label": "總流量"
           }
         }
       }
     }
   },
   "dataLabels": {
-    "enabled": true,
-    "formatter": "function(val) { return val + '%'; }"
+    "enabled": true
   },
   "tooltip": {
-    "y": {
-      "formatter": "function(val) { return val + '%'; }"
-    }
+    "enabled": true
   },
   "responsive": [
     {
