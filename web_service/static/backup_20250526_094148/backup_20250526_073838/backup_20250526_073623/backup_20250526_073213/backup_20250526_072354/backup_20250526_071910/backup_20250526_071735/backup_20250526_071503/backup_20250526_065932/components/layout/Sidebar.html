@@ -1,0 +1,102 @@
+<!-- 側邊欄 -->
+<div class="w-64 bg-primary text-primary-content overflow-y-auto">
+  <div class="p-4 text-2xl font-bold">
+    DataScout
+  </div>
+  
+  <div class="p-4">
+    <div class="join join-vertical w-full">
+      <!-- 基本圖表類型 -->
+      <div class="collapse collapse-arrow join-item border-b border-primary-focus">
+        <input type="radio" name="accordion-charts" checked /> 
+        <div class="collapse-title font-medium text-sm bg-primary-focus bg-opacity-50 text-white">
+          基本圖表類型
+        </div>
+        <div class="collapse-content p-0 bg-primary/5">
+          <ul class="menu menu-sm py-2">
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/line.html" data-chart-type="line">折線圖 (Line Chart)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/area.html" data-chart-type="area">區域圖 (Area Chart)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/column.html" data-chart-type="column">柱狀圖 (Column Chart)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/bar.html" data-chart-type="bar">條形圖 (Bar Chart)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/pie.html" data-chart-type="pie">圓餅圖 (Pie Chart)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/donut.html" data-chart-type="donut">環形圖 (Donut Chart)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/radar.html" data-chart-type="radar">雷達圖 (Radar Chart)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/scatter.html" data-chart-type="scatter">散點圖 (Scatter Chart)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/heatmap.html" data-chart-type="heatmap">熱力圖 (Heat Map)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/treemap.html" data-chart-type="treemap">樹狀圖 (Treemap)</a></li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- 進階圖表類型 -->
+      <div class="collapse collapse-arrow join-item border-b border-primary-focus">
+        <input type="radio" name="accordion-charts" /> 
+        <div class="collapse-title font-medium text-sm bg-primary-focus bg-opacity-50 text-white">
+          進階圖表類型
+        </div>
+        <div class="collapse-content p-0 bg-primary/5">
+          <ul class="menu menu-sm py-2">
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/candlestick.html" data-chart-type="candlestick">蠟燭圖 (Candlestick)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/boxplot.html" data-chart-type="boxplot">箱形圖 (Boxplot)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/histogram.html" data-chart-type="histogram">直方圖 (Histogram)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/bubble.html" data-chart-type="bubble">氣泡圖 (Bubble)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/funnel.html" data-chart-type="funnel">漏斗圖 (Funnel)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="/static/polararea.html" data-chart-type="polararea">極區圖 (Polar Area)</a></li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- 時間序列與監控圖表 -->
+      <div class="collapse collapse-arrow join-item border-b border-primary-focus">
+        <input type="radio" name="accordion-charts" /> 
+        <div class="collapse-title font-medium text-sm bg-primary-focus bg-opacity-50 text-white">
+          時間序列與監控圖表
+        </div>
+        <div class="collapse-content p-0 bg-primary/5">
+          <ul class="menu menu-sm py-2">
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#timeseries-area">時間序列區域圖</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#synchronized">同步圖表</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#stepline">階梯圖 (Stepline)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#mixed-time">混合時間圖表</a></li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- 比較與分析圖表 -->
+      <div class="collapse collapse-arrow join-item border-b border-primary-focus">
+        <input type="radio" name="accordion-charts" /> 
+        <div class="collapse-title font-medium text-sm bg-primary-focus bg-opacity-50 text-white">
+          比較與分析圖表
+        </div>
+        <div class="collapse-content p-0 bg-primary/5">
+          <ul class="menu menu-sm py-2">
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#grouped-bar">分組柱狀圖 (Grouped Bar)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#stacked-bar">堆疊柱狀圖 (Stacked Bar)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#percent-stacked">百分比堆疊柱狀圖</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#mixed-chart">混合圖表 (Mixed Chart)</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#stock-volume">股票K線圖+成交量</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#heatmap-line">熱力圖+折線圖</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#multi-y-axis">多重Y軸混合圖表</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#technical">價格走勢與技術指標</a></li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- 動態更新圖表 -->
+      <div class="collapse collapse-arrow join-item">
+        <input type="radio" name="accordion-charts" /> 
+        <div class="collapse-title font-medium text-sm bg-primary-focus bg-opacity-50 text-white">
+          動態更新圖表
+        </div>
+        <div class="collapse-content p-0 bg-primary/5">
+          <ul class="menu menu-sm py-2">
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#realtime-line">實時折線圖</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#realtime-dashboard">實時儀表板</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#dynamic-pie">動態餅圖</a></li>
+            <li><a class="hover:bg-accent hover:text-white active:bg-accent/80 text-primary-content font-medium" href="#streaming-data">串流資料折線圖</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
