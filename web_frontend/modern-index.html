@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-tw" data-theme="fantasy">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataScout - 數據可視化儀表板</title>
+  
+  <!-- TailwindCSS & DaisyUI -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.10.3/dist/full.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@4.7.0/dist/apexcharts.min.js"></script>
+  
+  <!-- Alpine.js -->
+  <script defer src="https://unpkg.com/alpinejs@3.14.9/dist/cdn.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      daisyui: {
+        themes: ["fantasy", "light", "dark"],
+      },
+    }
+  </script>
+</head>
+<body class="bg-base-300">
+  <!-- 主要應用容器 -->
+  <div x-data="mainApp" x-init="init()" class="flex h-screen">
+    
+    <!-- 側邊欄 -->
+    <div x-data="sidebar" x-init="mounted()" x-html="getTemplate()"></div>
+
+    <!-- 主要內容區 -->
+    <div class="flex-1 flex flex-col">
+      <!-- 頂部導航 -->
+      <div class="navbar bg-base-100 shadow-lg">
+        <div class="navbar-start">
+          <button @click="$dispatch('sidebar-toggle')" class="btn btn-ghost lg:hidden">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+          </button>
+          <h1 class="text-xl font-bold">DataScout 儀表板</h1>
+        </div>
+        <div class="navbar-center">
+          <div class="breadcrumbs text-sm">
+            <ul>
+              <li><a>首頁</a></li>
+              <li x-text="currentPageTitle"></li>
+            </ul>
+          </div>
+        </div>
+        <div class="navbar-end space-x-2">
+          <a href="/chart-test.html" class="btn btn-primary btn-sm">
+            🧪 圖表測試
+          </a>
+          <div class="dropdown dropdown-end">
+            <button class="btn btn-ghost btn-circle">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zM12 13a1 1 0 110-2 1 1 0 010 2zM12 20a1 1 0 110-2 1 1 0 010 2z"></path>
+              </svg>
+            </button>
+            <ul class="menu dropdown-content bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
+              <li><a @click="toggleTheme()">切換主題</a></li>
+              <li><a href="/chart-test.html">圖表測試</a></li>
+              <li><a href="/public/line.html">傳統架構</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- 內容區 -->
+      <div class="flex-1 overflow-auto p-6">
+        
+        <!-- 歡迎頁面 -->
+        <div x-show="currentPage === 'welcome'" x-transition>
+          <div class="hero min-h-96 bg-base-200 rounded-lg">
+            <div class="hero-content text-center">
+              <div class="max-w-md">
+                <h1 class="text-5xl font-bold">DataScout</h1>
+                <p class="py-6">高級網頁自動化與數據採集框架，專注於提供強大的反檢測功能和數據可視化。</p>
+                <div class="space-x-2">
+                  <button @click="setCurrentPage('charts')" class="btn btn-primary">開始使用圖表</button>
+                  <a href="/chart-test.html" class="btn btn-secondary">圖表測試</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 功能介紹 -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h2 class="card-title">📊 數據可視化</h2>
+                <p>支援多種圖表類型，包括折線圖、區域圖、長條圖、圓餅圖、蠟燭圖等。</p>
+                <div class="card-actions justify-end">
+                  <a href="/chart-test.html" class="btn btn-primary btn-sm">測試圖表</a>
+                </div>
+              </div>
+            </div>
+
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h2 class="card-title">🏗️ 模組化架構</h2>
+                <p>基於 Alpine.js 的現代化組件系統，提供高度可重用的圖表組件。</p>
+                <div class="card-actions justify-end">
+                  <button @click="setCurrentPage('architecture')" class="btn btn-primary btn-sm">查看架構</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h2 class="card-title">⚡ 高效能</h2>
+                <p>基於 Vite 建置工具，提供快速的開發體驗和優化的生產建置。</p>
+                <div class="card-actions justify-end">
+                  <a href="/public/" class="btn btn-primary btn-sm">傳統版本</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 圖表頁面 -->
+        <div x-show="currentPage === 'charts'" x-transition>
+          <div class="mb-6">
+            <h2 class="text-3xl font-bold mb-2">圖表展示</h2>
+            <p class="text-base-content/70">展示各種圖表類型的功能和用法</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h3 class="card-title">📈 基本圖表類型</h3>
+                <p>支援常用的統計圖表，適合一般數據展示需求。</p>
+                <div class="grid grid-cols-2 gap-2 mt-4">
+                  <button @click="loadChart('line')" class="btn btn-outline btn-sm">折線圖</button>
+                  <button @click="loadChart('area')" class="btn btn-outline btn-sm">區域圖</button>
+                  <button @click="loadChart('bar')" class="btn btn-outline btn-sm">長條圖</button>
+                  <button @click="loadChart('pie')" class="btn btn-outline btn-sm">圓餅圖</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h3 class="card-title">🕯️ 進階圖表類型</h3>
+                <p>專業的金融和技術分析圖表，適合進階數據分析。</p>
+                <div class="grid grid-cols-2 gap-2 mt-4">
+                  <button @click="loadChart('candlestick')" class="btn btn-outline btn-sm">蠟燭圖</button>
+                  <button @click="loadChart('heatmap')" class="btn btn-outline btn-sm">熱力圖</button>
+                  <button @click="loadChart('scatter')" class="btn btn-outline btn-sm">散點圖</button>
+                  <button @click="loadChart('radar')" class="btn btn-outline btn-sm">雷達圖</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 動態圖表顯示區 -->
+          <div x-show="selectedChart" x-transition class="mt-8">
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-header">
+                <h3 class="card-title p-4" x-text="selectedChart ? selectedChart + ' 預覽' : ''"></h3>
+              </div>
+              <div class="card-body">
+                <div id="dynamic-chart" class="h-96"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 架構說明頁面 -->
+        <div x-show="currentPage === 'architecture'" x-transition>
+          <div class="mb-6">
+            <h2 class="text-3xl font-bold mb-2">架構說明</h2>
+            <p class="text-base-content/70">DataScout 前端架構介紹</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="alert alert-info">
+              <svg class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <div>
+                <h3 class="font-bold">現代化 Alpine.js 架構</h3>
+                <p>基於 Alpine.js + Vite 的現代化組件系統，提供響應式資料綁定和組件化開發體驗。</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                  <h3 class="card-title">🧩 組件架構</h3>
+                  <ul class="list-disc list-inside space-y-1 text-sm">
+                    <li>BaseChart: 基礎圖表類別</li>
+                    <li>LineChart: 折線圖組件</li>
+                    <li>AreaChart: 區域圖組件</li>
+                    <li>BarChart: 長條圖組件</li>
+                    <li>PieChart: 圓餅圖組件</li>
+                    <li>CandlestickChart: 蠟燭圖組件</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                  <h3 class="card-title">⚙️ 技術棧</h3>
+                  <ul class="list-disc list-inside space-y-1 text-sm">
+                    <li>Alpine.js 3.14.9</li>
+                    <li>TailwindCSS + DaisyUI</li>
+                    <li>ApexCharts 4.7.0</li>
+                    <li>Vite 6.3.5</li>
+                    <li>ES6 模組系統</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 載入組件腳本 -->
+  <script type="module">
+    import { Sidebar } from '/src/components/layout/Sidebar.js';
+    import { LineChart } from '/src/components/charts/LineChart.js';
+    import { AreaChart } from '/src/components/charts/AreaChart.js';
+    import { BarChart } from '/src/components/charts/BarChart.js';
+    import { PieChart } from '/src/components/charts/PieChart.js';
+    import { CandlestickChart } from '/src/components/charts/CandlestickChart.js';
+
+    document.addEventListener('alpine:init', () => {
+      // 註冊 Sidebar 組件
+      const sidebar = new Sidebar();
+      Alpine.data('sidebar', sidebar.init.bind(sidebar));
+
+      // 主應用組件
+      Alpine.data('mainApp', () => ({
+        currentPage: 'welcome',
+        currentPageTitle: '歡迎',
+        selectedChart: null,
+        dynamicChart: null,
+
+        init() {
+          console.log('DataScout 主應用初始化');
+          // 監聽側邊欄圖表選擇事件
+          this.$watch('currentPage', (newPage) => {
+            this.updatePageTitle(newPage);
+          });
+        },
+
+        setCurrentPage(page) {
+          this.currentPage = page;
+        },
+
+        updatePageTitle(page) {
+          const titleMap = {
+            'welcome': '歡迎',
+            'charts': '圖表',
+            'architecture': '架構說明'
+          };
+          this.currentPageTitle = titleMap[page] || page;
+        },
+
+        async loadChart(chartType) {
+          try {
+            this.selectedChart = chartType;
+            
+            // 清除現有圖表
+            if (this.dynamicChart && this.dynamicChart.chart) {
+              this.dynamicChart.chart.destroy();
+            }
+
+            // 根據圖表類型載入對應組件
+            let chartComponent;
+            switch (chartType) {
+              case 'line':
+                chartComponent = new LineChart();
+                break;
+              case 'area':
+                chartComponent = new AreaChart();
+                break;
+              case 'bar':
+                chartComponent = new BarChart();
+                break;
+              case 'pie':
+                chartComponent = new PieChart();
+                break;
+              case 'candlestick':
+                chartComponent = new CandlestickChart();
+                break;
+              default:
+                console.warn('不支援的圖表類型:', chartType);
+                return;
+            }
+
+            // 初始化圖表組件
+            const component = chartComponent.init();
+            component.chartId = 'dynamic-chart';
+            
+            // 延遲載入以確保 DOM 元素存在
+            await this.$nextTick();
+            await component.loadChart();
+            
+            this.dynamicChart = component;
+            
+          } catch (error) {
+            console.error('載入圖表失敗:', error);
+          }
+        },
+
+        toggleTheme() {
+          const themes = ['fantasy', 'light', 'dark'];
+          const currentTheme = document.documentElement.getAttribute('data-theme');
+          const currentIndex = themes.indexOf(currentTheme);
+          const nextTheme = themes[(currentIndex + 1) % themes.length];
+          
+          document.documentElement.setAttribute('data-theme', nextTheme);
+          localStorage.setItem('theme', nextTheme);
+        }
+      }));
+    });
+  </script>
+</body>
+</html>

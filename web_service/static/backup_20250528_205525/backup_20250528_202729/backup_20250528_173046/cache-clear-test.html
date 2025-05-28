@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-tw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataScout - 快取清除測試</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .cache-status {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-base-200">
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-primary mb-4">
+                🔄 DataScout 快取清除測試
+            </h1>
+            <div class="badge badge-success cache-status text-lg p-4">
+                ✅ 部署時間: 2025-05-28 15:33:02
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- 現代化主頁面 -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-primary">
+                        🏠 現代化主頁面
+                    </h2>
+                    <p>Alpine.js 架構的主頁面，包含所有現代化功能</p>
+                    <div class="card-actions justify-end">
+                        <a href="/static/modern-index.html?v=${new Date().getTime()}" 
+                           class="btn btn-primary" target="_blank">
+                            訪問頁面
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 所有圖表測試 -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-secondary">
+                        📊 所有圖表測試
+                    </h2>
+                    <p>測試所有 10 種圖表類型的載入和渲染</p>
+                    <div class="card-actions justify-end">
+                        <a href="/static/test-all-charts.html?v=${new Date().getTime()}" 
+                           class="btn btn-secondary" target="_blank">
+                            測試圖表
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 詳細圖表測試 -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-accent">
+                        🧪 詳細圖表測試
+                    </h2>
+                    <p>包含數據上傳、配置測試的完整工具</p>
+                    <div class="card-actions justify-end">
+                        <a href="/static/chart-test.html?v=${new Date().getTime()}" 
+                           class="btn btn-accent" target="_blank">
+                            詳細測試
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center">
+            <div class="alert alert-info">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>
+                    <strong>部署完成！</strong> 所有舊的單圖表頁面已移除。
+                    如果仍看到舊內容，請強制重新整理 (Ctrl+F5 或 Cmd+Shift+R)
+                </span>
+            </div>
+        </div>
+
+        <div class="mt-6">
+            <div class="stats shadow w-full">
+                <div class="stat">
+                    <div class="stat-title">圖表組件</div>
+                    <div class="stat-value text-primary">10</div>
+                    <div class="stat-desc">全部就緒</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-title">測試頁面</div>
+                    <div class="stat-value text-secondary">3</div>
+                    <div class="stat-desc">現代化架構</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-title">舊頁面清理</div>
+                    <div class="stat-value text-accent">19</div>
+                    <div class="stat-desc">已移除</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 強制快取清除
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DataScout 快取清除測試頁面載入完成');
+            console.log('部署時間:', new Date().toLocaleString());
+            
+            // 檢查是否有快取問題
+            const testUrls = [
+                '/static/src/components/charts/LineChart.js',
+                '/static/src/components/charts/HeatMapChart.js',
+                '/static/src/components/charts/BoxPlotChart.js'
+            ];
+            
+            testUrls.forEach(url => {
+                fetch(url + '?v=' + new Date().getTime())
+                    .then(response => {
+                        if (response.ok) {
+                            console.log('✅', url, '載入成功');
+                        } else {
+                            console.log('❌', url, '載入失敗:', response.status);
+                        }
+                    })
+                    .catch(error => {
+                        console.log('❌', url, '載入錯誤:', error);
+                    });
+            });
+        });
+
+        // 更新時間戳
+        const timestamps = new Date().getTime();
+        document.querySelectorAll('a[href*="?v="]').forEach(link => {
+            link.href = link.href.replace(/v=\$\{[^}]+\}/, 'v=' + timestamps);
+        });
+    </script>
+</body>
+</html>

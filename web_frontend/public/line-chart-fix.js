@@ -60,7 +60,7 @@
     
     // 加載並渲染圖表
     console.log(`嘗試載入折線圖資料: ${filePath}`);
-    fetch(`/assets/examples/${filePath}`)
+    fetch(`assets/examples/${filePath}`)
       .then(response => {
         if (!response.ok) throw new Error(`無法載入檔案 ${filePath}`);
         return response.json();
@@ -77,7 +77,7 @@
   // 載入預設折線圖範例
   function loadDefaultLineChartExample() {
     console.log('載入預設折線圖範例');
-    fetch('/assets/examples/apexcharts_line_sales.json')
+    fetch('assets/examples/apexcharts_line_sales.json')
       .then(response => {
         if (!response.ok) throw new Error('無法載入預設折線圖資料');
         return response.json();

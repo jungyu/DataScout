@@ -145,7 +145,7 @@
   
   // 加載並處理折線圖數據
   function loadLineChartData(fileName) {
-    fetch(`./assets/examples/${fileName}`)
+    fetch(`assets/examples/${fileName}`)
       .then(response => {
         if (!response.ok) throw new Error(`無法載入檔案 ${fileName}`);
         return response.text(); // 先以文本形式獲取
@@ -226,7 +226,7 @@
       
       const fileName = files[index];
       
-      fetch(`./assets/examples/${fileName}`)
+      fetch(`assets/examples/${fileName}`)
         .then(response => {
           if (!response.ok) throw new Error(`無法載入檔案 ${fileName}`);
           return response.text(); // 先以文本形式獲取

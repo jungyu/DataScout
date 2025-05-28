@@ -113,9 +113,9 @@
         
         // 嘗試使用備用資料
         const alternativeFiles = [
-          './assets/examples/apexcharts_polar_basic.json',
-          './assets/examples/apexcharts_polar_investment.json',
-          './assets/examples/apexcharts_polar_education.json'
+          'assets/examples/apexcharts_polar_basic.json',
+          'assets/examples/apexcharts_polar_investment.json',
+          'assets/examples/apexcharts_polar_education.json'
         ];
         window.chartErrorHandler.retryLoadData('polar', alternativeFiles, 'polarChart', window.handlePolarChart);
       }
@@ -149,9 +149,9 @@
     
     // 嘗試載入預設極區圖資料
     const exampleFiles = [
-      './assets/examples/apexcharts_polar_basic.json',
-      './assets/examples/apexcharts_polar_investment.json',
-      './assets/examples/apexcharts_polar_education.json'
+      'assets/examples/apexcharts_polar_basic.json',
+      'assets/examples/apexcharts_polar_investment.json',
+      'assets/examples/apexcharts_polar_education.json'
     ];
     
     let loadSuccess = false;
@@ -327,7 +327,7 @@
     // 將檔名從 polararea 轉換為 polar
     const modernFileName = exampleFile.replace(/polararea/g, 'polar');
     
-    const examplePath = `./assets/examples/${modernFileName}`;
+    const examplePath = `assets/examples/${modernFileName}`;
     
     fetch(examplePath)
       .then(response => {

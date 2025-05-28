@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-tw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataScout - 圖表頁面索引</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chart-card:hover {
+            transform: translateY(-4px);
+            transition: transform 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-base-200">
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-primary mb-4">
+                📊 DataScout 圖表頁面索引
+            </h1>
+            <p class="text-lg text-base-content/70">
+                選擇您要測試的圖表類型
+            </p>
+        </div>
+
+        <!-- 現代化頁面 -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-secondary mb-4">🚀 現代化頁面 (推薦)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="card bg-gradient-to-r from-primary to-secondary text-primary-content shadow-xl chart-card">
+                    <div class="card-body">
+                        <h3 class="card-title">🏠 現代化主頁</h3>
+                        <p>Alpine.js 架構，包含所有圖表</p>
+                        <div class="card-actions justify-end">
+                            <a href="/static/modern-index.html" class="btn btn-ghost" target="_blank">訪問</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card bg-gradient-to-r from-secondary to-accent text-secondary-content shadow-xl chart-card">
+                    <div class="card-body">
+                        <h3 class="card-title">🧪 所有圖表測試</h3>
+                        <p>快速測試所有 10 種圖表</p>
+                        <div class="card-actions justify-end">
+                            <a href="/static/test-all-charts.html" class="btn btn-ghost" target="_blank">測試</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card bg-gradient-to-r from-accent to-primary text-accent-content shadow-xl chart-card">
+                    <div class="card-body">
+                        <h3 class="card-title">🔧 詳細測試工具</h3>
+                        <p>包含數據上傳的完整工具</p>
+                        <div class="card-actions justify-end">
+                            <a href="/static/chart-test.html" class="btn btn-ghost" target="_blank">工具</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 單獨圖表頁面 -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-info mb-4">📈 單獨圖表頁面</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <!-- 基本圖表 -->
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">📈 折線圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/line.html" class="btn btn-sm btn-primary" target="_blank">Line</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">📊 面積圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/area.html" class="btn btn-sm btn-primary" target="_blank">Area</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">📊 橫條圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/bar.html" class="btn btn-sm btn-secondary" target="_blank">Bar</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">📊 直條圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/column.html" class="btn btn-sm btn-secondary" target="_blank">Column</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">🥧 圓餅圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/pie.html" class="btn btn-sm btn-accent" target="_blank">Pie</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">🍩 甜甜圈圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/donut.html" class="btn btn-sm btn-accent" target="_blank">Donut</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">🎯 散點圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/scatter.html" class="btn btn-sm btn-info" target="_blank">Scatter</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">🫧 氣泡圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/bubble.html" class="btn btn-sm btn-info" target="_blank">Bubble</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">🕯️ K線圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/candlestick.html" class="btn btn-sm btn-warning" target="_blank">Candle</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">📦 箱型圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/boxplot.html" class="btn btn-sm btn-warning" target="_blank">Box</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">🔥 熱力圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/heatmap.html" class="btn btn-sm btn-error" target="_blank">Heat</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">🌳 樹狀圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/treemap.html" class="btn btn-sm btn-error" target="_blank">Tree</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">🕸️ 雷達圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/radar.html" class="btn btn-sm btn-success" target="_blank">Radar</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">⭕ 極座標圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/polar.html" class="btn btn-sm btn-success" target="_blank">Polar</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-lg chart-card">
+                    <div class="card-body p-4">
+                        <h4 class="card-title text-sm">🏢 漏斗圖</h4>
+                        <div class="card-actions justify-end">
+                            <a href="/static/funnel.html" class="btn btn-sm btn-neutral" target="_blank">Funnel</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-8">
+            <div class="alert alert-success">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>所有圖表頁面已還原！您現在可以訪問所有單獨的圖表頁面了。</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

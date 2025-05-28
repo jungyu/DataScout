@@ -1,0 +1,48 @@
+{
+  "chart": {
+    "type": "pie",
+    "height": 350
+  },
+  "title": {
+    "text": "市場份額分析",
+    "align": "center",
+    "style": {
+      "fontSize": "16px",
+      "color": "#263238"
+    }
+  },
+  "series": [35, 28, 22, 10, 5],
+  "labels": ["產品A", "產品B", "產品C", "產品D", "其他"],
+  "colors": ["#008FFB", "#00E396", "#FEB019", "#FF4560", "#775DD0"],
+  "plotOptions": {
+    "pie": {
+      "expandOnClick": false,
+      "donut": {
+        "labels": {
+          "show": false
+        }
+      }
+    }
+  },
+  "dataLabels": {
+    "enabled": true
+  },
+  "legend": {
+    "position": "bottom",
+    "horizontalAlign": "center",
+    "labels": {
+      "colors": "#8e8da4"
+    }
+  },
+  "responsive": [{
+    "breakpoint": 480,
+    "options": {
+      "chart": {
+        "width": 200
+      },
+      "legend": {
+        "position": "bottom"
+      }
+    }
+  }]
+}

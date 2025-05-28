@@ -153,7 +153,7 @@
     
     // 加載並渲染圖表
     console.log(`嘗試載入蠟燭圖資料: ${filePath}`);
-    fetch(`./assets/examples/${filePath}`)
+    fetch(`assets/examples/${filePath}`)
       .then(response => {
         if (!response.ok) throw new Error(`無法載入檔案 ${filePath}`);
         return response.json();
@@ -170,7 +170,7 @@
   // 載入預設蠟燭圖範例
   function loadDefaultCandlestickExample() {
     console.log('載入預設蠟燭圖範例');
-    fetch('./assets/examples/apexcharts_candlestick_bitcoin.json')
+    fetch('assets/examples/apexcharts_candlestick_bitcoin.json')
       .then(response => {
         if (!response.ok) throw new Error('無法載入預設蠟燭圖資料');
         return response.json();

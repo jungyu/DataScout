@@ -1,0 +1,86 @@
+{
+  "chart": {
+    "type": "line",
+    "height": 350,
+    "zoom": {
+      "enabled": true
+    },
+    "toolbar": {
+      "show": true
+    }
+  },
+  "title": {
+    "text": "季度收入趨勢分析",
+    "align": "left",
+    "style": {
+      "fontSize": "16px",
+      "color": "#263238"
+    }
+  },
+  "series": [{
+    "name": "營業收入",
+    "data": [850, 920, 1150, 1080, 1250, 1380, 1420, 1650, 1580, 1720, 1850, 1950]
+  }, {
+    "name": "淨利潤",
+    "data": [120, 180, 220, 190, 280, 320, 350, 410, 380, 450, 520, 580]
+  }, {
+    "name": "毛利潤",
+    "data": [320, 380, 450, 420, 520, 580, 620, 720, 680, 750, 820, 890]
+  }],
+  "xaxis": {
+    "categories": ["Q1-2022", "Q2-2022", "Q3-2022", "Q4-2022", "Q1-2023", "Q2-2023", "Q3-2023", "Q4-2023", "Q1-2024", "Q2-2024", "Q3-2024", "Q4-2024"],
+    "title": {
+      "text": "季度",
+      "style": {
+        "color": "#8e8da4"
+      }
+    },
+    "labels": {
+      "style": {
+        "colors": "#8e8da4"
+      }
+    }
+  },
+  "yaxis": {
+    "title": {
+      "text": "金額 (萬元)",
+      "style": {
+        "color": "#8e8da4"
+      }
+    },
+    "labels": {
+      "style": {
+        "colors": "#8e8da4"
+      }
+    }
+  },
+  "colors": ["#008FFB", "#00E396", "#FEB019"],
+  "stroke": {
+    "curve": "smooth",
+    "width": 3
+  },
+  "grid": {
+    "borderColor": "#e7e7e7",
+    "strokeDashArray": 3
+  },
+  "markers": {
+    "size": 6,
+    "colors": ["#fff"],
+    "strokeColors": ["#008FFB", "#00E396", "#FEB019"],
+    "strokeWidth": 2,
+    "hover": {
+      "size": 8
+    }
+  },
+  "legend": {
+    "position": "top",
+    "horizontalAlign": "center",
+    "labels": {
+      "colors": "#8e8da4"
+    }
+  },
+  "tooltip": {
+    "shared": true,
+    "intersect": false
+  }
+}

@@ -95,8 +95,12 @@
         if (!data.chart) data.chart = {};
         data.chart.type = 'pie';
         
-        // 處理餅圖數據
-        window.handlePieChart(data);
+        // 處理餅圖數據 - 使用修復版本
+        if (window.handlePieChartFixed) {
+          window.handlePieChartFixed(data);
+        } else {
+          window.handlePieChart(data);
+        }
       })
       .catch(error => {
         console.error(`載入餅圖資料時發生錯誤: ${fileName}`, error);
@@ -113,7 +117,11 @@
           responsive: [{ breakpoint: 480, options: { chart: { width: 300 }, legend: { position: 'bottom' }}}]
         };
         console.log('由於載入失敗，使用預設餅圖資料');
-        window.handlePieChart(defaultPieData);
+        if (window.handlePieChartFixed) {
+          window.handlePieChartFixed(defaultPieData);
+        } else {
+          window.handlePieChart(defaultPieData);
+        }
       });
   };
 

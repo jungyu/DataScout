@@ -1,82 +1,89 @@
 /**
- * 極區域圖專用處理函數
- * 解決極區域圖渲染問題
+ * 極區圖專用處理函數
+ * 解決極區圖渲染問題
  */
 
 (function() {
-  console.log('極區域圖專用處理函數已啟動');
+  console.log('極區圖專用處理函數已啟動');
   
-  // 全局保存極區域圖實例
-  window.polarAreaChartInstances = {};
+  // 全局保存極區圖實例
+  window.polarChartInstances = {};
   
   // 在頁面載入完成後執行
   document.addEventListener('DOMContentLoaded', function() {
-    console.log('檢查是否需要初始化極區域圖');
+    console.log('檢查是否需要初始化極區圖');
     
     // 檢查頁面是否有極區圖容器
-    const polarAreaChartContainer = document.getElementById('polarAreaChart');
-    if (polarAreaChartContainer) {
+    const polarChartContainer = document.getElementById('polarChart');
+    if (polarChartContainer) {
       console.log('檢測到極區圖容器，準備初始化');
-      window.initPolarAreaChart();
+      window.initPolarChart();
     }
   });
   
   // 處理極區圖渲染
-  window.handlePolarAreaChart = function(data) {
+  window.handlePolarChart = function(data) {
     console.log('開始處理極區圖渲染', data);
     
     // 檢查圖表容器
-    const chartContainer = document.getElementById('polarAreaChart');
+    const chartContainer = document.getElementById('polarChart');
     if (!chartContainer) {
-      console.error('找不到極區域圖容器元素 #polarAreaChart');
+      console.error('找不到極區圖容器元素 #polarChart');
       if (window.chartErrorHandler) {
-        window.chartErrorHandler.showError('polarAreaChart', '找不到極區域圖容器');
+        window.chartErrorHandler.showError('polarChart', '找不到極區圖容器');
       }
-      return false;
+      return;
     }
     
-    // 清除現有的圖表實例
-    if (window.ApexCharts) {
-      try {
-        const existingChart = ApexCharts.getChartByID('polarAreaChart') || window.polarAreaChartInstances['polarAreaChart'];
-        if (existingChart && typeof existingChart.destroy === 'function') {
-          console.log('清除既有極區域圖實例');
+    try {
+        // 清理現有圖表實例
+        const existingChart = ApexCharts.getChartByID('polarChart') || window.polarChartInstances['polarChart'];
+        if (existingChart) {
+          console.log('清理現有極區圖實例');
           existingChart.destroy();
+          delete window.polarChartInstances['polarChart'];
         }
-      } catch (e) {
-        console.warn('清除極區域圖時發生錯誤:', e);
-      }
+    } catch (e) {
+      console.log('清理圖表實例時發生錯誤:', e);
     }
     
-    // 確保資料結構正確
-    if (!data) {
-      console.error('極區域圖資料無效');
+    // 驗證資料
+    if (!data || typeof data !== 'object') {
+      console.error('極區圖資料無效', data);
       if (window.chartErrorHandler) {
-        window.chartErrorHandler.showError('polarAreaChart', '極區域圖資料無效');
+        window.chartErrorHandler.showError('polarChart', '極區圖資料無效');
       }
-      return false;
+      return;
     }
     
-    // 確保圖表類型設置為polarArea
-    if (!data.chart) data.chart = {};
+    // 確保 chart 對象存在
+    if (!data.chart) {
+      data.chart = {};
+    }
+    
+    // 設置圖表類型
     data.chart.type = 'polarArea';
     
-    // 確保填充設定
-    if (!data.fill) {
-      data.fill = {
-        opacity: 0.8
-      };
+    // 確保有預設高度
+    if (!data.chart.height) {
+      data.chart.height = 350;
     }
     
-    // 確保標籤
-    if (!data.labels || !Array.isArray(data.labels) || data.labels.length === 0) {
-      if (!data.series || !Array.isArray(data.series)) {
-        console.warn('極區域圖缺少標籤和數據，設置預設值');
+    // 確保有系列數據
+    if (!data.series || !Array.isArray(data.series)) {
+      console.warn('極區圖缺少系列數據，使用預設數據');
+      data.series = [14, 23, 21, 17, 15, 10, 12, 17, 21];
+    }
+    
+    // 確保有標籤
+    if (!data.labels || !Array.isArray(data.labels)) {
+      if (data.series && Array.isArray(data.series)) {
+        console.warn('極區圖缺少標籤，根據數據長度生成');
+        data.labels = Array(data.series.length).fill().map((_, i) => `類別${i+1}`);
+      } else {
+        console.warn('極區圖缺少標籤，使用預設標籤');
         data.labels = ['類別A', '類別B', '類別C', '類別D', '類別E'];
         data.series = [42, 47, 52, 58, 65];
-      } else {
-        console.warn('極區域圖缺少標籤，根據數據長度生成');
-        data.labels = Array(data.series.length).fill().map((_, i) => `類別${i+1}`);
       }
     }
     
@@ -89,290 +96,272 @@
     }
     
     try {
-      console.log('初始化極區域圖', data);
+      console.log('初始化極區圖', data);
       const chart = new ApexCharts(chartContainer, data);
-      window.polarAreaChartInstances['polarAreaChart'] = chart;
-      chart.render();
-      console.log('極區域圖渲染完成');
-      return true;
+      
+      // 保存圖表實例
+      window.polarChartInstances['polarChart'] = chart;
+      
+      // 渲染圖表
+      chart.render().then(() => {
+        console.log('極區圖渲染完成');
+      });
+      
     } catch (error) {
-      console.error('渲染極區域圖時發生錯誤:', error);
-      
-      if (window.chartErrorHandler) {          window.chartErrorHandler.showError('polarAreaChart', `無法渲染極區域圖: ${error.message}`);
+      console.error('極區圖渲染失敗:', error);
+      if (window.chartErrorHandler) {          window.chartErrorHandler.showError('polarChart', `無法渲染極區圖: ${error.message}`);
         
-        // 嘗試使用替代數據源
+        // 嘗試使用備用資料
         const alternativeFiles = [
-          'apexcharts_polararea_basic.json',
-          'apexcharts_polararea_resource.json',
-          'apexcharts_polararea_investment.json'
+          './assets/examples/apexcharts_polar_basic.json',
+          './assets/examples/apexcharts_polar_investment.json',
+          './assets/examples/apexcharts_polar_education.json'
         ];
-        
-        window.chartErrorHandler.retryLoadData('polarArea', alternativeFiles, 'polarAreaChart', window.handlePolarAreaChart);
-      } else {
-        chartContainer.innerHTML = `
-          <div class="flex flex-col items-center justify-center h-full">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-error mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p class="text-base text-error font-medium">渲染極區域圖失敗: ${error.message}</p>
-            <button class="btn btn-sm btn-outline btn-error mt-4" onclick="location.reload()">重新整理頁面</button>
-          </div>
-        `;
+        window.chartErrorHandler.retryLoadData('polar', alternativeFiles, 'polarChart', window.handlePolarChart);
       }
-      return false;
     }
   };
   
-  // 初始化極區域圖
-  window.initPolarAreaChart = function() {
-    console.log('初始化極區域圖...');
-    
-    // 如果有預設配置則載入
-    window.loadPolarAreaData();
+  // 保持舊函數名稱以確保向後兼容
+  window.handlePolarAreaChart = function(data) {
+    console.log('呼叫了舊的 handlePolarAreaChart，重新導向到新函數');
+    return window.handlePolarChart(data);
   };
   
-  // 載入極區域圖資料
-  window.loadPolarAreaData = function(dataType = 'default') {
-    console.log(`載入極區域圖資料 (類型: ${dataType})`);
+  // 初始化極區圖函數
+  window.initPolarChart = function() {
+    console.log('初始化極區圖');
     
-    let fileName;
-    switch (dataType.toLowerCase()) {
-      case 'resource':
-        fileName = 'apexcharts_polararea_resource.json';
-        break;
-      case 'investment':
-        fileName = 'apexcharts_polararea_investment.json';
-        break;
-      case 'education':
-        fileName = 'apexcharts_polararea_education.json';
-        break;
-      case 'default':
-      default:
-        fileName = 'apexcharts_polararea_basic.json';
+    // 檢查頁面是否有極區圖
+    const currentPath = window.location.pathname;
+    if (!currentPath.includes('polar.html')) {
+      console.log('當前頁面不是極區圖頁面，跳過初始化');
+      return;
     }
     
-    // 檢查是否由統一資料載入器處理
-    if (window.DataLoader && typeof window.DataLoader.loadChartData === 'function') {
-      window.DataLoader.loadChartData('polarArea', fileName)
-        .then(data => {
-          if (data) {
-            window.handlePolarAreaChart(data);
-          } else {
-            console.error('載入極區域圖預設資料失敗 (經由統一資料載入器)');
-            if (window.chartErrorHandler) {
-              window.chartErrorHandler.showError('polarAreaChart', '載入極區域圖預設資料失敗');
-            }
-          }
-        })
-        .catch(error => {
-          console.error('載入極區域圖預設資料時發生錯誤:', error);
-          if (window.chartErrorHandler) {
-            window.chartErrorHandler.showError('polarareaChart', `載入極區域圖預設資料失敗: ${error.message}`);
-          }
-        });
-    } else {
-      console.warn('找不到統一資料載入器，嘗試直接載入極區域圖資料');
+    console.log('當前在極區圖頁面，開始載入預設資料');
+    
+    // 優先使用 data-loader 的初始化機制
+    if (window.__chartPageInitialized) {
+      console.log('圖表已由 data-loader 初始化，跳過重複初始化');
+      return;
+    }
+    
+    // 嘗試載入預設極區圖資料
+    const exampleFiles = [
+      './assets/examples/apexcharts_polar_basic.json',
+      './assets/examples/apexcharts_polar_investment.json',
+      './assets/examples/apexcharts_polar_education.json'
+    ];
+    
+    let loadSuccess = false;
+    
+    const tryLoadExample = (fileIndex) => {
+      if (fileIndex >= exampleFiles.length) {
+        console.log('所有範例檔案載入失敗，使用硬編碼預設資料');
+        const defaultData = window.getPolarChartExamples().basic;
+        window.handlePolarChart(defaultData);
+        return;
+      }
       
-      // 直接載入資料的備用方法
-      fetch(`assets/examples/${fileName}`)
+      const file = exampleFiles[fileIndex];
+      console.log(`嘗試載入極區圖範例: ${file}`);
+      
+      fetch(file)
         .then(response => {
-          if (!response.ok) throw new Error(`無法載入檔案 ${fileName} (狀態碼: ${response.status})`);
-          return response.text(); // 先取得文本再解析，以便處理JSON格式問題
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return response.json();
         })
-        .then(text => {
-          // 嘗試解析JSON，處理可能的格式問題
-          let data;
-          
-          try {
-            // 首先嘗試透過JSON增強工具解析
-            if (window.JSONEnhancer && typeof window.JSONEnhancer.parse === 'function') {
-              data = window.JSONEnhancer.parse(text);
-              console.log('使用JSON增強工具成功解析');
-            } else {
-              // 若沒有增強工具，使用標準解析
-              data = JSON.parse(text);
-            }
-          } catch (e) {
-            console.warn(`解析JSON時發生錯誤，嘗試修復: ${e.message}`);
-            
-            try {
-              // 移除註釋並嘗試再次解析
-              const processedText = text.replace(/\/\/.*$/gm, '').trim();
-              data = JSON.parse(processedText);
-            } catch (e2) {
-              console.error(`即使移除註釋也無法解析JSON: ${e2.message}`);
-              throw e2;
-            }
-          }
-          
-          // 處理JSON中的函數字串
-          if (data) {
-            data = processJsonFunctions(data);
-          }
-          
-          window.handlePolarAreaChart(data);
+        .then(data => {
+          console.log(`成功載入極區圖範例: ${file}`, data);
+          loadSuccess = true;
+          window.handlePolarChart(data);
         })
         .catch(error => {
-          console.error('直接載入極區域圖資料時發生錯誤:', error);
+          console.error(`載入極區圖範例失敗 ${file}:`, error);
           if (window.chartErrorHandler) {
-            window.chartErrorHandler.showError('polarareaChart', `載入極區域圖預設資料失敗: ${error.message}`);
-            // 嘗試加載替代數據
-            window.loadPolarAreaChartExample('apexcharts_polararea_basic.json');
+            window.chartErrorHandler.showError('polarChart', '載入極區圖預設資料失敗');
           }
+          
+          // 嘗試下一個檔案
+          setTimeout(() => tryLoadExample(fileIndex + 1), 100);
         });
-    }
+    };
+    
+    // 開始嘗試載入
+    tryLoadExample(0);
+    
+    // 如果2秒後還沒成功，使用硬編碼資料
+    setTimeout(() => {
+      if (!loadSuccess) {
+        console.log('載入超時，使用硬編碼預設資料');
+        try {
+          const defaultData = window.getPolarChartExamples().basic;
+          window.handlePolarChart(data);
+        } catch (error) {
+          console.error('使用硬編碼資料也失敗:', error);
+          if (window.chartErrorHandler) {
+            window.chartErrorHandler.showError('polarChart', `載入極區圖預設資料失敗: ${error.message}`);
+          } else {
+            window.loadPolarChartExample('apexcharts_polar_basic.json');
+          }
+        }
+      }
+    }, 2000);
   };
   
-  // 提供極區域圖範例資料
-  window.getPolarAreaChartExamples = function() {
+  // 保持舊函數名稱以確保向後兼容
+  window.initPolarAreaChart = function() {
+    console.log('呼叫了舊的 initPolarAreaChart，重新導向到新函數');
+    return window.initPolarChart();
+  };
+  
+  // 獲取極區圖範例資料
+  window.getPolarChartExamples = function() {
     return {
       basic: {
-        chart: {
-          type: 'polarArea',
-          height: 350
-        },
         series: [14, 23, 21, 17, 15, 10, 12, 17, 21],
-        labels: ['類別A', '類別B', '類別C', '類別D', '類別E', '類別F', '類別G', '類別H', '類別I'],
-        stroke: {
-          colors: ['#fff']
-        },
-        fill: {
-          opacity: 0.8
-        },
-        responsive: [{
-          breakpoint: 480,
-          options: {
-            chart: {
-              width: 280
-            },
-            legend: {
-              position: 'bottom'
-            }
-          }
-        }]
-      },
-      resource: {
         chart: {
           type: 'polarArea',
           height: 350
         },
-        series: [14, 23, 21, 17, 15, 10],
-        labels: ['類別A', '類別B', '類別C', '類別D', '類別E', '類別F'],
-        stroke: {
-          colors: ['#fff']
-        },
+        labels: ['研發', '市場營銷', '銷售', '客服', '營運', '人力資源', '財務', '法務', '其他'],
+        colors: ['#00D9FF', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6B7280', '#EC4899', '#14B8A6', '#F97316'],
         fill: {
           opacity: 0.8
         },
-        colors: ["#00E396", "#FF4560", "#775DD0", "#008FFB", "#FEB019", "#A300D6"],
-        title: {
-          text: "資源分配比例"
+        stroke: {
+          width: 1,
+          colors: undefined
         },
-        responsive: [{
-          breakpoint: 480,
-          options: {
-            chart: {
-              width: 280
+        yaxis: {
+          show: false
+        },
+        legend: {
+          position: 'bottom'
+        },
+        plotOptions: {
+          polarArea: {
+            rings: {
+              strokeWidth: 0
             },
-            legend: {
-              position: 'bottom'
+            spokes: {
+              strokeWidth: 0
             }
           }
-        }]
+        },
+        title: {
+          text: "部門資源分配分析",
+          align: 'center',
+          style: {
+            fontSize: '18px',
+            fontWeight: 'bold',
+            color: '#263238'
+          }
+        },
+        tooltip: {
+          y: {
+            formatter: function(val) {
+              return val + "%"
+            }
+          }
+        }
       },
       investment: {
+        series: [30, 25, 20, 15, 10],
         chart: {
           type: 'polarArea',
           height: 350
         },
-        series: [14, 23, 21, 17, 15, 10],
-        labels: ['醫療保健', '金融服務', '能源', '科技', '消費品', '工業'],
-        stroke: {
-          width: 2
-        },
+        labels: ['股票', '債券', '房地產', '現金', '其他'],
+        colors: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57'],
         fill: {
-          opacity: 0.8
+          opacity: 0.9
         },
-        colors: ["#00D8B6", "#008FFB", "#FEB019", "#FF4560", "#775DD0", "#546E7A"],
+        stroke: {
+          width: 2,
+          colors: ['#fff']
+        },
         title: {
-          text: "投資組合產業分布",
-          align: "left"
+          text: "投資組合分配",
+          align: 'center'
         },
-        responsive: [{
-          breakpoint: 480,
-          options: {
-            chart: {
-              width: 280
-            },
-            legend: {
-              position: 'bottom'
-            }
-          }
-        }]
+        legend: {
+          position: 'bottom'
+        }
+      },
+      education: {
+        series: [35, 28, 22, 15],
+        chart: {
+          type: 'polarArea',
+          height: 350
+        },
+        labels: ['線上課程', '實體課程', '自學', '培訓營'],
+        colors: ['#667eea', '#764ba2', '#f093fb', '#f5576c'],
+        fill: {
+          opacity: 0.85
+        },
+        title: {
+          text: "教育資源分配",
+          align: 'center'
+        },
+        legend: {
+          position: 'right'
+        }
       }
     };
   };
   
-  // 使用全域的processJsonFunctions函數
+  // 保持舊函數名稱以確保向後兼容
+  window.getPolarAreaChartExamples = function() {
+    console.log('呼叫了舊的 getPolarAreaChartExamples，重新導向到新函數');
+    return window.getPolarChartExamples();
+  };
   
-  // 載入特定極區域圖範例
-  window.loadPolarAreaChartExample = function(exampleFile) {
-    console.log(`載入極區域圖範例: ${exampleFile}`);
+  // 載入特定範例
+  window.loadPolarChartExample = function(exampleFile) {
+    console.log(`載入極區圖範例: ${exampleFile}`);
     
-    fetch(`./assets/examples/${exampleFile}`)
+    // 將檔名從 polararea 轉換為 polar
+    const modernFileName = exampleFile.replace(/polararea/g, 'polar');
+    
+    const examplePath = `./assets/examples/${modernFileName}`;
+    
+    fetch(examplePath)
       .then(response => {
-        if (!response.ok) throw new Error(`範例檔案 ${exampleFile} 不存在`);
-        return response.text(); // 先取得文本再解析，以便處理JSON格式問題
+        if (!response.ok) {
+          throw new Error(`無法載入範例檔案: ${response.status}`);
+        }
+        return response.json();
       })
-      .then(text => {
-        // 嘗試解析JSON，處理可能的格式問題
-        let data;
-        
-        try {
-          // 首先嘗試透過JSON增強工具解析
-          if (window.JSONEnhancer && typeof window.JSONEnhancer.parse === 'function') {
-            data = window.JSONEnhancer.parse(text);
-            console.log('使用JSON增強工具成功解析');
-          } else {
-            // 若沒有增強工具，使用標準解析
-            data = JSON.parse(text);
-          }
-        } catch (e) {
-          console.warn(`解析JSON時發生錯誤，嘗試修復: ${e.message}`);
-          
-          try {
-            // 移除註釋並嘗試再次解析
-            const processedText = text.replace(/\/\/.*$/gm, '').trim();
-            data = JSON.parse(processedText);
-          } catch (e2) {
-            console.error(`即使移除註釋也無法解析JSON: ${e2.message}`);
-            throw e2;
-          }
-        }
-        
-        // 處理JSON中的函數字串
-        if (data && window.processJsonFunctions) {
-          data = window.processJsonFunctions(data);
-        }
-        
-        // 確保數據適用於極區域圖
-        if (data.chart) {
-          data.chart.type = 'polarArea';
-        } else {
-          data.chart = { type: 'polarArea' };
-        }
-        
-        window.handlePolarAreaChart(data);
+      .then(data => {
+        console.log(`成功載入極區圖範例: ${modernFileName}`, data);
+        window.handlePolarChart(data);
       })
       .catch(error => {
-        console.error(`載入極區域圖範例失敗: ${exampleFile}`, error);
-        if (window.chartErrorHandler) {
-          window.chartErrorHandler.showError('polarAreaChart', `載入範例失敗: ${error.message}`);
-          
-          // 如果外部範例加載失敗，使用內建範例
-          const examples = window.getPolarAreaChartExamples();
-          window.handlePolarAreaChart(examples.basic);
+        console.error(`載入極區圖範例失敗: ${error.message}`);
+        
+        // 嘗試使用硬編碼範例
+        const examples = window.getPolarChartExamples();
+        const exampleKey = exampleFile.includes('investment') ? 'investment' : 
+                          exampleFile.includes('education') ? 'education' : 'basic';
+        
+        if (examples[exampleKey]) {
+          console.log(`使用硬編碼範例: ${exampleKey}`);
+          window.handlePolarChart(examples[exampleKey]);
+        } else {
+          console.log('使用基本範例');
+          window.handlePolarChart(examples.basic);
         }
       });
   };
+  
+  // 保持舊函數名稱以確保向後兼容
+  window.loadPolarAreaChartExample = function(exampleFile) {
+    console.log('呼叫了舊的 loadPolarAreaChartExample，重新導向到新函數');
+    return window.loadPolarChartExample(exampleFile);
+  };
+  
 })();

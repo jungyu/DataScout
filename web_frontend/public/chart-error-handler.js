@@ -79,7 +79,7 @@
         }
         
         const fileName = alternativeFiles[index];
-        fetch(`./assets/examples/${fileName}`)
+        fetch(`assets/examples/${fileName}`)
           .then(response => {
             if (!response.ok) {
               throw new Error(`無法載入檔案 ${fileName}`);

@@ -240,7 +240,7 @@ function initColumnChartHandler() {
   
   // 加載並渲染圖表
   console.log(`嘗試載入柱狀圖資料: ${filePath}`);
-  fetch(`./assets/examples/${filePath}`)
+  fetch(`assets/examples/${filePath}`)
     .then(response => {
       if (!response.ok) throw new Error(`無法載入檔案 ${filePath}`);
       return response.json();
@@ -257,11 +257,11 @@ function initColumnChartHandler() {
 // 載入預設柱狀圖範例
 function loadDefaultColumnExample() {
   console.log('載入預設柱狀圖範例');
-  fetch('./assets/examples/apexcharts_column_finance.json')
+  fetch('assets/examples/apexcharts_column_finance.json')
     .then(response => {
       if (!response.ok) {
         // 嘗試另一個資料檔案
-        return fetch('./assets/examples/apexcharts_bar_budget.json');
+        return fetch('assets/examples/apexcharts_bar_budget.json');
       }
       return response.json();
     })

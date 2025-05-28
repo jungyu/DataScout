@@ -101,7 +101,7 @@
     console.log('加載樹狀圖資料');
     
     // 嘗試從資料庫或API載入
-    const dataUrl = './assets/examples/apexcharts_treemap_server_storage.json';
+    const dataUrl = 'assets/examples/apexcharts_treemap_server_storage.json';
     
     // 定義備用資料，以備API調用失敗時使用
     const alternativeFiles = [
@@ -134,7 +134,7 @@
   window.loadTreemapChartExample = function(exampleFile) {
     console.log(`載入樹狀圖範例: ${exampleFile}`);
     
-    fetch(`./assets/examples/${exampleFile}`)
+    fetch(`assets/examples/${exampleFile}`)
       .then(response => {
         if (!response.ok) throw new Error(`範例檔案 ${exampleFile} 不存在`);
         return response.json();

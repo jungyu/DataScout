@@ -19,7 +19,7 @@
     
     try {
       // 載入索引文件
-      const indexResp = await fetch('/static/assets/examples/index.json');
+      const indexResp = await fetch('assets/examples/index.json');
       if (!indexResp.ok) throw new Error('無法載入 index.json');
       
       const indexData = await indexResp.json();
@@ -77,7 +77,7 @@
   // 檢查單個文件
   async function validateFile(item) {
     const { file, expectedTypes, category } = item;
-    const filePath = `/assets/examples/${file}`;
+    const filePath = `assets/examples/${file}`;
     
     try {
       // 載入檔案

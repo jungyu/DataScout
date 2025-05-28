@@ -4,7 +4,7 @@ import path from 'path';
 
 export default defineConfig({
   publicDir: 'public',
-  base: process.env.NODE_ENV === 'production' ? '/static/' : '/',
+  base: '/',
   server: {
     port: 5173,
     open: true,
@@ -14,6 +14,9 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }
+    },
+    fs: {
+      allow: ['..']
     }
   },
   resolve: {

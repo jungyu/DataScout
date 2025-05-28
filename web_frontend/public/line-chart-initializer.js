@@ -6,17 +6,12 @@
 document.addEventListener('DOMContentLoaded', function() {
   console.log('折線圖專用初始化腳本已載入');
 
-  // 檢查當前頁面是否為折線圖頁面
-  if (window.location.pathname.toLowerCase().includes('line.html')) {
-    console.log('檢測到折線圖頁面');
-    initLineChartPage();
-  }
-
   // 監聽組件載入事件
   document.addEventListener('component-loaded', function(e) {
     if (e.detail && e.detail.componentPath && e.detail.componentPath.includes('LineChartContent.html')) {
       console.log('折線圖組件已載入，初始化專用處理');
-      setTimeout(initLineChartPage, 500);
+      // 等待一下確保 DOM 完全更新
+      setTimeout(initLineChartPage, 100);
     }
   });
 
@@ -66,11 +61,11 @@ document.addEventListener('DOMContentLoaded', function() {
     examplesContainer.innerHTML = '';
 
     // 獲取所有折線圖示例
-    fetch('/static/assets/examples/index.json')
+    fetch('assets/examples/index.json')
       .then(response => response.json())
-      .then(examples => {
-        // 過濾出折線圖示例
-        const lineExamples = examples.filter(example => example.type === 'line');
+      .then(data => {
+        // 從 index.json 中獲取折線圖示例
+        const lineExamples = data.line || [];
         console.log(`找到 ${lineExamples.length} 個折線圖示例`);
 
         if (lineExamples.length === 0) {
@@ -183,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
     `;
     
     // 從檔案載入數據
-    fetch(`/assets/examples/${filename}`)
+    fetch(`assets/examples/${filename}`)
       .then(response => {
         if (!response.ok) {
           throw new Error(`無法載入檔案: ${filename}`);

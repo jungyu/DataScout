@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-tw" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataScout - 數據可視化儀表板 - 箱形圖</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!-- TailwindCSS & DaisyUI -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@3.7.3/dist/full.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <script src="./chart-testing-tool.js"></script>
+  <script src="./chart-recovery-tool.js"></script>
+  <script src="./json-enhancer.js"></script>
+  <script src="./json-formatter-fix.js"></script>
+  <script src="./chart-formatter-fix.js"></script>
+  <script src="./chart-error-handler.js"></script>
+  <script src="./chart-error-handler-enhanced.js"></script>
+  <script src="./chart-data-loader.js"></script>
+  <script src="./example-toggle.js" defer></script>
+  <script src="./file-upload-handler.js" defer></script>
+  <script src="./unified-chart-handler.js" defer></script>
+  <script src="./data-loader.js" defer></script>
+  <script src="./chart-fix.js" defer></script>
+  <script src="./chart-compat.js" defer></script>
+  <script src="./chart-verification.js" defer></script>
+  <script src="./chart-type-validator.js" defer></script>
+  <script>
+    tailwind.config = {
+      daisyui: {
+        themes: ["light", "dark"],
+      },
+    }
+  </script>
+  <!-- 組件加載器 -->
+  <script src="component-loader.js"></script>
+</head>
+<body class="bg-base-300" data-chart-type="boxplot">
+  <div class="flex h-screen">
+    <!-- 側邊欄 -->
+    <div id="sidebar" class="w-64 bg-primary text-primary-content overflow-y-auto" data-component="components/layout/Sidebar.html"></div>
+    
+    <!-- 主要內容區 -->
+    <div class="flex-1 flex flex-col">
+      <!-- 頂部導航 -->
+      <div id="topbar" data-component="components/layout/Topbar.html"></div>
+      
+      <!-- 內容區 -->
+      <div class="flex-1 overflow-auto p-6 bg-base-200">
+        <!-- 圖表標題 -->
+        <div id="chart-header" data-component="components/charts/ChartHeader.html"></div>
+        
+        <!-- 圖表內容 - 箱形圖 -->
+        <div class="bg-base-100 rounded-lg shadow-lg p-6">
+          <div class="flex flex-col lg:flex-row gap-6">
+            <!-- 範例資料區 -->
+            <div class="lg:w-1/3">
+              <div class="form-control mb-4">
+                <label class="label cursor-pointer">
+                  <span class="label-text font-medium">資料來源</span>
+                  <input type="checkbox" id="example-data-toggle" class="toggle toggle-accent" checked />
+                  <span class="label-text">範例資料</span>
+                </label>
+              </div>
+              
+              <!-- 範例資料選擇器 -->
+              <div id="chart-data-selector-component" data-component="components/ui/ChartDataSelector.html"></div>
+              
+              <!-- 檔案上傳區域 -->
+              <div id="file-upload-section" class="bg-base-200 p-4 rounded-lg border-2 border-dashed border-base-300" style="display: none;">
+                <div class="text-center">
+                  <div class="mb-3">
+                    <svg class="mx-auto h-12 w-12 text-base-content opacity-40" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </div>
+                  <div class="mb-4">
+                    <label for="chart-file-upload" class="cursor-pointer">
+                      <span class="mt-2 block text-sm font-medium text-base-content">
+                        點擊上傳或拖放 JSON 檔案
+                      </span>
+                    </label>
+                    <input id="chart-file-upload" name="chart-file-upload" type="file" class="hidden" accept=".json" />
+                  </div>
+                  <p class="text-xs text-base-content opacity-60">
+                    支援 ApexCharts 格式的 JSON 檔案
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 圖表顯示區 -->
+            <div class="lg:w-2/3">
+              <div class="bg-base-100 rounded-lg border border-base-300 p-4" style="min-height: 600px;">
+                <div id="boxplotChart" class="w-full h-full"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 事件監聽和初始化圖表 -->
+  <script>
+    let boxplotChartInstance = null;
+
+    document.addEventListener('component-loaded', function(e) {
+      // 當資料選擇器組件載入完成時初始化圖表
+      if (e.detail.componentPath === 'components/ui/ChartDataSelector.html') {
+        console.log('資料選擇器組件已載入，初始化箱形圖...');
+        setTimeout(() => {
+          initBoxplotChart();
+        }, 100);
+      }
+      
+      // 初始化主題切換按鈕
+      if (e.detail.componentPath === 'components/layout/Topbar.html') {
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        if (themeToggleBtn) {
+          themeToggleBtn.addEventListener('click', function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            this.classList.toggle('swap-active');
+          });
+        }
+      }
+    });
+    
+    // 初始化箱形圖
+    function initBoxplotChart(externalData) {
+      console.log('開始初始化箱形圖...');
+      
+      const chartElement = document.getElementById('boxplotChart');
+      if (!chartElement) {
+        console.error('找不到圖表容器元素 #boxplotChart');
+        return;
+      }
+      
+      // 清理現有圖表實例
+      if (boxplotChartInstance) {
+        boxplotChartInstance.destroy();
+        boxplotChartInstance = null;
+      }
+      
+      // 使用外部資料或預設資料
+      let chartData = externalData || getDefaultBoxplotData();
+      
+      // 確保圖表類型正確
+      if (!chartData.chart) chartData.chart = {};
+      chartData.chart.type = 'boxPlot';
+      
+      // 設置響應式選項
+      if (!chartData.responsive) {
+        chartData.responsive = [{
+          breakpoint: 768,
+          options: {
+            chart: { height: 400 },
+            legend: { position: 'bottom' }
+          }
+        }];
+      }
+      
+      try {
+        boxplotChartInstance = new ApexCharts(chartElement, chartData);
+        boxplotChartInstance.render();
+        console.log('箱形圖初始化完成');
+      } catch (error) {
+        console.error('箱形圖初始化失敗:', error);
+        if (window.chartErrorHandler) {
+          window.chartErrorHandler.showError('boxplotChart', '圖表初始化失敗: ' + error.message);
+        }
+      }
+    }
+    
+    // 獲取預設箱形圖資料
+    function getDefaultBoxplotData() {
+      return {
+        chart: {
+          type: 'boxPlot',
+          height: 500,
+          toolbar: { show: true }
+        },
+        series: [{
+          name: '數據分佈',
+          type: 'boxPlot',
+          data: [
+            {
+              x: 'Q1',
+              y: [54, 66, 69, 75, 88]
+            },
+            {
+              x: 'Q2', 
+              y: [43, 65, 69, 76, 81]
+            },
+            {
+              x: 'Q3',
+              y: [31, 39, 45, 51, 59]
+            },
+            {
+              x: 'Q4',
+              y: [39, 46, 55, 65, 71]
+            }
+          ]
+        }],
+        title: {
+          text: '季度績效分佈分析',
+          align: 'center'
+        },
+        colors: ['#008FFB'],
+        yaxis: {
+          title: {
+            text: '分數'
+          }
+        }
+      };
+    }
+    
+    // 更新圖表標題
+    function updateChartTitle(title) {
+      const titleElement = document.querySelector('#chart-title');
+      if (titleElement) {
+        titleElement.textContent = title;
+      }
+    }
+    
+    // 頁面載入時運行
+    document.addEventListener('DOMContentLoaded', function() {
+      // 檢查並設置保存的主題
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      
+      const themeToggleBtn = document.getElementById('theme-toggle');
+      if (themeToggleBtn && savedTheme === 'dark') {
+        themeToggleBtn.classList.add('swap-active');
+      }
+    });
+  </script>
+</body>
+</html>

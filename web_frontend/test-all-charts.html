@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-tw" data-theme="fantasy">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataScout 全圖表測試</title>
+  
+  <!-- TailwindCSS & DaisyUI -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.10.3/dist/full.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@4.7.0/dist/apexcharts.min.js"></script>
+  
+  <!-- Alpine.js -->
+  <script defer src="https://unpkg.com/alpinejs@3.14.9/dist/cdn.min.js"></script>
+</head>
+<body class="bg-base-300">
+  <div x-data="chartTestRunner" x-init="init()" class="min-h-screen p-4">
+    <!-- 標題 -->
+    <div class="text-center mb-8">
+      <h1 class="text-4xl font-bold mb-4">DataScout 全圖表組件測試</h1>
+      <p class="text-lg">測試所有 9 個圖表組件的載入和基本功能</p>
+    </div>
+
+    <!-- 測試狀態 -->
+    <div class="card bg-base-100 shadow-xl mb-8">
+      <div class="card-body">
+        <h2 class="card-title">測試進度</h2>
+        <div class="grid grid-cols-3 gap-4">
+          <template x-for="(test, index) in tests" :key="index">
+            <div class="flex items-center space-x-2">
+              <div :class="{
+                'badge-success': test.status === 'passed',
+                'badge-error': test.status === 'failed',
+                'badge-warning': test.status === 'pending',
+                'badge-info': test.status === 'running'
+              }" class="badge badge-sm">
+                <span x-text="test.name"></span>
+              </div>
+              <span x-text="test.status" class="text-sm"></span>
+            </div>
+          </template>
+        </div>
+        <div class="mt-4">
+          <button @click="runAllTests()" class="btn btn-primary" :disabled="isRunning">
+            <span x-show="!isRunning">開始測試</span>
+            <span x-show="isRunning" class="loading loading-spinner loading-sm"></span>
+            <span x-show="isRunning">測試中...</span>
+          </button>
+          <button @click="resetTests()" class="btn btn-secondary ml-2">重置測試</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 測試結果 -->
+    <div x-show="testResults.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <template x-for="(result, index) in testResults" :key="index">
+        <div class="card bg-base-100 shadow-lg">
+          <div class="card-body">
+            <h3 class="card-title text-sm" x-text="result.name"></h3>
+            <div :class="{
+              'text-success': result.success,
+              'text-error': !result.success
+            }">
+              <span x-text="result.success ? '✅ 通過' : '❌ 失敗'"></span>
+            </div>
+            <div x-show="result.chartId" class="h-32">
+              <div :id="result.chartId" class="h-full"></div>
+            </div>
+            <div x-show="result.error" class="text-error text-xs" x-text="result.error"></div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <script type="module">
+    import { LineChart } from '/src/components/charts/LineChart.js';
+    import { AreaChart } from '/src/components/charts/AreaChart.js';
+    import { BarChart } from '/src/components/charts/BarChart.js';
+    import { ScatterChart } from '/src/components/charts/ScatterChart.js';
+    import { RadarChart } from '/src/components/charts/RadarChart.js';
+    import { CandlestickChart } from '/src/components/charts/CandlestickChart.js';
+    import { PieChart } from '/src/components/charts/PieChart.js';
+    import HeatMapChart from '/src/components/charts/HeatMapChart.js';
+    import BoxPlotChart from '/src/components/charts/BoxPlotChart.js';
+
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('chartTestRunner', () => ({
+        isRunning: false,
+        tests: [
+          { name: 'LineChart', status: 'pending' },
+          { name: 'AreaChart', status: 'pending' },
+          { name: 'BarChart', status: 'pending' },
+          { name: 'ScatterChart', status: 'pending' },
+          { name: 'RadarChart', status: 'pending' },
+          { name: 'CandlestickChart', status: 'pending' },
+          { name: 'PieChart', status: 'pending' },
+          { name: 'HeatMapChart', status: 'pending' },
+          { name: 'BoxPlotChart', status: 'pending' }
+        ],
+        testResults: [],
+
+        init() {
+          console.log('圖表測試運行器初始化完成');
+        },
+
+        async runAllTests() {
+          this.isRunning = true;
+          this.testResults = [];
+          
+          const chartClasses = {
+            LineChart,
+            AreaChart,
+            BarChart,
+            ScatterChart,
+            RadarChart,
+            CandlestickChart,
+            PieChart,
+            HeatMapChart,
+            BoxPlotChart
+          };
+
+          for (let i = 0; i < this.tests.length; i++) {
+            const test = this.tests[i];
+            test.status = 'running';
+            
+            try {
+              const ChartClass = chartClasses[test.name];
+              const chartInstance = new ChartClass();
+              const component = chartInstance.init();
+              const chartId = `test-${test.name.toLowerCase()}-${Date.now()}`;
+              component.chartId = chartId;
+              
+              // 生成測試資料
+              const testData = this.generateTestData(test.name);
+              await component.loadChart(testData);
+              
+              test.status = 'passed';
+              this.testResults.push({
+                name: test.name,
+                success: true,
+                chartId: chartId,
+                error: null
+              });
+              
+              console.log(`✅ ${test.name} 測試通過`);
+            } catch (error) {
+              test.status = 'failed';
+              this.testResults.push({
+                name: test.name,
+                success: false,
+                chartId: null,
+                error: error.message
+              });
+              
+              console.error(`❌ ${test.name} 測試失敗:`, error);
+            }
+            
+            // 每個測試之間稍微延遲
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
+          this.isRunning = false;
+          console.log('所有圖表測試完成');
+        },
+
+        resetTests() {
+          this.tests.forEach(test => {
+            test.status = 'pending';
+          });
+          this.testResults = [];
+        },
+
+        generateTestData(chartName) {
+          switch (chartName) {
+            case 'LineChart':
+            case 'AreaChart':
+              return [
+                { x: '2024-01-01', y: 30 },
+                { x: '2024-01-02', y: 40 },
+                { x: '2024-01-03', y: 35 },
+                { x: '2024-01-04', y: 50 },
+                { x: '2024-01-05', y: 49 }
+              ];
+              
+            case 'BarChart':
+              return [
+                { category: '產品A', value: 44 },
+                { category: '產品B', value: 55 },
+                { category: '產品C', value: 41 },
+                { category: '產品D', value: 67 }
+              ];
+              
+            case 'PieChart':
+              return [
+                { label: '桌面電腦', value: 44 },
+                { label: '行動裝置', value: 55 },
+                { label: '平板電腦', value: 13 },
+                { label: '其他', value: 8 }
+              ];
+              
+            case 'ScatterChart':
+              return [
+                { name: "樣本 A", data: [[16.4, 5.4], [21.7, 2], [25.4, 3]] },
+                { name: "樣本 B", data: [[6.4, 13.4], [1.7, 11], [5.4, 8]] }
+              ];
+              
+            case 'RadarChart':
+              return {
+                series: [{
+                  name: '技能評估',
+                  data: [80, 50, 30, 40, 100, 20]
+                }],
+                xaxis: {
+                  categories: ['溝通', '技術', '創意', '領導', '分析', '執行']
+                }
+              };
+              
+            case 'CandlestickChart':
+              return [
+                { x: new Date('2024-01-01'), y: [51.98, 56.29, 51.59, 53.85] },
+                { x: new Date('2024-01-02'), y: [53.66, 54.99, 51.35, 52.95] },
+                { x: new Date('2024-01-03'), y: [52.76, 57.35, 52.15, 57.03] }
+              ];
+              
+            case 'HeatMapChart':
+              return {
+                series: [{
+                  name: '週一',
+                  data: [
+                    { x: '09:00', y: 20 },
+                    { x: '10:00', y: 35 },
+                    { x: '11:00', y: 45 }
+                  ]
+                }, {
+                  name: '週二',
+                  data: [
+                    { x: '09:00', y: 15 },
+                    { x: '10:00', y: 25 },
+                    { x: '11:00', y: 40 }
+                  ]
+                }]
+              };
+              
+            case 'BoxPlotChart':
+              return [
+                { x: '產品A', y: [54, 66, 69, 75, 88] },
+                { x: '產品B', y: [43, 65, 69, 76, 81] },
+                { x: '產品C', y: [31, 39, 45, 51, 59] }
+              ];
+              
+            default:
+              return [];
+          }
+        }
+      }));
+    });
+  </script>
+</body>
+</html>

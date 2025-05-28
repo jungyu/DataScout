@@ -8,9 +8,9 @@ function setupExampleDataButtons() {
   console.log('設置極區域圖範例按鈕');
   
   // 極區圖數據容器元素
-  const container = document.getElementById('polarArea-chart-data');
+  const container = document.getElementById('polar-chart-data');
   if (!container) {
-    console.error('找不到極區圖數據容器 #polarArea-chart-data');
+    console.error('找不到極區圖數據容器 #polar-chart-data');
     return;
   }
   
@@ -21,14 +21,14 @@ function setupExampleDataButtons() {
   container.innerHTML = '<div class="text-sm text-center py-4">載入範例數據中...</div>';
   
   // 從index.json載入所有極區域圖範例
-  fetch('./assets/examples/index.json')
+  fetch('/static/assets/examples/index.json')
     .then(response => {
       if (!response.ok) throw new Error('無法載入範例索引檔');
       return response.json();
     })
     .then(indexData => {
       // 檢查是否有極區圖範例
-      if (!indexData.polarArea || !Array.isArray(indexData.polarArea) || indexData.polarArea.length === 0) {
+      if (!indexData.polar || !Array.isArray(indexData.polar) || indexData.polar.length === 0) {
         container.innerHTML = '<div class="alert alert-warning">找不到極區圖範例數據</div>';
         return;
       }
@@ -37,8 +37,8 @@ function setupExampleDataButtons() {
       container.innerHTML = '';
       
       // 為每個範例創建按鈕
-      indexData.polarArea.forEach(example => {
-        if (example && example.file && example.title && example.suitableTypes.includes('polarArea')) {
+      indexData.polar.forEach(example => {
+        if (example && example.file && example.title && example.suitableTypes.includes('polar')) {
           const exampleItem = document.createElement('button');
           exampleItem.className = 'example-btn w-full btn btn-sm bg-base-200 hover:bg-accent hover:text-accent-content justify-between mb-1';
           exampleItem.setAttribute('data-example', example.file);
@@ -68,7 +68,7 @@ function setupExampleDataButtons() {
             this.classList.add('bg-accent', 'text-accent-content');
             
             // 載入範例
-            window.loadPolarAreaChartExample(this.dataset.example);
+            window.loadPolarChartExample(this.dataset.example);
           });
           
           container.appendChild(exampleItem);

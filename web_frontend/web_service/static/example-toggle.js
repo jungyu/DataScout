@@ -18,9 +18,9 @@ document.addEventListener('DOMContentLoaded', function() {
     } else if (currentPath.includes('/line')) {
       chartType = 'line';
       console.log('[Toggle] 偵測到路徑包含 line，設定圖表類型為：折線圖');
-    } else if (currentPath.includes('/polararea')) {
-      chartType = 'polarArea';
-      console.log('[Toggle] 偵測到路徑包含 polararea，設定圖表類型為：極區圖');
+    } else if (currentPath.includes('/polar')) {
+      chartType = 'polar';
+      console.log('[Toggle] 偵測到路徑包含 polar，設定圖表類型為：極區圖');
     } else if (currentPath.includes('/area')) {
       chartType = 'area';
       console.log('[Toggle] 偵測到路徑包含 area，設定圖表類型為：區域圖');

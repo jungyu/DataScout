@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-tw" data-theme="fantasy">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataScout 最終驗證測試</title>
+  
+  <!-- TailwindCSS & DaisyUI -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.10.3/dist/full.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@4.7.0/dist/apexcharts.min.js"></script>
+  
+  <!-- Alpine.js -->
+  <script defer src="https://unpkg.com/alpinejs@3.14.9/dist/cdn.min.js"></script>
+  
+  <style>
+    .chart-container {
+      min-height: 300px;
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+  </style>
+</head>
+<body class="bg-base-300">
+  <div x-data="finalVerification" x-init="init()" class="min-h-screen p-4">
+    <!-- 標題 -->
+    <div class="text-center mb-8">
+      <h1 class="text-4xl font-bold text-primary mb-4">DataScout 最終驗證測試</h1>
+      <p class="text-lg text-base-content/70">驗證所有圖表組件正常載入和運行</p>
+      <div class="mt-4">
+        <span class="badge" :class="allLoaded ? 'badge-success' : 'badge-warning'">
+          載入狀態: <span x-text="loadedCount"></span>/10 組件
+        </span>
+      </div>
+    </div>
+
+    <!-- 測試結果 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <template x-for="(result, name) in testResults" :key="name">
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body p-4">
+            <h3 class="card-title text-sm" x-text="name"></h3>
+            <div class="flex items-center gap-2">
+              <div class="badge" :class="result.loaded ? 'badge-success' : 'badge-error'">
+                <span x-text="result.loaded ? '✓ 載入成功' : '✗ 載入失敗'"></span>
+              </div>
+            </div>
+            <div x-show="result.error" class="text-error text-xs" x-text="result.error"></div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- 示例圖表 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="chart-container">
+        <h3 class="text-lg font-bold mb-4">熱力圖測試</h3>
+        <div id="heatmap-test" class="w-full h-64"></div>
+      </div>
+      <div class="chart-container">
+        <h3 class="text-lg font-bold mb-4">箱形圖測試</h3>
+        <div id="boxplot-test" class="w-full h-64"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // 測試模組載入
+    async function testModuleImports() {
+      const modules = [
+        'LineChart',
+        'AreaChart', 
+        'BarChart',
+        'ScatterChart',
+        'RadarChart',
+        'PieChart',
+        'DonutChart',
+        'CandlestickChart',
+        'HeatMapChart',
+        'BoxPlotChart'
+      ];
+
+      const results = {};
+      let loadedCount = 0;
+
+      for (const moduleName of modules) {
+        try {
+          const module = await import(`/static/src/components/charts/${moduleName}.js`);
+          results[moduleName] = { loaded: true, error: null };
+          loadedCount++;
+          console.log(`✓ ${moduleName} 載入成功`);
+        } catch (error) {
+          results[moduleName] = { loaded: false, error: error.message };
+          console.error(`✗ ${moduleName} 載入失敗:`, error);
+        }
+      }
+
+      return { results, loadedCount };
+    }
+
+    // Alpine.js 數據
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('finalVerification', () => ({
+        testResults: {},
+        loadedCount: 0,
+        allLoaded: false,
+
+        async init() {
+          console.log('開始最終驗證測試...');
+          
+          const { results, loadedCount } = await testModuleImports();
+          this.testResults = results;
+          this.loadedCount = loadedCount;
+          this.allLoaded = loadedCount === 10;
+
+          if (this.allLoaded) {
+            console.log('✅ 所有組件載入成功！開始渲染示例圖表...');
+            await this.renderTestCharts();
+          } else {
+            console.warn(`⚠️ 只有 ${loadedCount}/10 組件載入成功`);
+          }
+        },
+
+        async renderTestCharts() {
+          try {
+            // 載入並測試 HeatMapChart
+            const { default: HeatMapChart } = await import('/static/src/components/charts/HeatMapChart.js');
+            const heatmapChart = new HeatMapChart();
+            const heatmapData = this.generateHeatmapData();
+            await heatmapChart.init('heatmap-test', heatmapData);
+
+            // 載入並測試 BoxPlotChart  
+            const { default: BoxPlotChart } = await import('/static/src/components/charts/BoxPlotChart.js');
+            const boxplotChart = new BoxPlotChart();
+            const boxplotData = this.generateBoxplotData();
+            await boxplotChart.init('boxplot-test', boxplotData);
+
+            console.log('✅ 示例圖表渲染完成');
+          } catch (error) {
+            console.error('渲染示例圖表時發生錯誤:', error);
+          }
+        },
+
+        generateHeatmapData() {
+          const data = [];
+          const hours = ['00:00', '02:00', '04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'];
+          const days = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
+          
+          days.forEach((day, dayIndex) => {
+            hours.forEach((hour, hourIndex) => {
+              data.push({
+                x: hour,
+                y: day,
+                value: Math.floor(Math.random() * 100)
+              });
+            });
+          });
+
+          return {
+            series: [{
+              name: '活動強度',
+              data: data
+            }],
+            options: {
+              title: { text: '每週活動熱力圖' },
+              colors: ['#3B82F6']
+            }
+          };
+        },
+
+        generateBoxplotData() {
+          return {
+            series: [{
+              name: '銷售數據',
+              type: 'boxPlot',
+              data: [
+                { x: 'Q1', y: [54, 66, 69, 75, 88] },
+                { x: 'Q2', y: [43, 65, 69, 76, 81] },
+                { x: 'Q3', y: [31, 39, 45, 51, 59] },
+                { x: 'Q4', y: [39, 46, 55, 65, 71] },
+                { x: 'Q5', y: [29, 31, 35, 39, 44] }
+              ]
+            }],
+            options: {
+              title: { text: '季度銷售分佈' },
+              colors: ['#10B981']
+            }
+          };
+        }
+      }));
+    });
+  </script>
+</body>
+</html>

@@ -207,7 +207,7 @@
       window.cleanupChartInstances(chartElementId);
     }
     
-    fetch(`/assets/examples/index.json`)
+    fetch(`assets/examples/index.json`)
       .then(response => {
         if (!response.ok) throw new Error('範例索引檔案不存在');
         return response.json();
@@ -455,7 +455,7 @@
     
     // 從檔案載入資料
     console.log(`開始載入檔案: ${filename}`);
-    fetch(`./assets/examples/${filename}`)
+    fetch(`assets/examples/${filename}`)
       .then(response => {
         if (!response.ok) throw new Error(`檔案 ${filename} 不存在`);
         return response.text(); // 先以文本形式獲取

@@ -1,0 +1,336 @@
+<!-- filepath: /Users/aaron/Downloads/Techwind_v3.0.0/HTML/Dashboard/frontend/public/index.html -->
+<!DOCTYPE html>
+<html lang="zh-tw" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataScout - 數據可視化儀表板</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!-- TailwindCSS & DaisyUI -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@3.7.3/dist/full.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <script src="./json-enhancer.js"></script>
+  <script src="./json-formatter-fix.js"></script>
+  <script src="./chart-formatter-fix.js"></script>
+  <script src="./chart-error-handler.js"></script>
+  <script src="./chart-error-handler-enhanced.js"></script>
+  <script src="./chart-recovery-tool.js" defer></script>
+  <script src="./example-toggle.js" defer></script>
+  <script src="./file-upload-handler.js" defer></script>
+  <script src="./unified-chart-handler.js" defer></script>
+  <script src="./data-loader.js" defer></script>
+  <script src="./chart-fix.js" defer></script>
+  <script src="./chart-compat.js" defer></script>
+  <script src="./candlestick-fix.js" defer></script>
+  <script src="./chart-verification.js" defer></script>
+  <script src="./chart-testing-tool.js" defer></script>
+  <script src="./sidebar-activator.js" defer></script>
+  <script>
+    tailwind.config = {
+      daisyui: {
+        themes: ["light", "dark"],
+      },
+    }
+  </script>
+  <script src="component-loader.js"></script>
+</head>
+<body class="bg-base-300">
+  <div class="flex h-screen">
+    <!-- 側邊欄 -->
+    <div id="sidebar" class="w-64 bg-primary text-primary-content overflow-y-auto" data-component="components/layout/Sidebar.html"></div>
+    
+    <!-- 主要內容區 -->
+    <div class="flex-1 flex flex-col">
+      <!-- 頂部導航 -->
+      <div id="topbar" data-component="components/layout/Topbar.html"></div>
+      
+      <!-- 內容區 -->
+      <div class="flex-1 overflow-auto p-6 bg-base-200">
+        <!-- 圖表標題 -->
+        <div id="chart-header" data-component="components/charts/ChartHeader.html"></div>
+        
+        <!-- 圖表內容 - 蠟燭圖 -->
+        <div id="chart-content" data-component="components/charts/CandlestickContent.html"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 事件監聽和初始化圖表 -->
+  <script>
+    document.addEventListener('component-loaded', function(e) {
+      // 當所有組件都載入完成後初始化圖表
+      if (e.detail.componentPath === 'components/charts/CandlestickContent.html') {
+        initCandlestickChart();
+      }
+      
+      // 處理範例資料切換和檔案上傳功能
+      if (e.detail.componentPath === 'components/charts/CandlestickContent.html') {
+        initDataToggle();
+        setupExampleDataButtons();
+      }
+      
+      // 初始化主題切換按鈕
+      if (e.detail.componentPath === 'components/layout/Topbar.html') {
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        if (themeToggleBtn) {
+          themeToggleBtn.addEventListener('click', function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            this.classList.toggle('swap-active');
+          });
+        }
+      }
+    });
+    
+    // 存儲圖表實例的全局變量
+    let candlestickChartInstance = null;
+    
+    // 初始化蠟燭圖
+    function initCandlestickChart(externalData) {
+      // 檢查是否已經正確載入圖表容器
+      const chartElement = document.getElementById('candlestickChart');
+      if (!chartElement) return;
+      
+      // 如果已經存在圖表實例，則清除並釋放資源
+      if (candlestickChartInstance) {
+        candlestickChartInstance.destroy();
+        candlestickChartInstance = null;
+      }
+      
+      // 使用提供的外部數據，如果沒有則使用默認數據
+      let chartData = externalData;
+      
+      // 如果沒有提供外部數據，使用默認資料
+      if (!chartData) {
+        chartData = {
+          series: [{
+            data: [{
+              x: new Date(2022, 0, 1),
+              y: [6629.81, 6650.5, 6623.04, 6633.33]
+            }, {
+              x: new Date(2022, 0, 2),
+              y: [6632.01, 6643.59, 6620, 6630.11]
+            }, {
+              x: new Date(2022, 0, 3),
+              y: [6630.71, 6648.95, 6623.34, 6635.65]
+            }, {
+              x: new Date(2022, 0, 4),
+              y: [6635.65, 6651, 6629.67, 6638.24]
+            }, {
+              x: new Date(2022, 0, 5),
+              y: [6638.24, 6640, 6620, 6624.47]
+            }]
+          }],
+          chart: {
+            type: 'candlestick',
+            height: 350
+          },
+          title: {
+            text: 'BTC/USD 小時K線圖',
+            align: 'left'
+          }
+        };
+      }
+      
+      // 確保有基本必要的配置
+      const options = {
+        series: chartData.series || [],
+        chart: chartData.chart || {
+          type: 'candlestick',
+          height: 350,
+          toolbar: {
+            show: true
+          }
+        },
+        title: chartData.title || {
+          text: '燭形圖',
+          align: 'left',
+          style: {
+            fontSize: '16px',
+            fontWeight: 600
+          }
+        },
+        tooltip: chartData.tooltip || {
+          enabled: true
+        },
+        xaxis: chartData.xaxis || {
+          type: 'datetime',
+          labels: {
+            formatter: function(val) {
+              return new Date(val).toLocaleTimeString();
+            }
+          }
+        },
+        yaxis: chartData.yaxis || {
+          tooltip: {
+            enabled: true
+          }
+        },
+        plotOptions: chartData.plotOptions || {
+          candlestick: {
+            colors: {
+              upward: '#22c55e',
+              downward: '#ef4444'
+            },
+            wick: {
+              useFillColor: true
+            }
+          }
+        }
+      };
+      
+      // 初始化圖表並保存實例
+      candlestickChartInstance = new ApexCharts(chartElement, options);
+      candlestickChartInstance.render();
+    }
+    
+    // 更新蠟燭圖數據的函數，供 data-loader.js 調用
+    function updateCandlestickChart(data) {
+      console.log('更新燭形圖數據:', data);
+      initCandlestickChart(data);
+    }
+    
+    
+    // 初始化資料切換功能
+    function initDataToggle() {
+      const toggle = document.getElementById('example-data-toggle');
+      const exampleSection = document.getElementById('example-data-section');
+      const uploadSection = document.getElementById('file-upload-section');
+      
+      if (!toggle || !exampleSection || !uploadSection) return;
+      
+      toggle.addEventListener('change', function() {
+        if (this.checked) {
+          exampleSection.style.display = 'block';
+          uploadSection.style.display = 'none';
+        } else {
+          exampleSection.style.display = 'none';
+          uploadSection.style.display = 'block';
+        }
+      });
+    }
+    
+    // 設定範例資料按鈕
+    function setupExampleDataButtons() {
+      const appleData = document.getElementById('apple-data');
+      const tsmcData = document.getElementById('tsmc-data');
+      const btcData = document.getElementById('btc-data');
+      
+      if (appleData) {
+        appleData.querySelector('button').addEventListener('click', function() {
+          loadStockData('AAPL');
+          updateChartTitle('AAPL 股票 - 日線圖表');
+        });
+      }
+      
+      if (tsmcData) {
+        tsmcData.querySelector('button').addEventListener('click', function() {
+          loadStockData('TSMC');
+          updateChartTitle('台積電 (TSMC) - 日線圖表');
+        });
+      }
+      
+      if (btcData) {
+        btcData.querySelector('button').addEventListener('click', function() {
+          loadStockData('BTC');
+          updateChartTitle('比特幣/美元 (BTC/USD) - 小時K線圖');
+        });
+      }
+    }
+    
+    // 加載股票資料 (從預設JSON檔案)
+    function loadStockData(symbol) {
+      console.log(`正在載入 ${symbol} 股票資料...`);
+      
+      // 定義不同股票對應的JSON文件名
+      let filename;
+      let chartType = 'candlestick'; // 預設圖表類型
+      
+      switch(symbol) {
+        case 'AAPL':
+          filename = 'apexcharts_candlestick_stock.json';
+          break;
+        case 'TSMC':
+          filename = 'apexcharts_candlestick_taiwan.json';
+          break;
+        case 'BTC':
+          filename = 'apexcharts_candlestick_bitcoin.json';
+          break;
+        default:
+          console.error('未知的股票代碼:', symbol);
+          if (window.chartErrorHandler) {
+            window.chartErrorHandler.showError('candlestickChart', `無法辨識的股票代碼: ${symbol}`);
+          }
+          return;
+      }
+      
+      // 從檔案載入資料
+      console.log(`從檔案載入股票資料: ${filename}，圖表類型: ${chartType}`);
+      
+      // 使用相對路徑載入數據
+      fetch(`./assets/examples/${filename}`)
+        .then(response => {
+          if (!response.ok) throw new Error(`檔案 ${filename} 不存在或無法訪問`);
+          return response.text(); // 先以文本形式獲取
+        })
+        .then(text => {
+          // 嘗試解析 JSON
+          let data;
+          try {
+            // 先嘗試標準解析
+            data = JSON.parse(text);
+          } catch (parseError) {
+            console.warn(`解析 ${filename} 時發生錯誤，嘗試修復:`, parseError);
+            
+            // 嘗試使用修復工具處理
+            if (window.chartErrorHandler && window.chartErrorHandler.fixJsonFormatting) {
+              data = JSON.parse(window.chartErrorHandler.fixJsonFormatting(text));
+            } else if (window.jsonFormatterFix && window.jsonFormatterFix.handleFunctionStrings) {
+              const processed = window.jsonFormatterFix.handleFunctionStrings(text);
+              data = JSON.parse(processed);
+            } else {
+              throw new Error(`JSON解析失敗: ${parseError.message}`);
+            }
+          }
+          
+          // 直接更新蠟燭圖
+          return initCandlestickChart(data);
+        })
+        .catch(error => {
+          console.error(`載入股票資料 ${symbol} 時發生錯誤:`, error);
+          if (window.chartErrorHandler) {
+            window.chartErrorHandler.showError('candlestickChart', `無法載入股票資料: ${error.message}`);
+          }
+        });
+    }
+    
+    // 更新圖表標題
+    function updateChartTitle(title) {
+      const titleElement = document.querySelector('#chart-title');
+      if (titleElement) {
+        titleElement.textContent = title;
+      }
+    }
+    
+    // 檢查並設置保存的主題
+    function initSavedTheme() {
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      
+      const themeToggleBtn = document.getElementById('theme-toggle');
+      if (themeToggleBtn && savedTheme === 'dark') {
+        themeToggleBtn.classList.add('swap-active');
+      }
+    }
+    
+    // 頁面載入時運行
+    document.addEventListener('DOMContentLoaded', function() {
+      initSavedTheme();
+    });
+  </script>
+</body>
+</html>

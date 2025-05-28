@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="zh-tw" data-theme="fantasy">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataScout 圖表測試</title>
+  
+  <!-- TailwindCSS & DaisyUI -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.10.3/dist/full.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@4.7.0/dist/apexcharts.min.js"></script>
+  
+  <!-- Alpine.js -->
+  <script defer src="https://unpkg.com/alpinejs@3.14.9/dist/cdn.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      daisyui: {
+        themes: ["fantasy", "light", "dark"],
+      },
+    }
+  </script>
+</head>
+<body class="bg-base-300">
+  <!-- 圖表測試頁面 -->
+  <div x-data="chartTesting" x-init="init()" class="min-h-screen">
+    <!-- 頂部導航 -->
+    <div class="navbar bg-primary text-primary-content shadow-lg">
+      <div class="navbar-start">
+        <h1 class="text-xl font-bold">DataScout 圖表測試</h1>
+      </div>
+      <div class="navbar-end">
+        <div class="dropdown dropdown-end">
+          <button class="btn btn-ghost btn-circle">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+          </button>
+          <ul class="menu dropdown-content bg-base-100 text-base-content rounded-box z-[1] w-52 p-2 shadow">
+            <li><a @click="generateAllSampleData()">生成所有示範資料</a></li>
+            <li><a @click="exportAllCharts()">匯出所有圖表</a></li>
+            <li><a @click="clearAllCharts()">清除所有圖表</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 錯誤訊息 -->
+    <div x-show="error" x-transition class="alert alert-error m-4" x-cloak>
+      <svg class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+      <span x-text="error"></span>
+      <button @click="clearError()" class="btn btn-sm">✕</button>
+    </div>
+
+    <!-- 載入指示器 -->
+    <div x-show="isLoading" x-transition class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
+      <div class="loading loading-spinner loading-lg text-primary"></div>
+    </div>
+
+    <!-- 標籤頁導航 -->
+    <div class="tabs tabs-boxed m-4 bg-base-100">
+      <button @click="switchTab('line')" 
+              :class="{ 'tab-active': activeTab === 'line' }" 
+              class="tab tab-lg">
+        📈 折線圖
+      </button>
+      <button @click="switchTab('area')" 
+              :class="{ 'tab-active': activeTab === 'area' }" 
+              class="tab tab-lg">
+        📊 區域圖
+      </button>
+      <button @click="switchTab('bar')" 
+              :class="{ 'tab-active': activeTab === 'bar' }" 
+              class="tab tab-lg">
+        📊 長條圖
+      </button>
+      <button @click="switchTab('scatter')" 
+              :class="{ 'tab-active': activeTab === 'scatter' }" 
+              class="tab tab-lg">
+        🔹 散點圖
+      </button>
+      <button @click="switchTab('radar')" 
+              :class="{ 'tab-active': activeTab === 'radar' }" 
+              class="tab tab-lg">
+        🕸️ 雷達圖
+      </button>
+      <button @click="switchTab('candlestick')" 
+              :class="{ 'tab-active': activeTab === 'candlestick' }" 
+              class="tab tab-lg">
+        🕯️ 蠟燭圖
+      </button>
+      <button @click="switchTab('pie')" 
+              :class="{ 'tab-active': activeTab === 'pie' }" 
+              class="tab tab-lg">
+        🥧 圓餅圖
+      </button>
+      <button @click="switchTab('heatmap')" 
+              :class="{ 'tab-active': activeTab === 'heatmap' }" 
+              class="tab tab-lg">
+        🔥 熱力圖
+      </button>
+      <button @click="switchTab('boxplot')" 
+              :class="{ 'tab-active': activeTab === 'boxplot' }" 
+              class="tab tab-lg">
+        📦 箱形圖
+      </button>
+    </div>
+
+    <!-- 圖表內容區 -->
+    <div class="mx-4 space-y-4">
+      
+      <!-- 折線圖測試 -->
+      <div x-show="activeTab === 'line'" x-transition class="card bg-base-100 shadow-xl">
+        <div class="card-header">
+          <h2 class="card-title p-4">折線圖測試</h2>
+          <div class="card-actions p-4">
+            <button @click="updateChart('line', generateRandomLineData())" class="btn btn-primary btn-sm">
+              更新資料
+            </button>
+            <button @click="exportChart('line', 'png')" class="btn btn-secondary btn-sm">
+              匯出 PNG
+            </button>
+            <button @click="exportChart('line', 'svg')" class="btn btn-secondary btn-sm">
+              匯出 SVG
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="test-line-chart" class="h-96"></div>
+        </div>
+      </div>
+
+      <!-- 區域圖測試 -->
+      <div x-show="activeTab === 'area'" x-transition class="card bg-base-100 shadow-xl">
+        <div class="card-header">
+          <h2 class="card-title p-4">區域圖測試</h2>
+          <div class="card-actions p-4">
+            <button @click="updateChart('area', generateRandomAreaData())" class="btn btn-primary btn-sm">
+              更新資料
+            </button>
+            <button @click="setAreaFillStyle('gradient')" class="btn btn-accent btn-sm">
+              漸層填充
+            </button>
+            <button @click="setAreaFillStyle('solid')" class="btn btn-accent btn-sm">
+              實色填充
+            </button>
+            <button @click="exportChart('area', 'png')" class="btn btn-secondary btn-sm">
+              匯出 PNG
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="test-area-chart" class="h-96"></div>
+        </div>
+      </div>
+
+      <!-- 長條圖測試 -->
+      <div x-show="activeTab === 'bar'" x-transition class="card bg-base-100 shadow-xl">
+        <div class="card-header">
+          <h2 class="card-title p-4">長條圖測試</h2>
+          <div class="card-actions p-4">
+            <button @click="updateChart('bar', generateRandomBarData())" class="btn btn-primary btn-sm">
+              更新資料
+            </button>
+            <button @click="toggleBarOrientation()" class="btn btn-accent btn-sm">
+              切換方向
+            </button>
+            <button @click="exportChart('bar', 'png')" class="btn btn-secondary btn-sm">
+              匯出 PNG
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="test-bar-chart" class="h-96"></div>
+        </div>
+      </div>
+
+      <!-- 蠟燭圖測試 -->
+      <div x-show="activeTab === 'candlestick'" x-transition class="card bg-base-100 shadow-xl">
+        <div class="card-header">
+          <h2 class="card-title p-4">蠟燭圖測試</h2>
+          <div class="card-actions p-4">
+            <button @click="updateChart('candlestick', generateRandomCandlestickData())" class="btn btn-primary btn-sm">
+              更新資料
+            </button>
+            <button @click="exportChart('candlestick', 'png')" class="btn btn-secondary btn-sm">
+              匯出 PNG
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="test-candlestick-chart" class="h-96"></div>
+        </div>
+      </div>
+
+      <!-- 圓餅圖測試 -->
+      <div x-show="activeTab === 'pie'" x-transition class="card bg-base-100 shadow-xl">
+        <div class="card-header">
+          <h2 class="card-title p-4">圓餅圖測試</h2>
+          <div class="card-actions p-4">
+            <button @click="updateChart('pie', generateRandomPieData())" class="btn btn-primary btn-sm">
+              更新資料
+            </button>
+            <button @click="togglePieDonutMode()" class="btn btn-accent btn-sm">
+              切換環形模式
+            </button>
+            <button @click="setPieLegendPosition('top')" class="btn btn-accent btn-sm">
+              圖例頂部
+            </button>
+            <button @click="setPieLegendPosition('bottom')" class="btn btn-accent btn-sm">
+              圖例底部
+            </button>
+            <button @click="exportChart('pie', 'png')" class="btn btn-secondary btn-sm">
+              匯出 PNG
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="test-pie-chart" class="h-96"></div>
+        </div>
+      </div>
+
+      <!-- 散點圖測試 -->
+      <div x-show="activeTab === 'scatter'" x-transition class="card bg-base-100 shadow-xl">
+        <div class="card-header">
+          <h2 class="card-title p-4">散點圖測試</h2>
+          <div class="card-actions p-4">
+            <button @click="updateChart('scatter', generateRandomScatterData())" class="btn btn-primary btn-sm">
+              更新資料
+            </button>
+            <button @click="addScatterSeries()" class="btn btn-accent btn-sm">
+              新增系列
+            </button>
+            <button @click="loadScatterExample('basic')" class="btn btn-accent btn-sm">
+              基礎範例
+            </button>
+            <button @click="loadScatterExample('correlation')" class="btn btn-accent btn-sm">
+              相關性範例
+            </button>
+            <button @click="resetScatterZoom()" class="btn btn-info btn-sm">
+              重置縮放
+            </button>
+            <button @click="exportChart('scatter', 'png')" class="btn btn-secondary btn-sm">
+              匯出 PNG
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="test-scatter-chart" class="h-96"></div>
+          <!-- 系列管理 -->
+          <div class="mt-4" x-data="{ showSeriesManager: false }">
+            <button @click="showSeriesManager = !showSeriesManager" class="btn btn-sm btn-outline">
+              <span x-text="showSeriesManager ? '隱藏' : '顯示'"></span>系列管理
+            </button>
+            <div x-show="showSeriesManager" x-transition class="mt-2 p-4 bg-base-200 rounded">
+              <h4 class="font-medium mb-2">目前系列:</h4>
+              <template x-for="(series, index) in scatterSeriesList" :key="index">
+                <div class="flex items-center justify-between py-1">
+                  <span class="text-sm" x-text="series.name"></span>
+                  <div class="space-x-2">
+                    <button @click="toggleScatterSeries(series.name)" 
+                            :class="series.visible ? 'btn-primary' : 'btn-outline'" 
+                            class="btn btn-xs">
+                      <span x-text="series.visible ? '顯示' : '隱藏'"></span>
+                    </button>
+                    <button @click="removeScatterSeries(series.name)" class="btn btn-xs btn-error">
+                      移除
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 雷達圖測試 -->
+      <div x-show="activeTab === 'radar'" x-transition class="card bg-base-100 shadow-xl">
+        <div class="card-header">
+          <h2 class="card-title p-4">雷達圖測試</h2>
+          <div class="card-actions p-4">
+            <button @click="updateChart('radar', generateRandomRadarData())" class="btn btn-primary btn-sm">
+              更新資料
+            </button>
+            <button @click="addRadarSeries()" class="btn btn-accent btn-sm">
+              新增系列
+            </button>
+            <button @click="loadRadarExample('basic')" class="btn btn-accent btn-sm">
+              基礎範例
+            </button>
+            <button @click="loadRadarExample('comparison')" class="btn btn-accent btn-sm">
+              比較範例
+            </button>
+            <button @click="loadRadarExample('performance')" class="btn btn-accent btn-sm">
+              績效範例
+            </button>
+            <button @click="exportChart('radar', 'png')" class="btn btn-secondary btn-sm">
+              匯出 PNG
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="test-radar-chart" class="h-96"></div>
+          <!-- 雷達圖控制面板 -->
+          <div class="mt-4" x-data="{ showControls: false }">
+            <button @click="showControls = !showControls" class="btn btn-sm btn-outline">
+              <span x-text="showControls ? '隱藏' : '顯示'"></span>控制面板
+            </button>
+            <div x-show="showControls" x-transition class="mt-2 p-4 bg-base-200 rounded space-y-4">
+              <!-- Y軸範圍控制 -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="label">
+                    <span class="label-text">Y軸最小值</span>
+                  </label>
+                  <input type="range" min="0" max="50" x-model="radarYMin" class="range range-primary range-sm">
+                  <span class="text-xs" x-text="radarYMin"></span>
+                </div>
+                <div>
+                  <label class="label">
+                    <span class="label-text">Y軸最大值</span>
+                  </label>
+                  <input type="range" min="50" max="200" x-model="radarYMax" class="range range-primary range-sm">
+                  <span class="text-xs" x-text="radarYMax"></span>
+                </div>
+                <div class="flex items-end">
+                  <button @click="setRadarYAxisRange()" class="btn btn-sm btn-primary">
+                    套用範圍
+                  </button>
+                </div>
+              </div>
+              
+              <!-- 雷達圖樣式控制 -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="label">
+                    <span class="label-text">雷達圖大小</span>
+                  </label>
+                  <input type="range" min="80" max="200" x-model="radarSize" 
+                         @change="setRadarSize(radarSize)" class="range range-secondary range-sm">
+                  <span class="text-xs" x-text="radarSize"></span>
+                </div>
+                <div>
+                  <label class="label">
+                    <span class="label-text">填充透明度</span>
+                  </label>
+                  <input type="range" min="0" max="1" step="0.1" x-model="radarOpacity" 
+                         @change="setRadarFillOpacity(radarOpacity)" class="range range-secondary range-sm">
+                  <span class="text-xs" x-text="radarOpacity"></span>
+                </div>
+              </div>
+
+              <!-- 系列管理 -->
+              <div>
+                <h4 class="font-medium mb-2">目前系列:</h4>
+                <template x-for="(series, index) in radarSeriesList" :key="index">
+                  <div class="flex items-center justify-between py-1">
+                    <span class="text-sm" x-text="series.name"></span>
+                    <div class="space-x-2">
+                      <button @click="toggleRadarSeries(series.name)" 
+                              :class="series.visible ? 'btn-primary' : 'btn-outline'" 
+                              class="btn btn-xs">
+                        <span x-text="series.visible ? '顯示' : '隱藏'"></span>
+                      </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 熱力圖測試 -->
+      <div x-show="activeTab === 'heatmap'" x-transition class="card bg-base-100 shadow-xl">
+        <div class="card-header">
+          <h2 class="card-title p-4">熱力圖測試</h2>
+          <div class="card-actions p-4">
+            <button @click="updateChart('heatmap', generateRandomHeatmapData())" class="btn btn-primary btn-sm">
+              更新資料
+            </button>
+            <button @click="loadHeatmapExample('basic')" class="btn btn-accent btn-sm">
+              基礎範例
+            </button>
+            <button @click="loadHeatmapExample('colorRange')" class="btn btn-accent btn-sm">
+              色彩範圍
+            </button>
+            <button @click="loadHeatmapExample('temperature')" class="btn btn-accent btn-sm">
+              溫度分佈
+            </button>
+            <button @click="exportChart('heatmap', 'png')" class="btn btn-secondary btn-sm">
+              匯出 PNG
+            </button>
+            <button @click="exportChart('heatmap', 'svg')" class="btn btn-secondary btn-sm">
+              匯出 SVG
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="test-heatmap-chart" class="h-96"></div>
+        </div>
+      </div>
+
+      <!-- 箱形圖測試 -->
+      <div x-show="activeTab === 'boxplot'" x-transition class="card bg-base-100 shadow-xl">
+        <div class="card-header">
+          <h2 class="card-title p-4">箱形圖測試</h2>
+          <div class="card-actions p-4">
+            <button @click="updateChart('boxplot', generateRandomBoxplotData())" class="btn btn-primary btn-sm">
+              更新資料
+            </button>
+            <button @click="loadBoxplotExample('basic')" class="btn btn-accent btn-sm">
+              基礎範例
+            </button>
+            <button @click="loadBoxplotExample('multiSeries')" class="btn btn-accent btn-sm">
+              多系列
+            </button>
+            <button @click="loadBoxplotExample('performance')" class="btn btn-accent btn-sm">
+              性能分析
+            </button>
+            <button @click="exportChart('boxplot', 'png')" class="btn btn-secondary btn-sm">
+              匯出 PNG
+            </button>
+            <button @click="exportChart('boxplot', 'svg')" class="btn btn-secondary btn-sm">
+              匯出 SVG
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="test-boxplot-chart" class="h-96"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 底部說明 -->
+    <div class="m-4 mt-8">
+      <div class="alert alert-info">
+        <svg class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <div>
+          <h3 class="font-bold">圖表測試說明</h3>
+          <p class="text-sm">此頁面用於測試新的 Alpine.js 圖表組件。每個圖表都支援資料更新、樣式調整和匯出功能。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 載入組件 -->
+  <script type="module">
+    import { LineChart } from '/src/components/charts/LineChart.js';
+    import { AreaChart } from '/src/components/charts/AreaChart.js';
+    import { BarChart } from '/src/components/charts/BarChart.js';
+    import { ScatterChart } from '/src/components/charts/ScatterChart.js';
+    import { RadarChart } from '/src/components/charts/RadarChart.js';
+    import { CandlestickChart } from '/src/components/charts/CandlestickChart.js';
+    import { PieChart } from '/src/components/charts/PieChart.js';
+    import { HeatMapChart } from '/src/components/charts/HeatMapChart.js';
+    import { BoxPlotChart } from '/src/components/charts/BoxPlotChart.js';
+
+    // 圖表測試組件
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('chartTesting', () => ({
+        activeTab: 'line',
+        isLoading: false,
+        error: null,
+        
+        // 圖表實例
+        lineChart: null,
+        areaChart: null,
+        barChart: null,
+        scatterChart: null,
+        radarChart: null,
+        candlestickChart: null,
+        pieChart: null,
+        heatmapChart: null,
+        boxplotChart: null,
+        
+        // 散點圖特有狀態
+        scatterSeriesList: [],
+        
+        // 雷達圖特有狀態
+        radarSeriesList: [],
+        radarYMin: 0,
+        radarYMax: 100,
+        radarSize: 140,
+        radarOpacity: 0.1,
+
+        init() {
+          console.log('圖表測試頁面初始化');
+          this.initCharts();
+        },
+
+        async initCharts() {
+          try {
+            this.isLoading = true;
+            await this.initLineChart();
+            await this.initAreaChart();
+            await this.initBarChart();
+            await this.initScatterChart();
+            await this.initRadarChart();
+            await this.initCandlestickChart();
+            await this.initPieChart();
+            await this.initHeatmapChart();
+            await this.initBoxplotChart();
+          } catch (error) {
+            this.handleError(error, '圖表初始化');
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        async initLineChart() {
+          const lineChart = new LineChart();
+          const component = lineChart.init();
+          component.chartId = 'test-line-chart';
+          
+          await component.loadChart(this.generateSampleLineData());
+          this.lineChart = component;
+        },
+
+        async initAreaChart() {
+          const areaChart = new AreaChart();
+          const component = areaChart.init();
+          component.chartId = 'test-area-chart';
+          
+          await component.loadChart(this.generateSampleAreaData());
+          this.areaChart = component;
+        },
+
+        async initBarChart() {
+          const barChart = new BarChart();
+          const component = barChart.init();
+          component.chartId = 'test-bar-chart';
+          
+          await component.loadChart(this.generateSampleBarData());
+          this.barChart = component;
+        },
+
+        async initScatterChart() {
+          const scatterChart = new ScatterChart();
+          const component = scatterChart.init();
+          component.chartId = 'test-scatter-chart';
+          
+          await component.loadChart(this.generateSampleScatterData());
+          this.scatterChart = component;
+          this.updateScatterSeriesList();
+        },
+
+        async initRadarChart() {
+          const radarChart = new RadarChart();
+          const component = radarChart.init();
+          component.chartId = 'test-radar-chart';
+          
+          await component.loadChart(this.generateSampleRadarData());
+          this.radarChart = component;
+          this.updateRadarSeriesList();
+        },
+
+        async initCandlestickChart() {
+          const candlestickChart = new CandlestickChart();
+          const component = candlestickChart.init();
+          component.chartId = 'test-candlestick-chart';
+          
+          await component.loadChart(this.generateSampleCandlestickData());
+          this.candlestickChart = component;
+        },
+
+        async initPieChart() {
+          const pieChart = new PieChart();
+          const component = pieChart.init();
+          component.chartId = 'test-pie-chart';
+          
+          await component.loadChart(this.generateSamplePieData());
+          this.pieChart = component;
+        },
+
+        async initHeatmapChart() {
+          const heatmapChart = new HeatMapChart();
+          const component = heatmapChart.init();
+          component.chartId = 'test-heatmap-chart';
+          
+          await component.loadChart(this.generateSampleHeatmapData());
+          this.heatmapChart = component;
+        },
+
+        async initBoxplotChart() {
+          const boxplotChart = new BoxPlotChart();
+          const component = boxplotChart.init();
+          component.chartId = 'test-boxplot-chart';
+          
+          await component.loadChart(this.generateSampleBoxplotData());
+          this.boxplotChart = component;
+        },
+
+        switchTab(tab) {
+          this.activeTab = tab;
+          // 延遲調整圖表大小以確保容器可見
+          setTimeout(() => {
+            this.resizeCurrentChart();
+          }, 100);
+        },
+
+        resizeCurrentChart() {
+          const chart = this[this.activeTab + 'Chart'];
+          if (chart && chart.chart) {
+            chart.chart.resize();
+          }
+        },
+
+        async updateChart(chartType, newData) {
+          const chart = this[chartType + 'Chart'];
+          if (chart) {
+            await chart.updateChart(newData);
+          }
+        },
+
+        exportChart(chartType, format = 'png') {
+          const chart = this[chartType + 'Chart'];
+          if (chart && chart.chart) {
+            if (format === 'svg') {
+              chart.chart.dataURI().then(({ imgURI }) => {
+                const link = document.createElement('a');
+                link.href = imgURI;
+                link.download = `${chartType}-chart.svg`;
+                link.click();
+              });
+            } else {
+              chart.chart.dataURI().then(({ imgURI }) => {
+                const link = document.createElement('a');
+                link.href = imgURI;
+                link.download = `${chartType}-chart.png`;
+                link.click();
+              });
+            }
+          }
+        },
+
+        setAreaFillStyle(fillType) {
+          if (this.areaChart) {
+            this.areaChart.setFillStyle(fillType);
+          }
+        },
+
+        toggleBarOrientation() {
+          if (this.barChart) {
+            // 實現方向切換邏輯
+            const isHorizontal = this.barChart.chart.opts.plotOptions?.bar?.horizontal;
+            this.barChart.chart.updateOptions({
+              plotOptions: {
+                bar: {
+                  horizontal: !isHorizontal
+                }
+              }
+            });
+          }
+        },
+
+        togglePieDonutMode() {
+          if (this.pieChart) {
+            this.pieChart.toggleDonutMode();
+          }
+        },
+
+        setPieLegendPosition(position) {
+          if (this.pieChart) {
+            this.pieChart.setLegendPosition(position);
+          }
+        },
+
+        // 資料生成函數
+        generateSampleLineData() {
+          return [
+            { x: '2024-01-01', y: 30 },
+            { x: '2024-01-02', y: 40 },
+            { x: '2024-01-03', y: 35 },
+            { x: '2024-01-04', y: 50 },
+            { x: '2024-01-05', y: 49 }
+          ];
+        },
+
+        generateSampleAreaData() {
+          return [
+            { x: '2024-01-01', y: 30 },
+            { x: '2024-01-02', y: 40 },
+            { x: '2024-01-03', y: 35 },
+            { x: '2024-01-04', y: 50 },
+            { x: '2024-01-05', y: 49 }
+          ];
+        },
+
+        generateSampleBarData() {
+          return [
+            { category: '產品A', value: 100 },
+            { category: '產品B', value: 80 },
+            { category: '產品C', value: 120 },
+            { category: '產品D', value: 90 }
+          ];
+        },
+
+        generateSampleCandlestickData() {
+          return [
+            { x: new Date('2024-01-01'), y: [100, 110, 95, 105] },
+            { x: new Date('2024-01-02'), y: [105, 120, 100, 115] },
+            { x: new Date('2024-01-03'), y: [115, 125, 110, 120] }
+          ];
+        },
+
+        generateSamplePieData() {
+          return [
+            { label: '桌面電腦', value: 44 },
+            { label: '行動裝置', value: 55 },
+            { label: '平板電腦', value: 13 },
+            { label: '其他', value: 8 }
+          ];
+        },
+
+        generateSampleScatterData() {
+          return [
+            { name: "樣本 A", data: [[16.4, 5.4], [21.7, 2], [25.4, 3], [19, 2], [10.9, 1]] },
+            { name: "樣本 B", data: [[6.4, 13.4], [1.7, 11], [5.4, 8], [9, 17], [1.9, 4]] }
+          ];
+        },
+
+        generateSampleRadarData() {
+          return {
+            series: [{
+              name: '技能評估',
+              data: [80, 50, 30, 40, 100, 20]
+            }],
+            xaxis: {
+              categories: ['溝通', '技術', '創意', '領導', '分析', '執行']
+            }
+          };
+        },
+
+        generateRandomLineData() {
+          const data = [];
+          for (let i = 0; i < 10; i++) {
+            data.push({
+              x: `2024-01-${String(i + 1).padStart(2, '0')}`,
+              y: Math.floor(Math.random() * 100) + 10
+            });
+          }
+          return data;
+        },
+
+        generateRandomAreaData() {
+          return this.generateRandomLineData(); // 相同格式
+        },
+
+        generateRandomBarData() {
+          const categories = ['A', 'B', 'C', 'D', 'E'];
+          return categories.map(cat => ({
+            category: `產品${cat}`,
+            value: Math.floor(Math.random() * 150) + 50
+          }));
+        },
+
+        generateRandomCandlestickData() {
+          const data = [];
+          let lastClose = 100;
+          
+          for (let i = 0; i < 7; i++) {
+            const open = lastClose + (Math.random() - 0.5) * 10;
+            const close = open + (Math.random() - 0.5) * 20;
+            const high = Math.max(open, close) + Math.random() * 10;
+            const low = Math.min(open, close) - Math.random() * 10;
+            
+            const date = new Date('2024-01-01');
+            date.setDate(date.getDate() + i);
+            
+            data.push({
+              x: date,
+              y: [open, high, low, close]
+            });
+            
+            lastClose = close;
+          }
+          
+          return data;
+        },
+
+        generateRandomPieData() {
+          const categories = ['產品A', '產品B', '產品C', '產品D', '產品E'];
+          return categories.map(category => ({
+            label: category,
+            value: Math.floor(Math.random() * 100) + 20
+          }));
+        },
+
+        generateRandomScatterData() {
+          if (this.scatterChart && this.scatterChart.chartInstance) {
+            return this.scatterChart.chartInstance.generateRandomData(
+              Math.floor(Math.random() * 20) + 10,
+              { xMin: 0, xMax: 100, yMin: 0, yMax: 100 }
+            );
+          }
+          // 備用方法
+          const data = [];
+          const count = Math.floor(Math.random() * 20) + 10;
+          for (let i = 0; i < count; i++) {
+            data.push([
+              Math.floor(Math.random() * 100),
+              Math.floor(Math.random() * 100)
+            ]);
+          }
+          return [{ name: "隨機資料", data: data }];
+        },
+
+        generateRandomRadarData() {
+          if (this.radarChart && this.radarChart.chartInstance) {
+            return this.radarChart.chartInstance.generateRandomData(
+              ['技能A', '技能B', '技能C', '技能D', '技能E'],
+              1,
+              { min: 0, max: 100 }
+            );
+          }
+          // 備用方法
+          const categories = ['技能A', '技能B', '技能C', '技能D', '技能E'];
+          const data = categories.map(() => Math.floor(Math.random() * 100));
+          return {
+            series: [{ name: "隨機資料", data: data }],
+            xaxis: { categories: categories }
+          };
+        },
+
+        generateSampleHeatmapData() {
+          return {
+            series: [{
+              name: '週一',
+              data: [
+                { x: '09:00', y: 20 },
+                { x: '10:00', y: 35 },
+                { x: '11:00', y: 45 },
+                { x: '12:00', y: 80 },
+                { x: '13:00', y: 55 },
+                { x: '14:00', y: 30 },
+                { x: '15:00', y: 25 },
+                { x: '16:00', y: 40 },
+                { x: '17:00', y: 60 }
+              ]
+            }, {
+              name: '週二',
+              data: [
+                { x: '09:00', y: 15 },
+                { x: '10:00', y: 25 },
+                { x: '11:00', y: 40 },
+                { x: '12:00', y: 75 },
+                { x: '13:00', y: 50 },
+                { x: '14:00', y: 35 },
+                { x: '15:00', y: 20 },
+                { x: '16:00', y: 45 },
+                { x: '17:00', y: 55 }
+              ]
+            }],
+            options: {
+              colorScale: {
+                ranges: [
+                  { from: 0, to: 20, color: '#00A100' },
+                  { from: 21, to: 50, color: '#128FD9' },
+                  { from: 51, to: 100, color: '#FFB200' }
+                ]
+              }
+            }
+          };
+        },
+
+        generateSampleBoxplotData() {
+          return [
+            {
+              x: '產品A',
+              y: [54, 66, 69, 75, 88]
+            },
+            {
+              x: '產品B', 
+              y: [43, 65, 69, 76, 81]
+            },
+            {
+              x: '產品C',
+              y: [31, 39, 45, 51, 59]
+            },
+            {
+              x: '產品D',
+              y: [39, 46, 55, 65, 71]
+            },
+            {
+              x: '產品E',
+              y: [29, 31, 35, 39, 44]
+            }
+          ];
+        },
+
+        generateRandomHeatmapData() {
+          const hours = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+          const days = ['週一', '週二', '週三', '週四', '週五'];
+          
+          return {
+            series: days.map(day => ({
+              name: day,
+              data: hours.map(hour => ({
+                x: hour,
+                y: Math.floor(Math.random() * 100) + 10
+              }))
+            }))
+          };
+        },
+
+        generateRandomBoxplotData() {
+          const products = ['產品A', '產品B', '產品C', '產品D', '產品E'];
+          return products.map(product => {
+            const values = [];
+            for (let i = 0; i < 20; i++) {
+              values.push(Math.floor(Math.random() * 50) + 30);
+            }
+            values.sort((a, b) => a - b);
+            
+            const q1 = values[Math.floor(values.length * 0.25)];
+            const median = values[Math.floor(values.length * 0.5)];
+            const q3 = values[Math.floor(values.length * 0.75)];
+            const min = values[0];
+            const max = values[values.length - 1];
+            
+            return {
+              x: product,
+              y: [min, q1, median, q3, max]
+            };
+          });
+        },
+
+        // 散點圖專用方法
+        updateScatterSeriesList() {
+          if (this.scatterChart && this.scatterChart.chartInstance && this.scatterChart.chartInstance.chart) {
+            this.scatterSeriesList = this.scatterChart.chartInstance.chart.w.globals.seriesNames.map((name, index) => ({
+              name: name,
+              index: index,
+              visible: true
+            }));
+          }
+        },
+
+        addScatterSeries() {
+          if (this.scatterChart && this.scatterChart.chartInstance) {
+            const randomData = this.scatterChart.chartInstance.generateRandomData(
+              Math.floor(Math.random() * 15) + 5,
+              { xMin: 0, xMax: 100, yMin: 0, yMax: 100 }
+            );
+            
+            this.scatterChart.chartInstance.addSeries({
+              name: `隨機系列 ${Date.now().toString().slice(-4)}`,
+              data: randomData
+            });
+            
+            this.updateScatterSeriesList();
+          }
+        },
+
+        removeScatterSeries(seriesName) {
+          if (this.scatterChart && this.scatterChart.chartInstance) {
+            this.scatterChart.chartInstance.removeSeries(seriesName);
+            this.updateScatterSeriesList();
+          }
+        },
+
+        toggleScatterSeries(seriesName) {
+          if (this.scatterChart && this.scatterChart.chartInstance && this.scatterChart.chartInstance.chart) {
+            this.scatterChart.chartInstance.chart.toggleSeries(seriesName);
+            
+            // 更新列表中的可見狀態
+            const series = this.scatterSeriesList.find(s => s.name === seriesName);
+            if (series) {
+              series.visible = !series.visible;
+            }
+          }
+        },
+
+        loadScatterExample(type) {
+          if (this.scatterChart && this.scatterChart.chartInstance) {
+            this.isLoading = true;
+            this.scatterChart.chartInstance.loadChart(
+              this.scatterChart.chartInstance.getExampleData()[type]
+            ).then(() => {
+              this.updateScatterSeriesList();
+            }).catch(error => {
+              this.handleError(error, '載入散點圖範例');
+            }).finally(() => {
+              this.isLoading = false;
+            });
+          }
+        },
+
+        resetScatterZoom() {
+          if (this.scatterChart && this.scatterChart.chartInstance) {
+            this.scatterChart.chartInstance.resetZoom();
+          }
+        },
+
+        // 雷達圖專用方法
+        updateRadarSeriesList() {
+          if (this.radarChart && this.radarChart.chartInstance && this.radarChart.chartInstance.chart) {
+            this.radarSeriesList = this.radarChart.chartInstance.chart.w.globals.seriesNames.map((name, index) => ({
+              name: name,
+              index: index,
+              visible: true
+            }));
+          }
+        },
+
+        addRadarSeries() {
+          if (this.radarChart && this.radarChart.chartInstance) {
+            const categories = this.radarChart.chartInstance.chart.w.globals.categoryLabels || 
+                             ['技能A', '技能B', '技能C', '技能D', '技能E'];
+            const randomData = categories.map(() => Math.floor(Math.random() * 100));
+            
+            this.radarChart.chartInstance.addSeries({
+              name: `隨機系列 ${Date.now().toString().slice(-4)}`,
+              data: randomData
+            });
+            
+            this.updateRadarSeriesList();
+          }
+        },
+
+        toggleRadarSeries(seriesName) {
+          if (this.radarChart && this.radarChart.chartInstance && this.radarChart.chartInstance.chart) {
+            this.radarChart.chartInstance.chart.toggleSeries(seriesName);
+            
+            // 更新列表中的可見狀態
+            const series = this.radarSeriesList.find(s => s.name === seriesName);
+            if (series) {
+              series.visible = !series.visible;
+            }
+          }
+        },
+
+        loadRadarExample(type) {
+          if (this.radarChart && this.radarChart.chartInstance) {
+            this.isLoading = true;
+            this.radarChart.chartInstance.loadChart(
+              this.radarChart.chartInstance.getExampleData()[type]
+            ).then(() => {
+              this.updateRadarSeriesList();
+            }).catch(error => {
+              this.handleError(error, '載入雷達圖範例');
+            }).finally(() => {
+              this.isLoading = false;
+            });
+          }
+        },
+
+        setRadarYAxisRange() {
+          if (this.radarChart && this.radarChart.chartInstance) {
+            this.radarChart.chartInstance.setYAxisRange(this.radarYMin, this.radarYMax);
+          }
+        },
+
+        setRadarSize(size) {
+          if (this.radarChart && this.radarChart.chartInstance) {
+            this.radarChart.chartInstance.setRadarSize(size);
+          }
+        },
+
+        setRadarFillOpacity(opacity) {
+          if (this.radarChart && this.radarChart.chartInstance) {
+            this.radarChart.chartInstance.setFillOpacity(opacity);
+          }
+        },
+
+        // 熱力圖專用方法
+        loadHeatmapExample(type) {
+          if (this.heatmapChart && this.heatmapChart.chartInstance) {
+            this.isLoading = true;
+            this.heatmapChart.chartInstance.loadChart(
+              this.heatmapChart.chartInstance.getExampleData()[type]
+            ).then(() => {
+              // 更新完成
+            }).catch(error => {
+              this.handleError(error, '載入熱力圖範例');
+            }).finally(() => {
+              this.isLoading = false;
+            });
+          }
+        },
+
+        // 箱形圖專用方法
+        loadBoxplotExample(type) {
+          if (this.boxplotChart && this.boxplotChart.chartInstance) {
+            this.isLoading = true;
+            this.boxplotChart.chartInstance.loadChart(
+              this.boxplotChart.chartInstance.getExampleData()[type]
+            ).then(() => {
+              // 更新完成
+            }).catch(error => {
+              this.handleError(error, '載入箱形圖範例');
+            }).finally(() => {
+              this.isLoading = false;
+            });
+          }
+        },
+
+        generateAllSampleData() {
+          this.updateChart('line', this.generateRandomLineData());
+          this.updateChart('area', this.generateRandomAreaData());
+          this.updateChart('bar', this.generateRandomBarData());
+          this.updateChart('scatter', this.generateRandomScatterData());
+          this.updateChart('candlestick', this.generateRandomCandlestickData());
+          this.updateChart('pie', this.generateRandomPieData());
+          this.updateChart('heatmap', this.generateRandomHeatmapData());
+          this.updateChart('boxplot', this.generateRandomBoxplotData());
+        },
+
+        exportAllCharts() {
+          ['line', 'area', 'bar', 'scatter', 'candlestick', 'pie', 'heatmap', 'boxplot'].forEach(chartType => {
+            this.exportChart(chartType, 'png');
+          });
+        },
+
+        clearAllCharts() {
+          // 實現清除邏輯
+          console.log('清除所有圖表');
+        },
+
+        handleError(error, context = '操作') {
+          console.error(`圖表測試錯誤 (${context}):`, error);
+          this.error = `${context}失敗: ${error.message}`;
+          setTimeout(() => {
+            this.error = null;
+          }, 5000);
+        },
+
+        clearError() {
+          this.error = null;
+        }
+      }));
+    });
+  </script>
+</body>
+</html>

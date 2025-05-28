@@ -1,0 +1,27 @@
+{
+  "series": [
+    44,
+    55,
+    41
+  ],
+  "labels": [
+    "線上商店",
+    "實體門市",
+    "經銷商"
+  ],
+  "title": {
+    "text": "各通路銷售分布",
+    "align": "center"
+  },
+  "colors": [
+    "#008FFB",
+    "#00E396",
+    "#FEB019"
+  ],
+  "tooltip": {
+    "enabled": true
+  },
+  "chart": {
+    "type": "donut"
+  }
+}

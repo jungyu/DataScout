@@ -16,12 +16,16 @@
     PIE: 'pie', 
     DONUT: 'donut',
     RADAR: 'radar',
-    POLARAREA: 'polararea', // 統一使用小寫
+    POLAR: 'polar', // 極區圖，避免命名首字大小寫問題
     HEATMAP: 'heatmap',
     TREEMAP: 'treemap',
     SCATTER: 'scatter',
     MIXED: 'mixed',
     STACKED_BAR: 'stacked_bar',
+    BOXPLOT: 'boxplot',
+    FUNNEL: 'funnel',
+    BUBBLE: 'bubble',
+    CANDLESTICK: 'candlestick',
     
     // 獲取所有圖表類型
     getAll() {
@@ -45,11 +49,15 @@
     [ChartType.PIE]: 'pieChart',
     [ChartType.DONUT]: 'donutChart',
     [ChartType.RADAR]: 'radarChart',
-    [ChartType.POLARAREA]: 'polarAreaChart', // 使用更一致的命名
+    [ChartType.POLAR]: 'polarChart', // 極區圖，使用更簡潔的命名
     [ChartType.HEATMAP]: 'heatmapChart',
     [ChartType.TREEMAP]: 'treemapChart',
     [ChartType.SCATTER]: 'scatterChart',
     [ChartType.MIXED]: 'mixedChart',
+    [ChartType.STACKED_BAR]: 'stackedBarChart',
+    [ChartType.BOXPLOT]: 'boxplotChart',
+    [ChartType.FUNNEL]: 'funnelChart',
+    [ChartType.BUBBLE]: 'bubbleChart',
     [ChartType.CANDLESTICK]: 'candlestickChart', 
     // 其他圖表類型可在此擴充...
   };
@@ -63,7 +71,7 @@
     [ChartType.PIE]: ['圓餅圖', 'pie chart'],
     [ChartType.DONUT]: ['甜甜圈圖', 'donut chart'],
     [ChartType.RADAR]: ['雷達圖', 'radar chart'],
-    [ChartType.POLARAREA]: ['極區圖', 'polar area chart'], // 更改為更簡潔的中文名稱
+    [ChartType.POLAR]: ['極區圖', 'polar chart'], // 更改為更簡潔的中文名稱
     [ChartType.HEATMAP]: ['熱力圖', 'heatmap chart'],
     [ChartType.TREEMAP]: ['樹狀圖', 'treemap chart'],
     [ChartType.SCATTER]: ['散佈圖', 'scatter chart'],
@@ -78,7 +86,7 @@
   // 圖表類型檢測映射表
   const chartTypeMapping = {
     'area.html': ChartType.AREA,
-    'polararea.html': ChartType.POLARAREA
+    'polar.html': ChartType.POLAR
   };
   
   // 初始化資料選擇器
@@ -137,12 +145,13 @@
     if (pathname.includes('pie.html')) return ChartType.PIE;
     if (pathname.includes('donut.html')) return ChartType.DONUT;
     if (pathname.includes('radar.html')) return ChartType.RADAR;
-    if (pathname.includes('polararea.html')) return ChartType.POLARAREA;
+    if (pathname.includes('polar.html')) return ChartType.POLAR;
     if (pathname.includes('heatmap.html')) return ChartType.HEATMAP;
     if (pathname.includes('treemap.html')) return ChartType.TREEMAP;
     if (pathname.includes('scatter.html')) return ChartType.SCATTER;
     if (pathname.includes('mixed.html')) return ChartType.MIXED;
-    // 預設/首頁通常是 Candlestick
+    if (pathname.includes('candlestick.html')) return ChartType.CANDLESTICK;
+    // 預設/首頁通常是 line
     if (pathname.includes('index.html') || pathname.endsWith('/') || pathname === '') return ChartType.CANDLESTICK;
     
     // 方法 2: 通過頁面 body 的 data-chart-type 屬性判斷 (新增)
@@ -535,10 +544,18 @@
       return;
     }
     
-    // 特殊處理極區圖類型
-    const polarAreaTypes = ['polarArea', 'polararea', 'polar_area'];
-    if (polarAreaTypes.includes(chartType.toLowerCase()) && typeof window.handlePolarAreaChart === 'function') {
-      console.log('偵測到極區圖類型，使用特殊處理邏輯');
+    // 特殊處理極區圖類型 - 統一使用 polar
+    const polarTypes = ['polar', 'polarArea', 'polararea', 'polar_area'];
+    
+    if (polarTypes.includes(chartType.toLowerCase()) && typeof window.handlePolarChart === 'function') {
+      console.log('偵測到極區圖類型（polar），使用特殊處理邏輯');
+      window.handlePolarChart(data);
+      return;
+    }
+    
+    // 向後相容性：支援舊的 handlePolarAreaChart 函數
+    if (polarTypes.includes(chartType.toLowerCase()) && typeof window.handlePolarAreaChart === 'function') {
+      console.log('偵測到極區圖類型（polararea），使用向後相容處理邏輯');
       window.handlePolarAreaChart(data);
       return;
     }

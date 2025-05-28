@@ -227,7 +227,7 @@ function initAreaChartHandler() {
   
   // 加載並渲染圖表
   console.log(`嘗試載入面積圖資料: ${filePath}`);
-  fetch(`./assets/examples/${filePath}`)
+  fetch(`assets/examples/${filePath}`)
     .then(response => {
       if (!response.ok) throw new Error(`無法載入檔案 ${filePath}`);
       return response.json();
@@ -244,11 +244,11 @@ function initAreaChartHandler() {
 // 載入預設面積圖範例
 function loadDefaultAreaChartExample() {
   console.log('載入預設面積圖範例');
-  fetch('./assets/examples/apexcharts_area_webstat.json')
+  fetch('assets/examples/apexcharts_area_webstat.json')
     .then(response => {
       if (!response.ok) {
         // 嘗試另一個資料檔案
-        return fetch('./assets/examples/apexcharts_area_traffic_flow.json');
+        return fetch('assets/examples/apexcharts_area_traffic_flow.json');
       }
       return response.json();
     })
