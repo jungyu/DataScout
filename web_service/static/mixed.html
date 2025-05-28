@@ -58,6 +58,156 @@
 
   <!-- 事件監聽和初始化圖表 -->
   <script>
+    // 初始化混合圖表
+    function initMixedChart(externalData) {
+      const chartElement = document.getElementById('mixedChart');
+      if (!chartElement) {
+        console.error('找不到混合圖表容器元素: #mixedChart');
+        return;
+      }
+      
+      // 清理現有的圖表實例
+      if (window.cleanupChartInstances) {
+        window.cleanupChartInstances('mixedChart');
+      }
+      
+      // 如果提供了外部數據，直接使用
+      if (externalData) {
+        const chart = new ApexCharts(chartElement, externalData);
+        chart.render();
+        
+        // 如果有註冊函數，則註冊圖表實例以便後續清理
+        if (window.registerChartInstance) {
+          window.registerChartInstance('mixedChart', chart);
+        }
+        return;
+      }
+      
+      // 檢查是否已經由 data-loader 初始化
+      if (window.__chartPageInitialized && window.__currentChartType === 'mixed') {
+        console.log('混合圖表已由 data-loader 初始化');
+        return;
+      }
+      
+      console.log('使用默認方法初始化混合圖');
+      
+      // 請求JSON數據
+      fetch('./assets/examples/apexcharts_mixed_combo.json')
+        .then(response => response.json())
+        .then(data => {
+          // 使用JSON數據初始化圖表
+          const chart = new ApexCharts(chartElement, data);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('mixedChart', chart);
+          }
+        })
+        .catch(error => {
+          console.error("Failed to load mixed chart data:", error);
+          
+          // 失敗時使用默認數據
+          const defaultData = {
+            series: [{
+              name: '網站流量',
+              type: 'column',
+              data: [440, 505, 414, 671, 227, 413, 201, 352, 752, 320, 257, 160]
+            }, {
+              name: '轉換率',
+              type: 'line',
+              data: [23, 42, 35, 27, 43, 22, 17, 31, 22, 22, 12, 16]
+            }],
+            chart: {
+              height: 350,
+              type: 'line',
+              stacked: false
+            },
+            stroke: {
+              width: [0, 2, 5],
+              curve: 'smooth'
+            },
+            plotOptions: {
+              bar: {
+                columnWidth: '50%'
+              }
+            },
+            fill: {
+              opacity: [0.85, 0.25, 1],
+              gradient: {
+                inverseColors: false,
+                shade: 'light',
+                type: "vertical",
+                opacityFrom: 0.85,
+                opacityTo: 0.55,
+                stops: [0, 100, 100, 100]
+              }
+            },
+            labels: ['01/01/2023', '02/01/2023', '03/01/2023', '04/01/2023', '05/01/2023', '06/01/2023', '07/01/2023', '08/01/2023', '09/01/2023', '10/01/2023', '11/01/2023', '12/01/2023'],
+            markers: {
+              size: 0
+            },
+            xaxis: {
+              type: 'datetime',
+              title: {
+                text: '時間',
+                style: {
+                  fontSize: '14px',
+                  fontWeight: 600
+                }
+              }
+            },
+            yaxis: {
+              title: {
+                text: '流量 (訪問次數)',
+                style: {
+                  fontSize: '14px',
+                  fontWeight: 600
+                }
+              },
+              min: 0
+            },
+            colors: ['#00D9FF', '#8B5CF6'],
+            title: {
+              text: "網站流量與轉換率趨勢分析",
+              align: 'center',
+              style: {
+                fontSize: '18px',
+                fontWeight: 'bold',
+                color: '#263238'
+              }
+            },
+            tooltip: {
+              shared: true,
+              intersect: false,
+              y: [{
+                formatter: function (y) {
+                  if (typeof y !== "undefined") {
+                    return y.toFixed(0) + " 次訪問";
+                  }
+                  return y;
+                }
+              }, {
+                formatter: function (y) {
+                  if (typeof y !== "undefined") {
+                    return y.toFixed(2) + "%";
+                  }
+                  return y;
+                }
+              }]
+            }
+          };
+          
+          const chart = new ApexCharts(chartElement, defaultData);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('mixedChart', chart);
+          }
+        });
+    }
+
     document.addEventListener('component-loaded', function(e) {
       // 當所有組件都載入完成後初始化圖表
       if (e.detail.componentPath === 'components/charts/MixedChartContent.html') {

@@ -109,25 +109,6 @@ function initThemeToggle() {
  */
 function initPageNavigation() {
   document.addEventListener('component-loaded', function(e) {
-    // 處理側邊欄導航高亮
-    if (e.detail.componentPath === 'components/layout/Sidebar.html') {
-      const currentPath = window.location.pathname;
-      const sidebarLinks = document.querySelectorAll('#sidebar a[href]');
-      
-      sidebarLinks.forEach(link => {
-        const linkHref = link.getAttribute('href');
-        if (currentPath === linkHref || 
-           (currentPath.endsWith('/index.html') && linkHref === '/') || 
-           (currentPath === '/' && linkHref === '/index.html')) {
-          link.classList.add('bg-accent', 'text-white');
-          link.classList.remove('text-primary-content/80');
-        } else {
-          link.classList.remove('bg-accent', 'text-white');
-          link.classList.add('text-primary-content/80');
-        }
-      });
-    }
-    
     // 處理頂部導航高亮
     if (e.detail.componentPath === 'components/layout/Topbar.html') {
       const currentPath = window.location.pathname;
@@ -148,21 +129,6 @@ function initPageNavigation() {
         activeLink.classList.remove('text-base-content/80', 'font-medium');
         activeLink.classList.add('text-accent', 'font-bold', 'border-b-2', 'border-accent');
       }
-    }
-    
-    if (e.detail.componentPath === 'components/layout/Sidebar.html') {
-      const currentPath = window.location.pathname;
-      
-      // 高亮當前頁面的側邊欄連結
-      const sidebarLinks = document.querySelectorAll('#sidebar a[href]');
-      sidebarLinks.forEach(link => {
-        const linkPath = link.getAttribute('href');
-        if (linkPath === currentPath) {
-          link.classList.add('bg-accent', 'text-white');
-        } else {
-          link.classList.remove('bg-accent', 'text-white');
-        }
-      });
     }
   });
 }

@@ -86,6 +86,111 @@
       }
     });
     
+    // 初始化條狀圖
+    function initBarChart(externalData) {
+      // 檢查是否已經正確載入圖表容器
+      const chartElement = document.getElementById('barChart');
+      if (!chartElement) return;
+      
+      // 檢查是否有已註冊的圖表實例，並清理它們
+      if (window.cleanupChartInstances) {
+        window.cleanupChartInstances('barChart');
+      }
+      
+      // 如果傳入了外部數據，直接使用
+      if (externalData) {
+        console.log('使用外部數據初始化條狀圖');
+        const chart = new ApexCharts(chartElement, externalData);
+        chart.render();
+        
+        // 如果有註冊函數，則註冊圖表實例以便後續清理
+        if (window.registerChartInstance) {
+          window.registerChartInstance('barChart', chart);
+        }
+        return;
+      }
+      
+      // 檢查是否已經由 data-loader.js 處理
+      if (window.__chartPageInitialized && window.__currentChartType === 'bar') {
+        console.log('圖表已由 data-loader.js 初始化，跳過重複初始化');
+        return;
+      }
+      
+      console.log('使用默認方法初始化條狀圖');
+      
+      // 請求JSON數據
+      fetch('./assets/examples/apexcharts_bar_performance.json')
+        .then(response => response.json())
+        .then(data => {
+          // 使用JSON數據初始化圖表
+          const chart = new ApexCharts(chartElement, data);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('barChart', chart);
+          }
+        })
+        .catch(error => {
+          console.error("Failed to load chart data:", error);
+          
+          // 失敗時使用默認數據
+          const defaultData = {
+            series: [
+              {
+                name: '完成率',
+                data: [44, 55, 41, 67, 22, 43, 21, 49]
+              }
+            ],
+            chart: {
+              type: 'bar',
+              height: 350,
+              toolbar: {
+                show: true,
+                tools: {
+                  download: true,
+                  selection: true,
+                  zoom: true,
+                  zoomin: true,
+                  zoomout: true,
+                  pan: true,
+                  reset: true
+                }
+              }
+            },
+            title: {
+              text: '團隊績效指標 - 橫向條狀圖',
+              align: 'left',
+              style: {
+                fontSize: '16px',
+                fontWeight: 600
+              }
+            },
+            plotOptions: {
+              bar: {
+                horizontal: true,
+                borderRadius: 4
+              }
+            },
+            dataLabels: {
+              enabled: false
+            },
+            xaxis: {
+              categories: ['團隊A', '團隊B', '團隊C', '團隊D', '團隊E', '團隊F', '團隊G', '團隊H']
+            },
+            colors: ['#546E7A']
+          };
+          
+          const chart = new ApexCharts(chartElement, defaultData);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('barChart', chart);
+          }
+        });
+    }
+    
     // 初始化資料切換功能
     function initDataToggle() {
       const toggle = document.getElementById('example-data-toggle');

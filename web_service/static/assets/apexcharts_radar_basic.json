@@ -1,0 +1,58 @@
+{
+  "chart": {
+    "type": "radar",
+    "height": 350,
+    "toolbar": {
+      "show": true
+    }
+  },
+  "title": {
+    "text": "基本雷達圖",
+    "align": "center",
+    "style": {
+      "fontSize": "16px",
+      "color": "#263238"
+    }
+  },
+  "series": [{
+    "name": "團隊A",
+    "data": [80, 50, 30, 40, 100, 20]
+  }, {
+    "name": "團隊B",
+    "data": [20, 30, 40, 80, 20, 80]
+  }],
+  "labels": ["技術能力", "溝通技巧", "領導力", "創新思維", "執行力", "團隊合作"],
+  "plotOptions": {
+    "radar": {
+      "size": 140,
+      "polygons": {
+        "strokeColors": "#e9e9e9",
+        "fill": {
+          "colors": ["#f8f8f8", "#fff"]
+        }
+      }
+    }
+  },
+  "colors": ["#FF4560", "#775DD0"],
+  "markers": {
+    "size": 4,
+    "colors": ["#fff"],
+    "strokeColor": ["#FF4560", "#775DD0"],
+    "strokeWidth": 2
+  },
+  "tooltip": {
+    "shared": true,
+    "intersect": false
+  },
+  "xaxis": {
+    "categories": ["技術能力", "溝通技巧", "領導力", "創新思維", "執行力", "團隊合作"]
+  },
+  "yaxis": {
+    "tickAmount": 7
+  },
+  "legend": {
+    "labels": {
+      "colors": "#8e8da4"
+    }
+  }
+}

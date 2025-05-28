@@ -1,0 +1,71 @@
+{
+  "chart": {
+    "type": "donut",
+    "height": 350
+  },
+  "title": {
+    "text": "市場份額分佈",
+    "align": "center",
+    "style": {
+      "fontSize": "16px",
+      "color": "#263238"
+    }
+  },
+  "series": [44, 25, 18, 8, 5],
+  "labels": ["網路購物", "實體門市", "行動應用", "社群媒體", "其他"],
+  "colors": ["#008FFB", "#00E396", "#FEB019", "#FF4560", "#775DD0"],
+  "plotOptions": {
+    "pie": {
+      "donut": {
+        "size": "65%",
+        "labels": {
+          "show": true,
+          "name": {
+            "show": true,
+            "fontSize": "22px",
+            "fontFamily": "Helvetica, Arial, sans-serif",
+            "fontWeight": 600,
+            "color": "#373d3f"
+          },
+          "value": {
+            "show": true,
+            "fontSize": "16px",
+            "fontFamily": "Helvetica, Arial, sans-serif",
+            "fontWeight": 400,
+            "color": "#373d3f"
+          },
+          "total": {
+            "show": true,
+            "showAlways": false,
+            "label": "總計",
+            "fontSize": "22px",
+            "fontFamily": "Helvetica, Arial, sans-serif",
+            "fontWeight": 600,
+            "color": "#373d3f"
+          }
+        }
+      }
+    }
+  },
+  "dataLabels": {
+    "enabled": true
+  },
+  "legend": {
+    "position": "bottom",
+    "horizontalAlign": "center",
+    "labels": {
+      "colors": "#8e8da4"
+    }
+  },
+  "responsive": [{
+    "breakpoint": 480,
+    "options": {
+      "chart": {
+        "width": 200
+      },
+      "legend": {
+        "position": "bottom"
+      }
+    }
+  }]
+}

@@ -10,24 +10,12 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- ApexCharts -->
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-  <script src="./chart-testing-tool.js"></script>
-  <script src="./chart-recovery-tool.js"></script>
-  <script src="./json-enhancer.js"></script>
-  <script src="./json-formatter-fix.js"></script>
-  <script src="./chart-formatter-fix.js"></script>
+  <!-- ApexCharts 修復腳本 - 必須在其他腳本之前載入 -->
+  <script src="./apexcharts-fix.js"></script>
   <script src="./chart-error-handler.js"></script>
-  <script src="./chart-error-handler-enhanced.js"></script>
-  <script src="./chart-data-loader.js"></script>
-  <script src="./example-toggle.js" defer></script>
-  <script src="./file-upload-handler.js" defer></script>
-  <script src="./unified-chart-handler.js" defer></script>
   <script src="./data-loader.js" defer></script>
-  <script src="./chart-fix.js" defer></script>
-  <script src="./chart-compat.js" defer></script>
   <script src="./pie-chart-handler.js" defer></script>
   <script src="./pie-chart-fix.js" defer></script>
-  <script src="./chart-verification.js" defer></script>
-  <script src="./chart-type-validator.js" defer></script>
   <script>
     tailwind.config = {
       daisyui: {
@@ -88,6 +76,96 @@
         }
       }
     });
+    
+    // 初始化圓餅圖
+    function initPieChart(externalData) {
+      // 檢查是否已經正確載入圖表容器
+      const chartElement = document.getElementById('pieChart');
+      if (!chartElement) return;
+      
+      // 檢查是否有已註冊的圖表實例，並清理它們
+      if (window.cleanupChartInstances) {
+        window.cleanupChartInstances('pieChart');
+      }
+      
+      // 如果傳入了外部數據，直接使用
+      if (externalData) {
+        console.log('使用外部數據初始化圓餅圖');
+        const chart = new ApexCharts(chartElement, externalData);
+        chart.render();
+        
+        // 如果有註冊函數，則註冊圖表實例以便後續清理
+        if (window.registerChartInstance) {
+          window.registerChartInstance('pieChart', chart);
+        }
+        return;
+      }
+      
+      // 檢查是否已經由 data-loader.js 處理
+      if (window.__chartPageInitialized && window.__currentChartType === 'pie') {
+        console.log('圖表已由 data-loader.js 初始化，跳過重複初始化');
+        return;
+      }
+      
+      console.log('使用默認方法初始化圓餅圖');
+      
+      // 請求JSON數據
+      fetch('./assets/examples/apexcharts_pie_market.json')
+        .then(response => response.json())
+        .then(data => {
+          // 使用JSON數據初始化圖表
+          const chart = new ApexCharts(chartElement, data);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('pieChart', chart);
+          }
+        })
+        .catch(error => {
+          console.error("Failed to load chart data:", error);
+          
+          // 失敗時使用默認數據
+          const defaultData = {
+            series: [44, 55, 13, 43, 22],
+            chart: {
+              type: 'pie',
+              height: 350,
+              toolbar: {
+                show: true
+              }
+            },
+            title: {
+              text: '市場佔有率與收入分佈',
+              align: 'left',
+              style: {
+                fontSize: '16px',
+                fontWeight: 600
+              }
+            },
+            labels: ['蘋果', '三星', '華為', '小米', '其他'],
+            colors: ['#008FFB', '#00E396', '#FEB019', '#FF4560', '#775DD0'],
+            legend: {
+              position: 'bottom'
+            },
+            tooltip: {
+              y: {
+                formatter: function (val) {
+                  return val + "%"
+                }
+              }
+            }
+          };
+          
+          const chart = new ApexCharts(chartElement, defaultData);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('pieChart', chart);
+          }
+        });
+    }
     
     // 初始化資料切換功能
     function initDataToggle() {

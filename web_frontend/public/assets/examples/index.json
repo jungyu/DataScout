@@ -445,30 +445,30 @@
       "suitableTypes": ["treemap"]
     }
   ],
-  "polararea": [
+  "polar": [
     {
-      "title": "基本極區域圖",
-      "description": "展示基本極區域圖表",
-      "file": "apexcharts_polararea_basic.json",
-      "suitableTypes": ["polarArea"]
+      "title": "基本極區圖",
+      "description": "展示基本極區圖表",
+      "file": "apexcharts_polar_basic.json",
+      "suitableTypes": ["polar"]
     },
     {
       "title": "資源分配比例",
       "description": "顯示不同資源分配比例",
-      "file": "apexcharts_polararea_resource.json",
-      "suitableTypes": ["polarArea"]
+      "file": "apexcharts_polar_resource.json",
+      "suitableTypes": ["polar"]
     },
     {
       "title": "投資組合產業分布",
       "description": "不同產業投資分配",
-      "file": "apexcharts_polararea_investment.json",
-      "suitableTypes": ["polarArea"]
+      "file": "apexcharts_polar_investment.json",
+      "suitableTypes": ["polar"]
     },
     {
       "title": "學校科目評分表現",
       "description": "學科成績分布",
-      "file": "apexcharts_polararea_education.json",
-      "suitableTypes": ["polarArea"]
+      "file": "apexcharts_polar_education.json",
+      "suitableTypes": ["polar"]
     }
   ]
 }

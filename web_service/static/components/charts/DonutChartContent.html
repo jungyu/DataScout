@@ -22,9 +22,10 @@
         
         <!-- 範例資料 - 甜甜圈圖數據 -->
         <div id="donut-chart-data" class="space-y-3 donut-chart-data chart-data-block" data-chart-type="donut">
-          <div class="text-sm text-center text-base-content/50 py-2">
+          <div class="text-sm text-center text-base-content/50 py-2" id="loading-indicator">
             載入中...
           </div>
+          <!-- 動態載入的範例按鈕將插入此處 -->
         </div>
         
         <!-- 檔案上傳區域，預設隱藏 -->
@@ -120,3 +121,23 @@
     </div>
   </div>
 </div>
+
+<!-- 資料選擇器初始化腳本 -->
+<script>
+  // 當組件載入完成後，初始化範例資料載入
+  (function() {
+    // 等待 data-loader.js 載入完成
+    function waitForDataLoader() {
+      if (window.loadExamplesFromIndex) {
+        // 載入甜甜圈圖範例
+        window.loadExamplesFromIndex('donut');
+      } else {
+        // 如果 data-loader.js 尚未載入，稍後重試
+        setTimeout(waitForDataLoader, 100);
+      }
+    }
+    
+    // 開始等待並載入
+    waitForDataLoader();
+  })();
+</script>

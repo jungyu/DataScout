@@ -30,14 +30,12 @@
     let accordionIndex = 0; // 預設激活第一個選單（基本圖表類型）
     
     // 進階圖表類型 (索引 1)
-    if (currentPath.includes('/candlestick.html') || 
-        currentPath.includes('/boxplot.html') || 
-        currentPath.includes('/histogram.html') || 
-        currentPath.includes('/bubble.html') || 
-        currentPath.includes('/funnel.html') || 
-        currentPath.includes('/polararea.html') ||
-        // 特殊情況：首頁也顯示蠟燭圖
-        (currentPath === '/' || currentPath === '/index.html')) {
+    if (currentPath.includes('candlestick.html') || 
+        currentPath.includes('boxplot.html') || 
+        currentPath.includes('histogram.html') || 
+        currentPath.includes('bubble.html') || 
+        currentPath.includes('funnel.html') || 
+        currentPath.includes('polar.html')) {
       accordionIndex = 1;
       console.log('檢測到進階圖表類型，自動展開進階圖表選單');
     }
@@ -95,11 +93,11 @@
       console.log('高亮顯示選單項:', currentPathClean);
       matchingItem.classList.add('bg-accent', 'text-white');
     } else {
-      // 特殊處理：首頁和蠟燭圖頁面
-      if (currentPathClean === '/' || currentPathClean === '/index.html' || currentPathClean === '/candlestick.html') {
+      // 特殊處理：燭台圖表頁面
+      if (currentPathClean.includes('candlestick.html')) {
         const candlestickItem = document.querySelector('.menu a[data-chart-type="candlestick"]');
         if (candlestickItem) {
-          console.log('高亮顯示蠟燭圖選單項');
+          console.log('高亮顯示燭台圖表選單項');
           candlestickItem.classList.add('bg-accent', 'text-white');
         }
       }

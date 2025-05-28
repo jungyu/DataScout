@@ -58,6 +58,180 @@
 
   <!-- 事件監聽和初始化圖表 -->
   <script>
+    // 初始化熱力圖表
+    function initHeatmapChart(externalData) {
+      const chartElement = document.getElementById('heatmapChart');
+      if (!chartElement) {
+        console.error('找不到熱力圖表容器元素: #heatmapChart');
+        return;
+      }
+      
+      // 清理現有的圖表實例
+      if (window.cleanupChartInstances) {
+        window.cleanupChartInstances('heatmapChart');
+      }
+      
+      // 如果提供了外部數據，直接使用
+      if (externalData) {
+        const chart = new ApexCharts(chartElement, externalData);
+        chart.render();
+        
+        // 如果有註冊函數，則註冊圖表實例以便後續清理
+        if (window.registerChartInstance) {
+          window.registerChartInstance('heatmapChart', chart);
+        }
+        return;
+      }
+      
+      // 檢查是否已經由 data-loader 初始化
+      if (window.__chartPageInitialized && window.__currentChartType === 'heatmap') {
+        console.log('熱力圖表已由 data-loader 初始化');
+        return;
+      }
+      
+      console.log('使用默認方法初始化熱力圖');
+      
+      // 請求JSON數據
+      fetch('./assets/examples/apexcharts_heatmap_basic.json')
+        .then(response => response.json())
+        .then(data => {
+          // 使用JSON數據初始化圖表
+          const chart = new ApexCharts(chartElement, data);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('heatmapChart', chart);
+          }
+        })
+        .catch(error => {
+          console.error("Failed to load heatmap chart data:", error);
+          
+          // 失敗時使用默認數據
+          const defaultData = {
+            series: [
+              {
+                name: '1月',
+                data: generateData(18, {
+                  min: 0,
+                  max: 90
+                })
+              },
+              {
+                name: '2月',
+                data: generateData(18, {
+                  min: 0,
+                  max: 90
+                })
+              },
+              {
+                name: '3月',
+                data: generateData(18, {
+                  min: 0,
+                  max: 90
+                })
+              },
+              {
+                name: '4月',
+                data: generateData(18, {
+                  min: 0,
+                  max: 90
+                })
+              },
+              {
+                name: '5月',
+                data: generateData(18, {
+                  min: 0,
+                  max: 90
+                })
+              },
+              {
+                name: '6月',
+                data: generateData(18, {
+                  min: 0,
+                  max: 90
+                })
+              },
+              {
+                name: '7月',
+                data: generateData(18, {
+                  min: 0,
+                  max: 90
+                })
+              },
+              {
+                name: '8月',
+                data: generateData(18, {
+                  min: 0,
+                  max: 90
+                })
+              },
+              {
+                name: '9月',
+                data: generateData(18, {
+                  min: 0,
+                  max: 90
+                })
+              }
+            ],
+            chart: {
+              height: 350,
+              type: 'heatmap',
+            },
+            dataLabels: {
+              enabled: false
+            },
+            colors: ["#008FFB"],
+            title: {
+              text: '每日訪問量熱力圖分析',
+              align: 'center',
+              style: {
+                fontSize: '18px',
+                fontWeight: 'bold',
+                color: '#263238'
+              }
+            },
+            xaxis: {
+              type: 'datetime',
+              labels: {
+                format: 'MMM'
+              }
+            },
+            tooltip: {
+              y: {
+                formatter: function (val) {
+                  return val + " 次訪問"
+                }
+              }
+            }
+          };
+          
+          function generateData(count, yrange) {
+            var i = 0;
+            var series = [];
+            while (i < count) {
+              var x = (i + 1).toString();
+              var y = Math.floor(Math.random() * (yrange.max - yrange.min + 1)) + yrange.min;
+              
+              series.push({
+                x: x,
+                y: y
+              });
+              i++;
+            }
+            return series;
+          }
+          
+          const chart = new ApexCharts(chartElement, defaultData);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('heatmapChart', chart);
+          }
+        });
+    }
+
     document.addEventListener('component-loaded', function(e) {
       // 當所有組件都載入完成後初始化圖表
       if (e.detail.componentPath === 'components/charts/HeatmapChartContent.html') {

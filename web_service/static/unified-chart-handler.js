@@ -24,6 +24,7 @@
     'mixed': 'mixedChart',
     'pie': 'pieChart',
     'polararea': 'polarAreaChart', // 統一使用小寫
+    'polar': 'polarChart', // 極區圖，避免命名首字大小寫問題
     'radar': 'radarChart',
     'scatter': 'scatterChart',
     'treemap': 'treemapChart'
@@ -44,6 +45,7 @@
     'mixed': handleMixedChart,     // 混合圖
     'pie': handlePieChart,         // 圓餅圖
     'polararea': handlePolarAreaChart, // 極區域圖(統一使用小寫)
+    'polar': handlePolarChart, // 極區圖，避免命名首字大小寫問題
     'radar': handleRadarChart,     // 雷達圖
     'scatter': handleScatterChart, // 散點圖
     'stacked_bar': handleStackedBarChart, // 堆疊條形圖
@@ -148,6 +150,9 @@
         data.chart.type = 'pie';
         break;
       case 'polararea':
+        data.chart.type = 'polarArea';
+        break;
+      case 'polar':
         data.chart.type = 'polarArea';
         break;
       case 'radar':
@@ -280,6 +285,11 @@
   // 處理極區圖
   function handlePolarAreaChart(data) {
     return handleGenericChart(data, 'polararea');
+  }
+  
+  // 處理極區圖 (新的命名規範)
+  function handlePolarChart(data) {
+    return handleGenericChart(data, 'polar');
   }
   
   // 處理雷達圖

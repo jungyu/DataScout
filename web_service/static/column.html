@@ -20,9 +20,11 @@
   <script src="./file-upload-handler.js" defer></script>
   <script src="./unified-chart-handler.js" defer></script>
   <script src="./data-loader.js" defer></script>
+  <script src="./chart-fix.js" defer></script>
   <script src="./chart-compat.js" defer></script>
-  <script src="./column-chart-handler.js" defer></script>
   <script src="./chart-verification.js" defer></script>
+  <script src="./column-chart-handler.js" defer></script>
+  <script src="./sidebar-activator.js" defer></script>
   <script>
     tailwind.config = {
       daisyui: {
@@ -32,7 +34,6 @@
   </script>
   <!-- 組件加載器 -->
   <script src="component-loader.js"></script>
-  <script src="./chart-fix.js" defer></script>
 </head>
 <body class="bg-base-300">
   <div class="flex h-screen">
@@ -67,7 +68,7 @@
         setupExampleDataButtons();
         
         // 更新標題
-        updateChartTitle('財務季度分析 - 柱狀圖');
+        updateChartTitle('季度財務表現分析 - 柱狀圖');
       }
       
       // 初始化主題切換按鈕
@@ -91,93 +92,137 @@
     });
     
     // 初始化柱狀圖
-    function initColumnChart() {
+    function initColumnChart(externalData) {
       // 檢查是否已經正確載入圖表容器
       const chartElement = document.getElementById('columnChart');
       if (!chartElement) return;
       
-      // 範例資料
-      const data = [
-        {
-          name: '營收',
-          data: [44, 55, 57, 56, 61, 58, 63, 60, 66]
-        }, 
-        {
-          name: '成本',
-          data: [32, 33, 30, 31, 42, 35, 31, 33, 35]
-        },
-        {
-          name: '利潤',
-          data: [12, 22, 27, 25, 19, 23, 32, 27, 31]
-        }
-      ];
+      // 檢查是否有已註冊的圖表實例，並清理它們
+      if (window.cleanupChartInstances) {
+        window.cleanupChartInstances('columnChart');
+      }
       
-      // 圖表選項配置
-      var options = {
-        series: data,
-        chart: {
-          type: 'bar',
-          height: 350,
-          toolbar: {
-            show: true,
-            tools: {
-              download: true,
-              selection: true,
-              zoom: true,
-              zoomin: true,
-              zoomout: true,
-              pan: true,
-              reset: true
-            }
-          }
-        },
-        title: {
-          text: '季度財務表現分析',
-          align: 'left',
-          style: {
-            fontSize: '16px',
-            fontWeight: 600
-          }
-        },
-        plotOptions: {
-          bar: {
-            horizontal: false,
-            columnWidth: '55%',
-            borderRadius: 2
-          }
-        },
-        dataLabels: {
-          enabled: false
-        },
-        stroke: {
-          show: true,
-          width: 2,
-          colors: ['transparent']
-        },
-        xaxis: {
-          categories: ['Q1 21', 'Q2 21', 'Q3 21', 'Q4 21', 'Q1 22', 'Q2 22', 'Q3 22', 'Q4 22', 'Q1 23'],
-        },
-        yaxis: {
-          title: {
-            text: '金額 (萬元)'
-          }
-        },
-        fill: {
-          opacity: 1,
-          colors: ['#38bdf8', '#f87171', '#4ade80']
-        },
-        tooltip: {
-          y: {
-            formatter: function (val) {
-              return val + " 萬元"
-            }
-          }
+      // 如果傳入了外部數據，直接使用
+      if (externalData) {
+        console.log('使用外部數據初始化柱狀圖');
+        const chart = new ApexCharts(chartElement, externalData);
+        chart.render();
+        
+        // 如果有註冊函數，則註冊圖表實例以便後續清理
+        if (window.registerChartInstance) {
+          window.registerChartInstance('columnChart', chart);
         }
-      };
+        return;
+      }
       
-      // 初始化圖表
-      var chart = new ApexCharts(chartElement, options);
-      chart.render();
+      // 檢查是否已經由 data-loader.js 處理
+      if (window.__chartPageInitialized && window.__currentChartType === 'column') {
+        console.log('圖表已由 data-loader.js 初始化，跳過重複初始化');
+        return;
+      }
+      
+      console.log('使用默認方法初始化柱狀圖');
+      
+      // 請求JSON數據
+      fetch('./assets/examples/apexcharts_column_basic.json')
+        .then(response => response.json())
+        .then(data => {
+          // 使用JSON數據初始化圖表
+          const chart = new ApexCharts(chartElement, data);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('columnChart', chart);
+          }
+        })
+        .catch(error => {
+          console.error("Failed to load chart data:", error);
+          
+          // 失敗時使用默認數據
+          const defaultData = {
+            series: [
+              {
+                name: '營收',
+                data: [44, 55, 57, 56, 61, 58, 63, 60, 66]
+              }, 
+              {
+                name: '成本',
+                data: [32, 33, 30, 31, 42, 35, 31, 33, 35]
+              },
+              {
+                name: '利潤',
+                data: [12, 22, 27, 25, 19, 23, 32, 27, 31]
+              }
+            ],
+            chart: {
+              type: 'bar',
+              height: 350,
+              toolbar: {
+                show: true,
+                tools: {
+                  download: true,
+                  selection: true,
+                  zoom: true,
+                  zoomin: true,
+                  zoomout: true,
+                  pan: true,
+                  reset: true
+                }
+              }
+            },
+            title: {
+              text: '季度財務表現分析',
+              align: 'left',
+              style: {
+                fontSize: '16px',
+                fontWeight: 600
+              }
+            },
+            plotOptions: {
+              bar: {
+                horizontal: false,
+                columnWidth: '55%',
+                borderRadius: 2
+              }
+            },
+            dataLabels: {
+              enabled: false
+            },
+            stroke: {
+              show: true,
+              width: 2,
+              colors: ['transparent']
+            },
+            xaxis: {
+              categories: ['Q1 21', 'Q2 21', 'Q3 21', 'Q4 21', 'Q1 22', 'Q2 22', 'Q3 22', 'Q4 22', 'Q1 23']
+            },
+            yaxis: {
+              title: {
+                text: '金額 (萬元)'
+              }
+            },
+            fill: {
+              opacity: 1,
+              colors: ['#38bdf8', '#f87171', '#4ade80']
+            },
+            tooltip: {
+              y: {
+                formatter: function (val) {
+                  return val + " 萬元"
+                }
+              }
+            }
+          };
+          
+          const chart = new ApexCharts(chartElement, defaultData);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('columnChart', chart);
+          }
+        });
     }
     
     // 初始化資料切換功能
@@ -229,94 +274,53 @@
     
     // 加載柱狀圖資料
     function loadColumnData(dataType) {
+      const chartElement = document.getElementById('columnChart');
+      if (!chartElement) return;
+      
       console.log(`正在載入 ${dataType} 柱狀圖資料...`);
       
       // 定義不同數據類型對應的JSON文件名
       let filename;
-      const chartType = 'column'; // 明確指定圖表類型
       
       switch(dataType) {
         case 'finance':
           filename = 'apexcharts_column_finance.json';
           break;
         case 'product':
-          filename = 'apexcharts_bar_performance.json'; // 也可用於柱狀圖
+          filename = 'apexcharts_bar_performance.json';
           break;
         case 'comparison':
-          filename = 'apexcharts_bar_budget.json'; // 也可用於柱狀圖
+          filename = 'apexcharts_bar_budget.json';
           break;
         default:
-          console.error('未知的資料類型:', dataType);
-          if (window.chartErrorHandler) {
-            window.chartErrorHandler.showError('columnChart', `無法識別的資料類型: ${dataType}`);
-          }
-          return;
+          filename = 'apexcharts_column_basic.json';
       }
       
-      console.log(`從檔案載入柱狀圖資料: ${filename}, 圖表類型: ${chartType}`);
-      
-      // 使用相對路徑載入數據
       fetch(`./assets/examples/${filename}`)
-        .then(response => {
-          if (!response.ok) throw new Error(`檔案 ${filename} 不存在或無法訪問`);
-          return response.text(); // 先以文本形式獲取
-        })
-        .then(text => {
-          // 嘗試解析 JSON
-          let data;
-          try {
-            // 先嘗試標準解析
-            data = JSON.parse(text);
-          } catch (parseError) {
-            console.warn(`解析 ${filename} 時發生錯誤，嘗試修復:`, parseError);
-            
-            // 嘗試使用修復工具處理
-            if (window.chartErrorHandler && window.chartErrorHandler.fixJsonFormatting) {
-              data = JSON.parse(window.chartErrorHandler.fixJsonFormatting(text));
-            } else if (window.jsonFormatterFix && window.jsonFormatterFix.handleFunctionStrings) {
-              const processed = window.jsonFormatterFix.handleFunctionStrings(text);
-              data = JSON.parse(processed);
-            } else {
-              throw new Error(`JSON解析失敗: ${parseError.message}`);
-            }
+        .then(response => response.json())
+        .then(data => {
+          // 清理現有圖表
+          if (window.cleanupChartInstances) {
+            window.cleanupChartInstances('columnChart');
           }
           
-          // 確保圖表類型設置為column (bar但是水平=false)
-          if (!data.chart) data.chart = {};
-          data.chart.type = 'bar';
-          if (!data.plotOptions) data.plotOptions = {};
-          if (!data.plotOptions.bar) data.plotOptions.bar = {};
-          data.plotOptions.bar.horizontal = false;
+          // 初始化新圖表
+          const chart = new ApexCharts(chartElement, data);
+          chart.render();
           
-          // 更新圖表
-          if (typeof handleColumnChart === 'function') {
-            handleColumnChart(data);
-          } else if (window.handleChart && typeof window.handleChart === 'function') {
-            window.handleChart(data, chartType);
-          } else if (typeof updateColumnChart === 'function') {
-            updateColumnChart(data);
-          } else {
-            console.log('使用 ApexCharts 初始化柱狀圖');
-            const chartElement = document.getElementById('columnChart');
-            if (chartElement) {
-              // 清除現有圖表
-              chartElement.innerHTML = '';
-              const chart = new ApexCharts(chartElement, data);
-              chart.render();
-            }
+          // 註冊圖表實例
+          if (window.registerChartInstance) {
+            window.registerChartInstance('columnChart', chart);
           }
         })
         .catch(error => {
-          console.error(`載入柱狀圖資料 ${dataType} 時發生錯誤:`, error);
-          if (window.chartErrorHandler) {
-            window.chartErrorHandler.showError('columnChart', `無法載入柱狀圖資料: ${error.message}`);
-          }
+          console.error(`Failed to load ${dataType} data:`, error);
         });
     }
     
     // 更新圖表標題
     function updateChartTitle(title) {
-      const titleElement = document.querySelector('#chart-title');
+      const titleElement = document.querySelector('#chart-header h2');
       if (titleElement) {
         titleElement.textContent = title;
       }
@@ -325,25 +329,27 @@
     // 高亮當前頁面在側邊欄中的連結
     function highlightCurrentPage() {
       const currentPath = window.location.pathname;
-      const sidebarLinks = document.querySelectorAll('#sidebar a[href]');
+      const sidebarLinks = document.querySelectorAll('#sidebar a');
       
       sidebarLinks.forEach(link => {
-        if (link.getAttribute('href') === currentPath) {
-          link.classList.add('bg-accent', 'text-white');
+        if (link.getAttribute('href') === currentPath || 
+            link.getAttribute('href') === currentPath.replace(/^\/static/, '')) {
+          link.classList.add('bg-primary-focus');
         } else {
-          link.classList.remove('bg-accent', 'text-white');
+          link.classList.remove('bg-primary-focus');
         }
       });
     }
     
     // 檢查並設置保存的主題
     function initSavedTheme() {
-      const savedTheme = localStorage.getItem('theme') || 'light';
-      document.documentElement.setAttribute('data-theme', savedTheme);
-      
-      const themeToggleBtn = document.getElementById('theme-toggle');
-      if (themeToggleBtn && savedTheme === 'dark') {
-        themeToggleBtn.classList.add('swap-active');
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        const themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle && savedTheme === 'dark') {
+          themeToggle.classList.add('swap-active');
+        }
       }
     }
     

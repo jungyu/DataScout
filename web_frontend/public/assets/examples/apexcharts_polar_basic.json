@@ -1,0 +1,48 @@
+{
+  "chart": {
+    "type": "polar",
+    "height": 350,
+    "toolbar": {
+      "show": true
+    }
+  },
+  "series": [
+    42,
+    47,
+    52,
+    58,
+    65
+  ],
+  "labels": [
+    "類別A",
+    "類別B",
+    "類別C",
+    "類別D",
+    "類別E"
+  ],
+  "stroke": {
+    "colors": [
+      "#fff"
+    ]
+  },
+  "fill": {
+    "opacity": 0.8
+  },
+  "responsive": [
+    {
+      "breakpoint": 480,
+      "options": {
+        "chart": {
+          "width": 280
+        },
+        "legend": {
+          "position": "bottom"
+        }
+      }
+    }
+  ],
+  "title": {
+    "text": "基本極區域圖",
+    "align": "center"
+  }
+}

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>燭台圖表導航測試</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+    <div class="container mx-auto p-8">
+        <h1 class="text-3xl font-bold mb-6">燭台圖表導航測試</h1>
+        
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">測試結果</h2>
+                <div id="test-results" class="space-y-4">
+                    <!-- 測試結果將在這裡顯示 -->
+                </div>
+                <div class="card-actions justify-end">
+                    <button class="btn btn-primary" onclick="runTests()">執行測試</button>
+                    <a href="./public/candlestick.html" class="btn btn-secondary">訪問燭台圖表頁面</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function addTestResult(test, result, details = '') {
+            const resultsDiv = document.getElementById('test-results');
+            const resultClass = result ? 'alert-success' : 'alert-error';
+            const resultIcon = result ? '✅' : '❌';
+            const resultText = result ? '通過' : '失敗';
+            
+            resultsDiv.innerHTML += `
+                <div class="alert ${resultClass}">
+                    <span>${resultIcon} ${test}: ${resultText}</span>
+                    ${details ? `<div class="text-sm mt-2">${details}</div>` : ''}
+                </div>
+            `;
+        }
+
+        function runTests() {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '<div class="loading loading-spinner loading-lg"></div>';
+            
+            setTimeout(() => {
+                resultsDiv.innerHTML = '';
+                
+                // 測試 1: 檢查 sidebar-activator.js 是否存在
+                fetch('./public/sidebar-activator.js')
+                    .then(response => {
+                        addTestResult('sidebar-activator.js 檔案存在', response.ok);
+                        return response.text();
+                    })
+                    .then(content => {
+                        // 測試 2: 檢查是否包含燭台圖表邏輯
+                        const hasCandlestickLogic = content.includes('candlestick.html');
+                        addTestResult('包含燭台圖表檢測邏輯', hasCandlestickLogic);
+                        
+                        // 測試 3: 檢查是否包含 Accordion 激活邏輯
+                        const hasAccordionLogic = content.includes('accordion-charts');
+                        addTestResult('包含 Accordion 激活邏輯', hasAccordionLogic);
+                    })
+                    .catch(error => {
+                        addTestResult('sidebar-activator.js 檔案存在', false, error.message);
+                    });
+                
+                // 測試 4: 檢查 data-loader.js 是否包含燭台圖表類型
+                fetch('./public/data-loader.js')
+                    .then(response => response.text())
+                    .then(content => {
+                        const hasCandlestickType = content.includes('CANDLESTICK');
+                        addTestResult('data-loader.js 包含燭台圖表類型', hasCandlestickType);
+                        
+                        const hasDetection = content.includes('candlestick.html');
+                        addTestResult('data-loader.js 包含燭台圖表檢測', hasDetection);
+                    })
+                    .catch(error => {
+                        addTestResult('data-loader.js 測試', false, error.message);
+                    });
+                
+                // 測試 5: 檢查燭台圖表頁面是否正確引用腳本
+                fetch('./public/candlestick.html')
+                    .then(response => response.text())
+                    .then(content => {
+                        const hasSidebarActivator = content.includes('sidebar-activator.js');
+                        addTestResult('candlestick.html 引用 sidebar-activator.js', hasSidebarActivator);
+                        
+                        const hasDataLoader = content.includes('data-loader.js');
+                        addTestResult('candlestick.html 引用 data-loader.js', hasDataLoader);
+                    })
+                    .catch(error => {
+                        addTestResult('candlestick.html 測試', false, error.message);
+                    });
+                
+            }, 500);
+        }
+    </script>
+</body>
+</html>

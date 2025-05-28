@@ -23,6 +23,12 @@
       "description": "基準利率季度變化趨勢",
       "file": "apexcharts_line_interest_rate.json",
       "suitableTypes": ["line", "area"]
+    },
+    {
+      "title": "實時監控圖表",
+      "description": "動態數據實時更新展示",
+      "file": "apexcharts_realtime_monitor.json",
+      "suitableTypes": ["line"]
     }
   ],
   "area": [
@@ -59,6 +65,12 @@
   ],
   "column": [
     {
+      "title": "基本柱狀圖",
+      "description": "展示基本柱狀圖表",
+      "file": "apexcharts_column_basic.json",
+      "suitableTypes": ["column", "bar"]
+    },
+    {
       "title": "財務資料",
       "description": "季度營收與成本分析",
       "file": "apexcharts_column_finance.json",
@@ -83,6 +95,12 @@
       "description": "按季度的產品銷售百分比",
       "file": "apexcharts_percentage_bar_sales.json",
       "suitableTypes": ["bar", "column"]
+    },
+    {
+      "title": "分組銷售數據",
+      "description": "不同年份銷售數據對比",
+      "file": "apexcharts_grouped_bar_sales.json",
+      "suitableTypes": ["bar", "column"]
     }
   ],
   "stacked_bar": [
@@ -96,6 +114,12 @@
       "title": "都市銷售統計",
       "description": "主要城市銷售堆疊分析",
       "file": "apexcharts_stacked_bar_city.json",
+      "suitableTypes": ["stacked_bar"]
+    },
+    {
+      "title": "百分比財務分析",
+      "description": "金融產品佔比堆疊圖",
+      "file": "apexcharts_percentage_stack_finance.json",
       "suitableTypes": ["stacked_bar"]
     }
   ],
@@ -122,6 +146,12 @@
       "title": "比特幣/美元",
       "description": "BTC/USD 日線資料",
       "file": "apexcharts_candlestick_bitcoin.json",
+      "suitableTypes": ["candlestick"]
+    },
+    {
+      "title": "OHLC 股價走勢圖",
+      "description": "開高低收價格資料展示",
+      "file": "apexcharts_candlestick_ohlc.json",
       "suitableTypes": ["candlestick"]
     }
   ],
@@ -151,6 +181,24 @@
       "description": "專案團隊人力資源配置",
       "file": "apexcharts_pie_team.json",
       "suitableTypes": ["pie", "donut", "polararea"]
+    },
+    {
+      "title": "科技公司市場佔有率",
+      "description": "台灣主要科技公司市場份額分析",
+      "file": "apexcharts_pie_market_share.json",
+      "suitableTypes": ["pie", "donut", "polararea"]
+    },
+    {
+      "title": "市場份額分析",
+      "description": "市場佔有率分析圖表",
+      "file": "apexcharts_pie_market.json",
+      "suitableTypes": ["pie", "donut", "polararea"]
+    },
+    {
+      "title": "銷售渠道分析",
+      "description": "各銷售渠道佔比統計",
+      "file": "apexcharts_pie_sales_channels.json",
+      "suitableTypes": ["pie", "donut", "polararea"]
     }
   ],
   "donut": [
@@ -159,9 +207,39 @@
       "description": "工作時間分配統計",
       "file": "apexcharts_donut_timealloc.json",
       "suitableTypes": ["donut", "pie", "polararea"]
+    },
+    {
+      "title": "市場份額分佈",
+      "description": "各銷售通路市場佔有率",
+      "file": "apexcharts_donut_market.json",
+      "suitableTypes": ["donut", "pie", "polararea"]
+    },
+    {
+      "title": "作業系統市佔率",
+      "description": "各作業系統使用率統計",
+      "file": "apexcharts_donut_os_market.json",
+      "suitableTypes": ["donut", "pie", "polararea"]
+    },
+    {
+      "title": "各通路銷售分布",
+      "description": "線上與實體通路銷售比較",
+      "file": "apexcharts_donut_sales.json",
+      "suitableTypes": ["donut", "pie", "polararea"]
+    },
+    {
+      "title": "網站流量來源分析",
+      "description": "網站訪客來源管道分析",
+      "file": "apexcharts_donut_traffic_source.json",
+      "suitableTypes": ["donut", "pie", "polararea"]
     }
   ],
   "radar": [
+    {
+      "title": "基本雷達圖",
+      "description": "展示基本雷達圖表",
+      "file": "apexcharts_radar_basic.json",
+      "suitableTypes": ["radar"]
+    },
     {
       "title": "科技產業競爭力",
       "description": "亞洲國家科技產業競爭力",
@@ -178,6 +256,12 @@
       "title": "企業績效評估",
       "description": "企業年度績效評估指標",
       "file": "apexcharts_radar_business_performance.json",
+      "suitableTypes": ["radar"]
+    },
+    {
+      "title": "業務員銷售指標",
+      "description": "業務員各項銷售能力評估",
+      "file": "apexcharts_radar_sales.json",
       "suitableTypes": ["radar"]
     }
   ],
@@ -199,9 +283,21 @@
       "description": "基本散點圖示範",
       "file": "apexcharts_scatter_sample.json",
       "suitableTypes": ["scatter"]
+    },
+    {
+      "title": "基本散點圖",
+      "description": "簡單散點圖展示",
+      "file": "apexcharts_scatter_basic.json",
+      "suitableTypes": ["scatter"]
     }
   ],
   "heatmap": [
+    {
+      "title": "基本熱度圖",
+      "description": "展示基本熱力圖表",
+      "file": "apexcharts_heatmap_basic.json",
+      "suitableTypes": ["heatmap"]
+    },
     {
       "title": "百貨公司人流量",
       "description": "百貨公司各時段人流熱力圖",
@@ -259,6 +355,24 @@
       "description": "多種圖表類型組合",
       "file": "apexcharts_mixed_sample.json",
       "suitableTypes": ["mixed"]
+    },
+    {
+      "title": "混合圖表 - 流量與轉換率",
+      "description": "網站流量與轉換率綜合分析",
+      "file": "apexcharts_mixed_combo.json",
+      "suitableTypes": ["mixed"]
+    },
+    {
+      "title": "營收與利潤率",
+      "description": "營收與利潤率趨勢對比",
+      "file": "apexcharts_mixed_revenue.json",
+      "suitableTypes": ["mixed"]
+    },
+    {
+      "title": "氣象數據綜合分析",
+      "description": "溫度、雨量與濕度三合一圖表",
+      "file": "apexcharts_mixed_weather_data.json",
+      "suitableTypes": ["mixed"]
     }
   ],
   "bubble": [
@@ -279,9 +393,33 @@
       "description": "RFM 模型客戶分群",
       "file": "apexcharts_bubble_customer_value.json",
       "suitableTypes": ["bubble"]
+    },
+    {
+      "title": "經濟指標分析",
+      "description": "各國經濟成長率與人口關係",
+      "file": "apexcharts_bubble_economy.json",
+      "suitableTypes": ["bubble"]
+    },
+    {
+      "title": "產業投資分析",
+      "description": "不同產業投資回報率與風險",
+      "file": "apexcharts_bubble_industry_investment.json",
+      "suitableTypes": ["bubble"]
+    },
+    {
+      "title": "產品表現分析",
+      "description": "產品銷量與利潤率關係",
+      "file": "apexcharts_bubble_product.json",
+      "suitableTypes": ["bubble"]
     }
   ],
   "treemap": [
+    {
+      "title": "基本樹狀圖",
+      "description": "展示基本樹狀圖表",
+      "file": "apexcharts_treemap_basic.json",
+      "suitableTypes": ["treemap"]
+    },
     {
       "title": "地區人口密度樹狀圖",
       "description": "各區人口密度分布",
@@ -307,30 +445,30 @@
       "suitableTypes": ["treemap"]
     }
   ],
-  "polararea": [
+  "polar": [
     {
-      "title": "基本極區域圖",
-      "description": "展示基本極區域圖表",
-      "file": "apexcharts_polararea_basic.json",
-      "suitableTypes": ["polarArea"]
+      "title": "基本極區圖",
+      "description": "展示基本極區圖表",
+      "file": "apexcharts_polar_basic.json",
+      "suitableTypes": ["polar"]
     },
     {
       "title": "資源分配比例",
       "description": "顯示不同資源分配比例",
-      "file": "apexcharts_polararea_resource.json",
-      "suitableTypes": ["polarArea"]
+      "file": "apexcharts_polar_resource.json",
+      "suitableTypes": ["polar"]
     },
     {
       "title": "投資組合產業分布",
       "description": "不同產業投資分配",
-      "file": "apexcharts_polararea_investment.json",
-      "suitableTypes": ["polarArea"]
+      "file": "apexcharts_polar_investment.json",
+      "suitableTypes": ["polar"]
     },
     {
       "title": "學校科目評分表現",
       "description": "學科成績分布",
-      "file": "apexcharts_polararea_education.json",
-      "suitableTypes": ["polarArea"]
+      "file": "apexcharts_polar_education.json",
+      "suitableTypes": ["polar"]
     }
   ]
 }

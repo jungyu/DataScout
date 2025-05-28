@@ -1,0 +1,54 @@
+{
+  "series": [
+    14,
+    23,
+    21,
+    17,
+    15,
+    10
+  ],
+  "chart": {
+    "type": "polar",
+    "height": 350
+  },
+  "title": {
+    "text": "資源分配比例"
+  },
+  "labels": [
+    "類別A",
+    "類別B",
+    "類別C",
+    "類別D",
+    "類別E",
+    "類別F"
+  ],
+  "stroke": {
+    "colors": [
+      "#fff"
+    ]
+  },
+  "fill": {
+    "opacity": 0.8
+  },
+  "colors": [
+    "#00E396",
+    "#FF4560",
+    "#775DD0",
+    "#008FFB",
+    "#FEB019",
+    "#A300D6"
+  ],
+  "responsive": [
+    {
+      "breakpoint": 480,
+      "options": {
+        "chart": {
+          "width": 280
+        },
+        "legend": {
+          "position": "bottom"
+        }
+      }
+    }
+  ]
+}

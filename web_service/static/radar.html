@@ -61,6 +61,119 @@
 
   <!-- 事件監聽和初始化圖表 -->
   <script>
+    // 初始化雷達圖表
+    function initRadarChart(externalData) {
+      const chartElement = document.getElementById('radarChart');
+      if (!chartElement) {
+        console.error('找不到雷達圖表容器元素: #radarChart');
+        return;
+      }
+      
+      // 清理現有的圖表實例
+      if (window.cleanupChartInstances) {
+        window.cleanupChartInstances('radarChart');
+      }
+      
+      // 如果提供了外部數據，直接使用
+      if (externalData) {
+        const chart = new ApexCharts(chartElement, externalData);
+        chart.render();
+        
+        // 如果有註冊函數，則註冊圖表實例以便後續清理
+        if (window.registerChartInstance) {
+          window.registerChartInstance('radarChart', chart);
+        }
+        return;
+      }
+      
+      // 檢查是否已經由 data-loader 初始化
+      if (window.__chartPageInitialized && window.__currentChartType === 'radar') {
+        console.log('雷達圖表已由 data-loader 初始化');
+        return;
+      }
+      
+      console.log('使用默認方法初始化雷達圖');
+      
+      // 請求JSON數據
+      fetch('./assets/examples/apexcharts_radar_basic.json')
+        .then(response => response.json())
+        .then(data => {
+          // 使用JSON數據初始化圖表
+          const chart = new ApexCharts(chartElement, data);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('radarChart', chart);
+          }
+        })
+        .catch(error => {
+          console.error("Failed to load radar chart data:", error);
+          
+          // 失敗時使用默認數據
+          const defaultData = {
+            series: [{
+              name: '團隊A',
+              data: [80, 50, 30, 40, 100, 20],
+            }, {
+              name: '團隊B',
+              data: [20, 30, 40, 80, 20, 80],
+            }, {
+              name: '團隊C',
+              data: [44, 76, 78, 13, 43, 10],
+            }],
+            chart: {
+              height: 350,
+              type: 'radar',
+              dropShadow: {
+                enabled: true,
+                blur: 1,
+                left: 1,
+                top: 1
+              }
+            },
+            title: {
+              text: '團隊能力評估分析',
+              align: 'center',
+              style: {
+                fontSize: '18px',
+                fontWeight: 'bold',
+                color: '#263238'
+              }
+            },
+            stroke: {
+              width: 2
+            },
+            fill: {
+              opacity: 0.1
+            },
+            markers: {
+              size: 0
+            },
+            colors: ['#00D9FF', '#8B5CF6', '#10B981'],
+            xaxis: {
+              categories: ['技術能力', '溝通協作', '創新思維', '執行效率', '學習能力', '解決問題']
+            },
+            yaxis: {
+              tickAmount: 7,
+              labels: {
+                formatter: function(val, i) {
+                  return val
+                }
+              }
+            }
+          };
+          
+          const chart = new ApexCharts(chartElement, defaultData);
+          chart.render();
+          
+          // 如果有註冊函數，則註冊圖表實例以便後續清理
+          if (window.registerChartInstance) {
+            window.registerChartInstance('radarChart', chart);
+          }
+        });
+    }
+
     document.addEventListener('component-loaded', function(e) {
       // 當所有組件都載入完成後初始化圖表
       if (e.detail.componentPath === 'components/charts/RadarChartContent.html') {
