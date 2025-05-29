@@ -1,0 +1,43 @@
+
+/* DataScout 中文字型配置 */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --font-family-primary: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Heiti TC', sans-serif;
+  --font-family-fallback: Arial, sans-serif;
+  --font-family-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+body {
+  font-family: var(--font-family-primary);
+}
+
+/* ApexCharts 字型覆寫 */
+.apexcharts-text {
+  font-family: var(--font-family-primary) !important;
+}
+
+.apexcharts-title-text {
+  font-family: var(--font-family-primary) !important;
+  font-weight: 600 !important;
+}
+
+.apexcharts-legend-text {
+  font-family: var(--font-family-primary) !important;
+}
+
+.apexcharts-xaxis-label,
+.apexcharts-yaxis-label {
+  font-family: var(--font-family-primary) !important;
+}
+
+.apexcharts-datalabels {
+  font-family: var(--font-family-primary) !important;
+}
+
+/* 確保中文字符正確顯示 */
+.chinese-text {
+  font-family: var(--font-family-primary);
+  font-feature-settings: "kern" 1;
+  text-rendering: optimizeLegibility;
+}
